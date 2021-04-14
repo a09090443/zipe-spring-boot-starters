@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: db-spring-boot-starter
+  main:
+    allow-bean-definition-overriding: true
+  config:
+    import: data-source.properties
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
