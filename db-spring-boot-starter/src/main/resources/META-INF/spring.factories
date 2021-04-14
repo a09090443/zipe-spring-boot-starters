@@ -1,1 +1,3 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.zipe.common.config.DataSourceConfig
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.zipe.common.config.DataSourceConfig,\
+com.zipe.autoconfiguration.DataSourceAspectAutoConfiguration
