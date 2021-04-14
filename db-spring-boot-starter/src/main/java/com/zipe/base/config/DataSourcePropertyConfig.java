@@ -19,6 +19,7 @@ public class DataSourcePropertyConfig {
 
     private String primary;
     private String entityScan;
+    private Boolean isEncrypt = false;
     private Map<String, DynamicDataSourceConfig> dataSourceMap;
 
     @Bean("dynamicDataSource")
@@ -26,6 +27,7 @@ public class DataSourcePropertyConfig {
         DataSourcePropertyConfig dataSourcePropertyConfig = new DataSourcePropertyConfig();
         dataSourcePropertyConfig.setPrimary(primary);
         dataSourcePropertyConfig.setEntityScan(entityScan);
+        dataSourcePropertyConfig.setIsEncrypt(isEncrypt);
         dataSourcePropertyConfig.setDataSourceMap(dataSourceMap);
         return dataSourcePropertyConfig;
     }
