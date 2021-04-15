@@ -9,10 +9,9 @@ import org.springframework.context.annotation.Configuration;
  * @created : @Date 2021/3/12 下午 02:01
  **/
 @Configuration
-@ConfigurationProperties(prefix = "template")
+@ConfigurationProperties(prefix = "velocity")
 @Data
 public class VelocityPropertyConfig {
 
-    private String path;
-
+    private String dirPath = "template";
 }

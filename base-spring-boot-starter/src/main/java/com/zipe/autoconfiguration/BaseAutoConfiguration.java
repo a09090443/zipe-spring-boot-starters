@@ -10,14 +10,15 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
-import org.springframework.core.env.Environment;
 
 /**
  * @author : Gary Tsai
  * @created : @Date 2021/4/15 下午 03:15
  **/
 @Configuration
+@PropertySource({"classpath:resources.properties"})
 @ConditionalOnClass(VelocityPropertyConfig.class)
 @EnableConfigurationProperties(VelocityPropertyConfig.class)
 public class BaseAutoConfiguration {
@@ -41,7 +42,7 @@ public class BaseAutoConfiguration {
     @Bean
     public VelocityUtil velocityUtil() {
         VelocityUtil velocityUtil = new VelocityUtil();
-        velocityUtil.setDir(velocityPropertyConfig.getPath());
+        velocityUtil.setDir(velocityPropertyConfig.getDirPath());
         velocityUtil.initClassPath();
         return velocityUtil;
     }

@@ -23,7 +23,7 @@ import java.util.Set;
  * @author : Gary Tsai
  * @created : @Date 2020/11/24 下午 05:39
  **/
-public final class VelocityUtil {
+public class VelocityUtil {
     private VelocityEngine ve;
     private HttpServletRequest request;
     private String resourcePath;

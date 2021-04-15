@@ -1,5 +1,7 @@
 spring:
   application:
     name: base-spring-boot-starter
+  main:
+    allow-bean-definition-overriding: true
   config:
     import: resources.properties
