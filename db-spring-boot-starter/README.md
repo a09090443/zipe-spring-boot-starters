@@ -1,2 +1,2 @@
-# spring-boot-starter-db
-spring-boot-starter-db
+# db-spring-boot-starter
+db-spring-boot-starter

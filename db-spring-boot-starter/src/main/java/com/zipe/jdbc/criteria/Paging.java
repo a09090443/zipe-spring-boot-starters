@@ -1,7 +1,7 @@
 package com.zipe.jdbc.criteria;
 
 import com.zipe.enums.ResourceEnum;
-import com.zipe.util.FileUtil;
+import com.zipe.util.file.FileUtil;
 import lombok.Data;
 
 import java.io.File;

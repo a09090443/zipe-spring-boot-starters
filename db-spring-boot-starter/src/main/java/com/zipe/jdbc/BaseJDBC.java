@@ -3,7 +3,7 @@ package com.zipe.jdbc;
 import com.zipe.enums.ResourceEnum;
 import com.zipe.jdbc.criteria.Conditions;
 import com.zipe.jdbc.criteria.Paging;
-import com.zipe.util.FileUtil;
+import com.zipe.util.file.FileUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;

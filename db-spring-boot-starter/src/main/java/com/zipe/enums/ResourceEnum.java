@@ -1,6 +1,6 @@
 package com.zipe.enums;
 
-import com.zipe.util.StringConstant;
+import com.zipe.util.string.StringConstant;
 import org.apache.commons.lang3.StringUtils;
 
 /**

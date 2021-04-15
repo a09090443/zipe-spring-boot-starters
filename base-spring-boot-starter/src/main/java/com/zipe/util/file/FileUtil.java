@@ -1,4 +1,4 @@
-package com.zipe.util;
+package com.zipe.util.file;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
@@ -346,7 +346,7 @@ public class FileUtil {
         if (paths == null || paths.size() <= 0)
             return;
         for (String path : paths) {
-            com.zipe.util.file.FileUtil.deleteFile(path);
+            FileUtil.deleteFile(path);
         }
     }
 
@@ -366,7 +366,7 @@ public class FileUtil {
         if (files == null || files.size() <= 0)
             return;
         for (File file : files) {
-            com.zipe.util.file.FileUtil.deleteFile(file);
+            FileUtil.deleteFile(file);
         }
     }
 
@@ -376,11 +376,11 @@ public class FileUtil {
      * @param filePath
      * @return
      */
-    public static File getFileFromClasspath(String filePath){
-        ClassLoader classLoader = com.zipe.util.file.FileUtil.class.getClassLoader();
+    public static File getFileFromClasspath(String filePath) {
+        ClassLoader classLoader = FileUtil.class.getClassLoader();
         String replacePath = filePath.replaceFirst("/", "");
         URL resource = classLoader.getResource(replacePath);
-        if(Objects.nonNull(resource)){
+        if (Objects.nonNull(resource)) {
             return new File(resource.getFile());
         }
         return null;
