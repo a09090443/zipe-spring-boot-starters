@@ -22,13 +22,10 @@ import org.springframework.core.env.Environment;
 @EnableConfigurationProperties(VelocityPropertyConfig.class)
 public class BaseAutoConfiguration {
 
-    private final Environment env;
-
     private final VelocityPropertyConfig velocityPropertyConfig;
 
     @Autowired
-    BaseAutoConfiguration(Environment env, VelocityPropertyConfig velocityPropertyConfig) {
-        this.env = env;
+    BaseAutoConfiguration(VelocityPropertyConfig velocityPropertyConfig) {
         this.velocityPropertyConfig = velocityPropertyConfig;
     }
 
