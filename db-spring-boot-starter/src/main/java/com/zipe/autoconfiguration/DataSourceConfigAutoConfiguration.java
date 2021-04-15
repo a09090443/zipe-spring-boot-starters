@@ -1,4 +1,4 @@
-package com.zipe.common.config;
+package com.zipe.autoconfiguration;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -41,9 +41,9 @@ import java.util.Optional;
 )
 @ConditionalOnClass(DataSourcePropertyConfig.class)
 @EnableConfigurationProperties(DataSourcePropertyConfig.class)
-public class DataSourceConfig extends BaseDataSourceConfig {
+public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
-    DataSourceConfig(Environment env, DataSourcePropertyConfig dynamicDataSource) {
+    DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource) {
         super(env, dynamicDataSource);
     }
 

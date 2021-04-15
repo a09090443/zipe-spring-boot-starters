@@ -170,9 +170,9 @@ public abstract class BaseJDBC {
     public Map<String, Object> queryForMap(ResourceEnum resource, Map<String, Object> params) {
         List<Map<String, Object>> dataLs = support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource), params);
 
-        int size = dataLs != null ? dataLs.size() : -1;
+        int size = dataLs.size();
 
-        if (dataLs != null && dataLs.size() > 1) {
+        if (dataLs.size() > 1) {
             throw new IncorrectResultSizeDataAccessException(1, size);
         }
 
@@ -191,9 +191,9 @@ public abstract class BaseJDBC {
     public Map<String, Object> queryForMap(ResourceEnum resource, Conditions conditions, Map<String, Object> params) {
         List<Map<String, Object>> dataLs = support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource, conditions), params);
 
-        int size = dataLs != null ? dataLs.size() : -1;
+        int size = dataLs.size();
 
-        if (dataLs != null && dataLs.size() > 1) {
+        if (dataLs.size() > 1) {
             throw new IncorrectResultSizeDataAccessException(1, size);
         }
 
