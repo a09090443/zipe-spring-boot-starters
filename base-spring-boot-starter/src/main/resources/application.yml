@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: base-spring-boot-starter
+  config:
+    import: resources.properties

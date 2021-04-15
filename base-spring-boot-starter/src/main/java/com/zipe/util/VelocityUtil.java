@@ -78,7 +78,7 @@ public final class VelocityUtil {
 
             try {
                 bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8.name()), 1048576);
-                bw.write(this.generateContect(templateName, map));
+                bw.write(this.generateContent(templateName, map));
                 bw.flush();
             } catch (Exception var10) {
                 throw var10;
@@ -94,7 +94,7 @@ public final class VelocityUtil {
         }
     }
 
-    public String generateContect(String templateName, Map<String, Object> map) {
+    public String generateContent(String templateName, Map<String, Object> map) {
         StringWriter writer = new StringWriter();
         if (null != this.dir && "" != this.dir) {
             templateName = this.dir + File.separator + templateName;

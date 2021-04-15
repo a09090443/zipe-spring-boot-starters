@@ -62,7 +62,7 @@ public abstract class BeanUtil extends BeanUtils {
 
                 while(var3.hasNext()) {
                     Object from = var3.next();
-                    Object to = clazz.newInstance();
+                    Object to = clazz.getDeclaredConstructor().newInstance();
                     copyProperties(from, to);
                     tos.add(to);
                 }

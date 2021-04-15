@@ -1,0 +1,51 @@
+package com.zipe.autoconfiguration;
+
+import com.zipe.config.VelocityPropertyConfig;
+import com.zipe.util.VelocityUtil;
+import com.zipe.util.string.StringConstant;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnResource;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.MessageSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+import org.springframework.core.env.Environment;
+
+/**
+ * @author : Gary Tsai
+ * @created : @Date 2021/4/15 下午 03:15
+ **/
+@Configuration
+@ConditionalOnClass(VelocityPropertyConfig.class)
+@EnableConfigurationProperties(VelocityPropertyConfig.class)
+public class BaseAutoConfiguration {
+
+    private final Environment env;
+
+    private final VelocityPropertyConfig velocityPropertyConfig;
+
+    @Autowired
+    BaseAutoConfiguration(Environment env, VelocityPropertyConfig velocityPropertyConfig) {
+        this.env = env;
+        this.velocityPropertyConfig = velocityPropertyConfig;
+    }
+
+    @Bean
+    @ConditionalOnResource(resources = "classpath:message.properties")
+    public MessageSource messageSource() {
+        ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
+        messageSource.setBasename("classpath:message");
+        messageSource.setDefaultEncoding(StringConstant.ENCODE_UTF8);
+        return messageSource;
+    }
+
+    @Bean
+    public VelocityUtil velocityUtil() {
+        VelocityUtil velocityUtil = new VelocityUtil();
+        velocityUtil.setDir(velocityPropertyConfig.getPath());
+        velocityUtil.initClassPath();
+        return velocityUtil;
+    }
+}
