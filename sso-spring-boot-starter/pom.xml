@@ -18,7 +18,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <base-spring-boot-starter.version>0.0.1-SNAPSHOT</base-spring-boot-starter.version>
-        <db-spring-boot-starter.version>0.0.1-SNAPSHOT</db-spring-boot-starter.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
@@ -61,12 +60,6 @@
             <groupId>com.zipe</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
             <version>${base-spring-boot-starter.version}</version>
-        </dependency>
-        <!-- Spring boot starters -->
-        <dependency>
-            <groupId>com.zipe</groupId>
-            <artifactId>db-spring-boot-starter</artifactId>
-            <version>${db-spring-boot-starter.version}</version>
         </dependency>
     </dependencies>
 

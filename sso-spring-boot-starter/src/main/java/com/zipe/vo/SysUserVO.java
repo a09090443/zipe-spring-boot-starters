@@ -8,7 +8,6 @@ import java.io.Serializable;
 /**
  * @author gary.tsai 2019/5/31
  */
-@EqualsAndHashCode(callSuper = true)
 @Data
 public class SysUserVO implements Serializable {
 
