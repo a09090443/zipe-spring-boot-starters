@@ -18,7 +18,7 @@ import org.springframework.context.support.ReloadableResourceBundleMessageSource
  * @created : @Date 2021/4/15 下午 03:15
  **/
 @Configuration
-@PropertySource({"classpath:resources.properties"})
+@PropertySource({"classpath:resource.properties"})
 @ConditionalOnClass(VelocityPropertyConfig.class)
 @EnableConfigurationProperties(VelocityPropertyConfig.class)
 public class BaseAutoConfiguration {
