@@ -1,5 +1,6 @@
 package com.zipe.config;
 
+import com.zipe.enums.VerificationTypeEnum;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -13,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 public class SecurityPropertyConfig {
 
-    private String verificationType;
+    private String verificationType = VerificationTypeEnum.BASIC.name();
 
     private Boolean isRecordLog = false;
 

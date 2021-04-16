@@ -9,9 +9,9 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.zipe</groupId>
-    <artifactId>sso-spring-boot-starter</artifactId>
+    <artifactId>login-spring-boot-starter</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>sso-spring-boot-starter</name>
+    <name>login-spring-boot-starter</name>
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>11</java.version>
@@ -64,7 +64,7 @@
     </dependencies>
 
     <build>
-        <finalName>sso-spring-boot-starter</finalName>
+        <finalName>login-spring-boot-starter</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>

@@ -1,13 +1,14 @@
 package com.zipe.config;
 
+import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.service.LoginFailureHandler;
 import com.zipe.service.LoginSuccessHandler;
-import com.zipe.util.string.StringConstant;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.AuthenticationTrustResolver;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -27,9 +28,9 @@ import java.util.Objects;
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(securedEnabled = true)
+@ConditionalOnClass(SecurityPropertyConfig.class)
+@EnableConfigurationProperties(SecurityPropertyConfig.class)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-
-    private final Environment env;
 
     private final LdapUserDetailsService ldapUserDetailsService;
 
@@ -42,13 +43,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private final SecurityPropertyConfig securityPropertyConfig;
 
     @Autowired
-    SecurityConfig(Environment env,
-                   LdapUserDetailsService ldapUserDetailsService,
+    SecurityConfig(LdapUserDetailsService ldapUserDetailsService,
                    LoginSuccessHandler loginSuccessHandler,
                    LogoutSuccessHandler logoutSuccessHandler,
                    LoginFailureHandler loginFailureHandler,
                    SecurityPropertyConfig securityPropertyConfig) {
-        this.env = env;
         this.ldapUserDetailsService = ldapUserDetailsService;
         this.loginSuccessHandler = loginSuccessHandler;
         this.logoutSuccessHandler = logoutSuccessHandler;
@@ -66,7 +65,21 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
         if (Objects.isNull(securityPropertyConfig.getLoginUri())) {
             // Spring Security 預設 login 畫面
-            http.formLogin().and().httpBasic();
+            http.httpBasic()
+                    .and()
+                    .formLogin()
+                    .permitAll()
+                    .successHandler(loginSuccessHandler)
+                    .failureHandler(loginFailureHandler).and()
+                    .logout()
+                    .deleteCookies("JSESSIONID")
+                    .clearAuthentication(true)
+                    .invalidateHttpSession(true)
+                    .permitAll()
+                    .logoutSuccessHandler(logoutSuccessHandler)
+                    .and()
+                    .sessionManagement().invalidSessionUrl(securityPropertyConfig.getLoginUri())
+                    .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
         } else {
             // 自訂 login 畫面
             http.formLogin()
@@ -91,10 +104,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
-        if (Objects.equals(env.getProperty("ldap.enabled"), StringConstant.TRUE.toLowerCase())) {
-            auth.authenticationProvider(ldapUserDetailsService);
-        } else {
-			auth.inMemoryAuthentication().withUser("admin").password("admin").roles("ADMIN");
+        VerificationTypeEnum type = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        switch (type) {
+            case LDAP:
+                auth.authenticationProvider(ldapUserDetailsService);
+                break;
+            case CUSTOM:
+            case BASIC:
+            default:
+                auth.inMemoryAuthentication().withUser("admin").password("admin").roles("ADMIN");
         }
     }
 

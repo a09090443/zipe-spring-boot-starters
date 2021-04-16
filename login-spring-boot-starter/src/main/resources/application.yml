@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: login-spring-boot-starter
+  main:
+    allow-bean-definition-overriding: true
+
+security:
+  verification-type: basic
+  is-record-log: false
+  allow-uris: /resources/**,/static/**
+  loginUri: /login
+
+
