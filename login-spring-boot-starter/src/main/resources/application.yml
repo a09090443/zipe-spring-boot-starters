@@ -5,7 +5,8 @@ spring:
     allow-bean-definition-overriding: true
 
 security:
+  enable: true
   verification-type: basic
-  is-record-log: false
+  record-log-enable: false
   allow-uris: /resources/**,/static/**
-  loginUri: /login
+  login-uri: /login

@@ -13,20 +13,20 @@ import org.springframework.stereotype.Service;
  * @author : Gary Tsai
  * @created : @Date 2021/4/19 下午 05:12
  **/
-@Service
 public class BasicUserServiceImpl implements UserDetailsService {
 
+    private final PasswordEncoder passwordEncoder;
+
     @Autowired
-    PasswordEncoder passwordEncoder;
+    public BasicUserServiceImpl(PasswordEncoder passwordEncoder){
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // 簡單起見，直接內部校驗
         String uname = "admin";
         String passwd = "admin";
-
-        // 如果是正式項目，我們需要從資料庫數據數據，然後再校驗，形式如下：
-        // User user = userDAO.query(username);
 
         if (!username.equals(uname)) {
             throw new UsernameNotFoundException(username);
@@ -35,7 +35,7 @@ public class BasicUserServiceImpl implements UserDetailsService {
         return User.builder()
                 .username(username)
                 .passwordEncoder(s -> passwordEncoder.encode(passwd))
-                .authorities(new SimpleGrantedAuthority("user"))
+                .authorities(new SimpleGrantedAuthority("admin"))
                 .build();
     }
 }
