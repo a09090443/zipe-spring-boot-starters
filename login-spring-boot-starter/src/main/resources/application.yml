@@ -9,5 +9,3 @@ security:
   is-record-log: false
   allow-uris: /resources/**,/static/**
   loginUri: /login
-
-
