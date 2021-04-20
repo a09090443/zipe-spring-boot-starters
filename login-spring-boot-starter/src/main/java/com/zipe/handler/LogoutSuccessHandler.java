@@ -24,7 +24,7 @@ public class LogoutSuccessHandler extends SimpleUrlLogoutSuccessHandler {
     @Autowired
     public LogoutSuccessHandler(SecurityPropertyConfig securityPropertyConfig) {
         this.securityPropertyConfig = securityPropertyConfig;
-        setDefaultTargetUrl(securityPropertyConfig.getLoginUri());
+        setDefaultTargetUrl(securityPropertyConfig.getLoginSuccessUri());
         setAlwaysUseDefaultTargetUrl(true);
     }
 

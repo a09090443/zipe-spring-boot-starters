@@ -7,7 +7,7 @@ import com.zipe.handler.LoginSuccessHandler;
 import com.zipe.handler.LogoutSuccessHandler;
 import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.util.string.StringConstant;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,18 +25,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(SecurityPropertyConfig.class)
-@ConditionalOnProperty(prefix = "security", name = "enable", havingValue = "true")
 public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
 
     private final SecurityPropertyConfig securityPropertyConfig;
 
     WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig) {
+        if (!securityPropertyConfig.getEnable()) {
+            securityPropertyConfig.setAllowUris("/**");
+        }
         this.securityPropertyConfig = securityPropertyConfig;
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        basicLoginConfigure(http);
+        if (StringUtils.isNotBlank(securityPropertyConfig.getLoginUri())) {
+            customLoginConfigure(http);
+        } else {
+            basicLoginConfigure(http);
+        }
     }
 
     @Override
@@ -52,6 +58,7 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
             case BASIC:
             default:
                 auth.userDetailsService(basicUserServiceImpl()).passwordEncoder(passwordEncoder());
+                break;
         }
     }
 
@@ -64,7 +71,15 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .and().formLogin()
                 .successHandler(loginSuccessHandler())
                 .failureHandler(loginFailureHandler())
-                .and().httpBasic()
+                .and()
+                .logout()
+                .deleteCookies("JSESSIONID")
+                .clearAuthentication(true)
+                .invalidateHttpSession(true)
+                .permitAll()
+                .logoutSuccessHandler(logoutSuccessHandler())
+                .and()
+                .httpBasic()
                 .and().csrf().disable(); // <-- 關閉CSRF，請求時才不用另外帶CSRF token
     }
 
@@ -74,7 +89,8 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
                 .anyRequest()
                 .authenticated()
-                .and().formLogin().loginPage(securityPropertyConfig.getLoginUri())
+                .and().formLogin()
+                .loginPage(securityPropertyConfig.getLoginUri())
                 .usernameParameter("username")
                 .passwordParameter("password")
                 .successHandler(loginSuccessHandler())

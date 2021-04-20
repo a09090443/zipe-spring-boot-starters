@@ -18,7 +18,7 @@ public class SecurityPropertyConfig {
     private Boolean recordLogEnable = Boolean.FALSE;
     private String allowUris;
     private String loginUri;
-    private String loginSuccessUri;
-    private String loginFailureUri;
+    private String loginSuccessUri = "/";
+    private String loginFailureUri = "/error";
 
 }
