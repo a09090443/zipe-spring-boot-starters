@@ -20,5 +20,5 @@ public class SecurityPropertyConfig {
     private String loginUri;
     private String loginSuccessUri = "/";
     private String loginFailureUri = "/error";
-
+    private String customBeanName;
 }

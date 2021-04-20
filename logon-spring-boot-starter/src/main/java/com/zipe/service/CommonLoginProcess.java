@@ -5,7 +5,6 @@ import com.zipe.util.string.StringConstant;
 import com.zipe.util.time.DateTimeUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,14 +18,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  */
 abstract class CommonLoginProcess implements AuthenticationProvider {
 
-    protected final Environment env;
     protected final PasswordEncoder passwordEncoder;
 
     @Autowired
-    CommonLoginProcess(PasswordEncoder passwordEncoder,
-                       Environment env){
+    CommonLoginProcess(PasswordEncoder passwordEncoder){
         this.passwordEncoder = passwordEncoder;
-        this.env = env;
     }
 
     @Override

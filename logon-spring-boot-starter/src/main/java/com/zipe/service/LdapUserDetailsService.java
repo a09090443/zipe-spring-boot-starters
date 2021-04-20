@@ -1,15 +1,14 @@
 package com.zipe.service;
 
+import com.zipe.config.LdapPropertyConfig;
 import com.zipe.exception.LdapException;
 import com.zipe.model.LdapUser;
 import com.zipe.util.LdapUtil;
 import com.zipe.util.string.StringConstant;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 import javax.naming.AuthenticationException;
 import javax.naming.NamingException;
@@ -24,12 +23,13 @@ import java.util.Objects;
  * @created : @Date 2021/4/20 下午 05:30
  **/
 @Slf4j
-@Service
 public class LdapUserDetailsService extends CommonLoginProcess {
 
-    LdapUserDetailsService(PasswordEncoder passwordEncoder,
-                           Environment env) {
-        super(passwordEncoder, env);
+    private LdapPropertyConfig ldapPropertyConfig;
+
+    public LdapUserDetailsService(PasswordEncoder passwordEncoder, LdapPropertyConfig ldapPropertyConfig) {
+        super(passwordEncoder);
+        this.ldapPropertyConfig = ldapPropertyConfig;
     }
 
     /**
@@ -42,11 +42,12 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     @Override
     public UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
         LdapUtil ldapUtil = null;
-        String ldapIp = env.getProperty("ldap.ip");
-        String domain = env.getProperty("ldap.domain");
-        String port = env.getProperty("ldap.port");
-        String dn = env.getProperty("ldap.dn");
-        String fullLoginId = loginId.split(StringConstant.AT).length > 1 ? loginId : loginId + StringConstant.AT + domain; // 帳號如無域名自動加入
+        String ldapIp = ldapPropertyConfig.getIp();
+        String domain = ldapPropertyConfig.getDomain();
+        String port = ldapPropertyConfig.getPort();
+        String dn = ldapPropertyConfig.getDn();
+        // 帳號如無域名自動加入
+        String fullLoginId = loginId.split(StringConstant.AT).length > 1 ? loginId : loginId + StringConstant.AT + domain;
         Attributes attrs;
         LdapContext ctx;
         LdapUser ldapUser;
@@ -96,6 +97,6 @@ public class LdapUserDetailsService extends CommonLoginProcess {
      * @return
      */
     private String getAttrValue(Attributes attrs, String attrName) {
-        return !Objects.isNull(attrs.get(attrName)) ? attrs.get(attrName).toString().split(":", 2)[1].trim() : null;
+        return !Objects.isNull(attrs.get(attrName)) ? attrs.get(attrName).toString().split(StringConstant.COLON, 2)[1].trim() : null;
     }
 }

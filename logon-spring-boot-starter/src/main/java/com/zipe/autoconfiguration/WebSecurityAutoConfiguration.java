@@ -1,16 +1,20 @@
 package com.zipe.autoconfiguration;
 
+import com.zipe.config.LdapPropertyConfig;
 import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.handler.LoginFailureHandler;
 import com.zipe.handler.LoginSuccessHandler;
 import com.zipe.handler.LogoutSuccessHandler;
 import com.zipe.service.BasicUserServiceImpl;
+import com.zipe.service.LdapUserDetailsService;
+import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.string.StringConstant;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -26,16 +30,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  **/
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(SecurityPropertyConfig.class)
+@EnableConfigurationProperties({SecurityPropertyConfig.class, LdapPropertyConfig.class})
 public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
 
     private final SecurityPropertyConfig securityPropertyConfig;
 
-    WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig) {
+    private final LdapPropertyConfig ldapPropertyConfig;
+
+    WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig,
+                                 LdapPropertyConfig ldapPropertyConfig) {
         if (!securityPropertyConfig.getEnable()) {
             securityPropertyConfig.setAllowUris("/**");
         }
         this.securityPropertyConfig = securityPropertyConfig;
+        this.ldapPropertyConfig = ldapPropertyConfig;
     }
 
     @Override
@@ -54,8 +62,10 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
         switch (verificationTypeEnum) {
             case LDAP:
+                auth.authenticationProvider(ldapUserDetailsService());
                 break;
             case CUSTOM:
+                auth.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
                 break;
             case BASIC:
             default:
@@ -119,6 +129,11 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
     @Bean
     public BasicUserServiceImpl basicUserServiceImpl() {
         return new BasicUserServiceImpl(this.passwordEncoder());
+    }
+
+    @Bean
+    public LdapUserDetailsService ldapUserDetailsService() {
+        return new LdapUserDetailsService(this.passwordEncoder(), ldapPropertyConfig);
     }
 
     @Bean
