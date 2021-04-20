@@ -1,7 +1,12 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.SecurityPropertyConfig;
+import com.zipe.enums.VerificationTypeEnum;
+import com.zipe.handler.LoginFailureHandler;
+import com.zipe.handler.LoginSuccessHandler;
+import com.zipe.handler.LogoutSuccessHandler;
 import com.zipe.service.BasicUserServiceImpl;
+import com.zipe.util.string.StringConstant;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -31,31 +36,57 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http
-                .authorizeRequests()
-                .anyRequest()
-                .authenticated()
-                .and().formLogin()
-                .and().httpBasic()
-                .and().csrf().disable(); // <-- 關閉CSRF，請求時才不用另外帶CSRF token
+        basicLoginConfigure(http);
     }
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth)
             throws Exception {
-//        auth
-//                .inMemoryAuthentication()
-//                .withUser("user")
-//                .password("password")
-//                .roles("USER")
-//                .and()
-//                .withUser("admin")
-//                .password("{noop}admin")
-//                .roles("USER", "ADMIN");
 
-        // 用戶登錄資訊校驗使用自定義 userService
-        // 還需要注意密碼加密與驗證需要使用同一種方式
-        auth.userDetailsService(basicUserServiceImpl()).passwordEncoder(passwordEncoder());
+        VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        switch (verificationTypeEnum) {
+            case LDAP:
+                break;
+            case CUSTOM:
+                break;
+            case BASIC:
+            default:
+                auth.userDetailsService(basicUserServiceImpl()).passwordEncoder(passwordEncoder());
+        }
+    }
+
+    private void basicLoginConfigure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .anyRequest()
+                .authenticated()
+                .and().formLogin()
+                .successHandler(loginSuccessHandler())
+                .failureHandler(loginFailureHandler())
+                .and().httpBasic()
+                .and().csrf().disable(); // <-- 關閉CSRF，請求時才不用另外帶CSRF token
+    }
+
+    private void customLoginConfigure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .anyRequest()
+                .authenticated()
+                .and().formLogin().loginPage(securityPropertyConfig.getLoginUri())
+                .usernameParameter("username")
+                .passwordParameter("password")
+                .successHandler(loginSuccessHandler())
+                .failureHandler(loginFailureHandler())
+                .and()
+                .logout()
+                .deleteCookies("JSESSIONID")
+                .clearAuthentication(true)
+                .invalidateHttpSession(true)
+                .permitAll()
+                .logoutSuccessHandler(logoutSuccessHandler())
+                .and().csrf().disable(); // <-- 關閉CSRF，請求時才不用另外帶CSRF token
     }
 
     @Bean
@@ -66,5 +97,20 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
     @Bean
     public BasicUserServiceImpl basicUserServiceImpl() {
         return new BasicUserServiceImpl(this.passwordEncoder());
+    }
+
+    @Bean
+    public LoginSuccessHandler loginSuccessHandler() {
+        return new LoginSuccessHandler(securityPropertyConfig);
+    }
+
+    @Bean
+    public LoginFailureHandler loginFailureHandler() {
+        return new LoginFailureHandler(securityPropertyConfig);
+    }
+
+    @Bean
+    public LogoutSuccessHandler logoutSuccessHandler() {
+        return new LogoutSuccessHandler(securityPropertyConfig);
     }
 }
