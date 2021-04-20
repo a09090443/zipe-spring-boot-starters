@@ -9,6 +9,6 @@ security:
   verification-type: basic
   record-log-enable: false
   allow-uris: /resources/**,/static/**
-  login-uri: /login
+  login-uri:
   login-success-uri: /dashboard
   login-failure-uri: /login
