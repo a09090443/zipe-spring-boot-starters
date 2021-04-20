@@ -13,7 +13,7 @@
     <artifactId>base-spring-boot-starter</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>base-spring-boot-starter</name>
-    <description>Demo project for Spring Boot</description>
+    <description>basic spring boot starter</description>
 
     <properties>
         <github.global.server>github</github.global.server>
