@@ -3,9 +3,9 @@ package com.zipe.util.crypto;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.codec.Base64;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Base64;
 
 /**
  * @author : Gary Tsai
@@ -17,14 +17,17 @@ public class Base64Util implements Crypto {
     public Base64Util() {
     }
 
+    @Override
     public String getEncrypt(String str) {
-        return this.getEncrypt(str, (String)null);
+        return this.getEncrypt(str, (String) null);
     }
 
+    @Override
     public String getDecode(String str) {
-        return this.getDecode(str, (String)null);
+        return this.getDecode(str, (String) null);
     }
 
+    @Override
     public String getEncrypt(String str, String charCode) {
         logger.info("into getBase64Encrypt orgString:{}", str);
         if (StringUtils.isBlank(str)) {
@@ -42,10 +45,11 @@ public class Base64Util implements Crypto {
                 }
             }
 
-            return new String(Base64.encode(b));
+            return new String(Base64.getEncoder().encode(b));
         }
     }
 
+    @Override
     public String getDecode(String str, String charCode) {
         logger.info("into getBase64Decode encString:{}", str);
         if (StringUtils.isBlank(str)) {
@@ -63,7 +67,7 @@ public class Base64Util implements Crypto {
                 }
             }
 
-            return new String(Base64.decode(b));
+            return new String(Base64.getDecoder().decode(b));
         }
     }
 }
