@@ -1,5 +1,0 @@
-spring:
-  application:
-    name: web-spring-boot-starter
-  main:
-    allow-bean-definition-overriding: true
