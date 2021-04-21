@@ -1,8 +1,7 @@
 package com.zipe.util.crypto;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Base64;
@@ -11,8 +10,8 @@ import java.util.Base64;
  * @author : Gary Tsai
  * @created : @Date 2020/11/23 上午 09:33
  **/
+@Slf4j
 public class Base64Util implements Crypto {
-    private static final Logger logger = LoggerFactory.getLogger(Base64Util.class);
 
     public Base64Util() {
     }
@@ -29,7 +28,7 @@ public class Base64Util implements Crypto {
 
     @Override
     public String getEncrypt(String str, String charCode) {
-        logger.info("into getBase64Encrypt orgString:{}", str);
+        log.info("into getBase64Encrypt orgString:{}", str);
         if (StringUtils.isBlank(str)) {
             return "";
         } else {
@@ -41,7 +40,7 @@ public class Base64Util implements Crypto {
                     b = str.getBytes(charCode);
                 } catch (UnsupportedEncodingException var5) {
                     b = str.getBytes();
-                    logger.error(var5.getMessage());
+                    log.error(var5.getMessage());
                 }
             }
 
@@ -51,7 +50,7 @@ public class Base64Util implements Crypto {
 
     @Override
     public String getDecode(String str, String charCode) {
-        logger.info("into getBase64Decode encString:{}", str);
+        log.info("into getBase64Decode encString:{}", str);
         if (StringUtils.isBlank(str)) {
             return "";
         } else {
@@ -63,7 +62,7 @@ public class Base64Util implements Crypto {
                     b = str.getBytes(charCode);
                 } catch (UnsupportedEncodingException var5) {
                     b = str.getBytes();
-                    logger.error(var5.getMessage());
+                    log.error(var5.getMessage());
                 }
             }
 
