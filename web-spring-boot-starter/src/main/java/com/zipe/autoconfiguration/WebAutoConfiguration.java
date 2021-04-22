@@ -1,10 +1,11 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
+import com.zipe.util.DateFormatter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -18,7 +19,6 @@ import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 @Configuration
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
-//@Order(99)
 public class WebAutoConfiguration implements WebMvcConfigurer {
 
     private final WebPropertyConfig webPropertyConfig;
@@ -53,6 +53,11 @@ public class WebAutoConfiguration implements WebMvcConfigurer {
     @Override
     public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
         configurer.enable();
+    }
+
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addFormatter(new DateFormatter());
     }
 
     public LocaleChangeInterceptor localeChangeInterceptor() {

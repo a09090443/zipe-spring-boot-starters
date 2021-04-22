@@ -1,16 +1,16 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
-import com.zipe.util.DateFormatter;
 import com.zipe.util.string.StringConstant;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.LocaleResolver;
-import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
@@ -64,6 +64,7 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
     }
 
     @Bean
+    @ConditionalOnBean(name = "templateResolver")
     public SpringTemplateEngine templateEngine() {
         SpringTemplateEngine templateEngine = new SpringTemplateEngine();
         templateEngine.setTemplateResolver(templateResolver());
@@ -82,6 +83,11 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
         return viewResolver;
     }
 
+    @Bean
+    WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> enableDefaultServlet() {
+        return (factory) -> factory.setRegisterDefaultServlet(true);
+    }
+
     /**
      * 默認解析器 其中locale表示默認語言
      *
@@ -97,14 +103,5 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
         return resolver;
     }
 
-    @Override
-    public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
-        configurer.enable();
-    }
-
-    @Override
-    public void addFormatters(FormatterRegistry registry) {
-        registry.addFormatter(new DateFormatter());
-    }
 
 }
