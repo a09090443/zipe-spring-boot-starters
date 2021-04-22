@@ -111,11 +111,11 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
      * Note: All requests to the backend needing Internationalization should have the "language" request param
      */
     @Override
-    public void addInterceptors (InterceptorRegistry registry) {
-		registry.addInterceptor(localeChangeInterceptor());
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(localeChangeInterceptor());
     }
 
-    public LocaleChangeInterceptor localeChangeInterceptor () {
+    public LocaleChangeInterceptor localeChangeInterceptor() {
         LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("language");
         return localeChangeInterceptor;
@@ -132,11 +132,12 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/static/**").addResourceLocations("/WEB-INF/static/");
+        registry.addResourceHandler(webPropertyConfig.getResource().getPathPattern())
+                .addResourceLocations(webPropertyConfig.getResource().getLocation());
     }
 
     @Override
-    public void addFormatters (FormatterRegistry registry) {
+    public void addFormatters(FormatterRegistry registry) {
         registry.addFormatter(new DateFormatter());
     }
 
