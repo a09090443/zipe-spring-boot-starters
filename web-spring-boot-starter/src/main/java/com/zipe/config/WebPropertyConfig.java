@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 public class WebPropertyConfig {
 
+    private WebResourceConfig resource;
     private JspConfig jsp;
     private ThymeleafConfig thymeleaf;
 }

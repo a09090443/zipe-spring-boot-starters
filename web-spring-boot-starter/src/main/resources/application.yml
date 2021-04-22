@@ -10,6 +10,9 @@ server:
   port: 8080
 
 web:
+  resource:
+    pathPattern: /static/**
+    location: /WEB-INF/static/
   jsp:
     enable: true
     viewNames: jsp/*
