@@ -1,8 +1,8 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.VelocityPropertyConfig;
-import com.zipe.util.VelocityUtil;
 import com.zipe.util.string.StringConstant;
+import com.zipe.util.VelocityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnResource;
