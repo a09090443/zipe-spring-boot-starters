@@ -1,22 +1,30 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
+import com.zipe.util.DateFormatter;
 import com.zipe.util.string.StringConstant;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.format.FormatterRegistry;
+import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
+import org.springframework.web.servlet.i18n.CookieLocaleResolver;
+import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.thymeleaf.spring5.SpringTemplateEngine;
 import org.thymeleaf.spring5.templateresolver.SpringResourceTemplateResolver;
 import org.thymeleaf.spring5.view.ThymeleafViewResolver;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ITemplateResolver;
+
+import java.util.Locale;
 
 /**
  * @author : Gary Tsai
@@ -79,6 +87,40 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
         return viewResolver;
     }
 
+    /**
+     * 默認解析器 其中locale表示默認語言
+     *
+     * @return
+     */
+    @Bean
+    @Override
+    public LocaleResolver localeResolver() {
+        CookieLocaleResolver resolver = new CookieLocaleResolver();
+        resolver.setDefaultLocale(Locale.TAIWAN);
+        resolver.setCookieName("localeCookie");
+        resolver.setCookieMaxAge(4800);
+        return resolver;
+    }
+
+    /**
+     * an interceptor bean that will switch to a new locale based on the value of the language parameter appended to a request:
+     *
+     * @param registry
+     * @language should be the name of the request param i.e  localhost:8010/api/get-greeting?language=fr
+     * <p>
+     * Note: All requests to the backend needing Internationalization should have the "language" request param
+     */
+    @Override
+    public void addInterceptors (InterceptorRegistry registry) {
+		registry.addInterceptor(localeChangeInterceptor());
+    }
+
+    public LocaleChangeInterceptor localeChangeInterceptor () {
+        LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
+        localeChangeInterceptor.setParamName("language");
+        return localeChangeInterceptor;
+    }
+
     @Override
     public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
         configurer.enable();
@@ -92,4 +134,10 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/static/**").addResourceLocations("/WEB-INF/static/");
     }
+
+    @Override
+    public void addFormatters (FormatterRegistry registry) {
+        registry.addFormatter(new DateFormatter());
+    }
+
 }
