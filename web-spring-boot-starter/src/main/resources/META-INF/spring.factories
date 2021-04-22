@@ -1,2 +1,3 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.zipe.autoconfiguration.ViewResolverAutoConfiguration
+com.zipe.autoconfiguration.ViewResolverAutoConfiguration,\
+com.zipe.autoconfiguration.WebAutoConfiguration

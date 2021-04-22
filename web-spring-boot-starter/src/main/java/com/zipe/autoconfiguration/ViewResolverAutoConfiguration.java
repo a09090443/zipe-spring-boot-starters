@@ -11,12 +11,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
-import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.thymeleaf.spring5.SpringTemplateEngine;
 import org.thymeleaf.spring5.templateresolver.SpringResourceTemplateResolver;
@@ -31,7 +27,6 @@ import java.util.Locale;
  * @created : @Date 2021/4/21 上午 11:38
  **/
 @Configuration
-@EnableWebMvc
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
 public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
@@ -102,38 +97,9 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
         return resolver;
     }
 
-    /**
-     * an interceptor bean that will switch to a new locale based on the value of the language parameter appended to a request:
-     *
-     * @param registry
-     * @language should be the name of the request param i.e  localhost:8010/api/get-greeting?language=fr
-     * <p>
-     * Note: All requests to the backend needing Internationalization should have the "language" request param
-     */
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(localeChangeInterceptor());
-    }
-
-    public LocaleChangeInterceptor localeChangeInterceptor() {
-        LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
-        localeChangeInterceptor.setParamName("language");
-        return localeChangeInterceptor;
-    }
-
     @Override
     public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
         configurer.enable();
-    }
-
-    /**
-     * Configure ResourceHandlers to serve static resources like CSS/ Javascript
-     * etc...
-     */
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler(webPropertyConfig.getResource().getPathPattern())
-                .addResourceLocations(webPropertyConfig.getResource().getLocation());
     }
 
     @Override
