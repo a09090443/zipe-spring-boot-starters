@@ -8,3 +8,14 @@ server:
   servlet:
     context-path: /web
   port: 8080
+
+web:
+  jsp:
+    enable: true
+    viewNames: jsp/*
+    stuff: .jsp
+  thymeleaf:
+    enable: true
+    viewNames: html/*, thymeleaf/*
+    stuff: .html
+    templateMode: HTML
