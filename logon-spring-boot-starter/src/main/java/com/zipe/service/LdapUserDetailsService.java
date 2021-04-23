@@ -1,6 +1,6 @@
 package com.zipe.service;
 
-import com.zipe.config.LdapPropertyConfig;
+import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.exception.LdapException;
 import com.zipe.model.LdapUser;
 import com.zipe.util.LdapUtil;
@@ -25,11 +25,11 @@ import java.util.Objects;
 @Slf4j
 public class LdapUserDetailsService extends CommonLoginProcess {
 
-    private LdapPropertyConfig ldapPropertyConfig;
+    private final SecurityPropertyConfig securityPropertyConfig;
 
-    public LdapUserDetailsService(PasswordEncoder passwordEncoder, LdapPropertyConfig ldapPropertyConfig) {
+    public LdapUserDetailsService(PasswordEncoder passwordEncoder, SecurityPropertyConfig securityPropertyConfig) {
         super(passwordEncoder);
-        this.ldapPropertyConfig = ldapPropertyConfig;
+        this.securityPropertyConfig = securityPropertyConfig;
     }
 
     /**
@@ -42,10 +42,10 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     @Override
     public UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
         LdapUtil ldapUtil = null;
-        String ldapIp = ldapPropertyConfig.getIp();
-        String domain = ldapPropertyConfig.getDomain();
-        String port = ldapPropertyConfig.getPort();
-        String dn = ldapPropertyConfig.getDn();
+        String ldapIp = securityPropertyConfig.getLdap().getIp();
+        String domain = securityPropertyConfig.getLdap().getDomain();
+        String port = securityPropertyConfig.getLdap().getPort();
+        String dn = securityPropertyConfig.getLdap().getDn();
         // 帳號如無域名自動加入
         String fullLoginId = loginId.split(StringConstant.AT).length > 1 ? loginId : loginId + StringConstant.AT + domain;
         Attributes attrs;

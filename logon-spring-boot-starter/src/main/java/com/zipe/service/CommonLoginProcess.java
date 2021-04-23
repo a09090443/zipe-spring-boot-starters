@@ -16,12 +16,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 /**
  * @author gary.tsai 2019/8/26
  */
-abstract class CommonLoginProcess implements AuthenticationProvider {
+public abstract class CommonLoginProcess implements AuthenticationProvider {
 
     protected final PasswordEncoder passwordEncoder;
 
     @Autowired
-    CommonLoginProcess(PasswordEncoder passwordEncoder){
+    protected CommonLoginProcess(PasswordEncoder passwordEncoder){
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -69,6 +69,6 @@ abstract class CommonLoginProcess implements AuthenticationProvider {
      * @param password
      * @return
      */
-    abstract UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password);
+    protected abstract UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password);
 
 }

@@ -30,20 +30,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  **/
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties({SecurityPropertyConfig.class, LdapPropertyConfig.class})
+@EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
 
     private final SecurityPropertyConfig securityPropertyConfig;
 
-    private final LdapPropertyConfig ldapPropertyConfig;
-
-    WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig,
-                                 LdapPropertyConfig ldapPropertyConfig) {
+    WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig) {
         if (!securityPropertyConfig.getEnable()) {
             securityPropertyConfig.setAllowUris("/**");
         }
         this.securityPropertyConfig = securityPropertyConfig;
-        this.ldapPropertyConfig = ldapPropertyConfig;
     }
 
     @Override
@@ -133,7 +129,7 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
 
     @Bean
     public LdapUserDetailsService ldapUserDetailsService() {
-        return new LdapUserDetailsService(this.passwordEncoder(), ldapPropertyConfig);
+        return new LdapUserDetailsService(this.passwordEncoder(), securityPropertyConfig);
     }
 
     @Bean

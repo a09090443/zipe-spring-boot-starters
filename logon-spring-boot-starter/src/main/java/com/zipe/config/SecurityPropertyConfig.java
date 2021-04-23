@@ -21,4 +21,5 @@ public class SecurityPropertyConfig {
     private String loginSuccessUri = "/";
     private String loginFailureUri = "/error";
     private String customBeanName;
+    private LdapPropertyConfig ldap = new LdapPropertyConfig();
 }

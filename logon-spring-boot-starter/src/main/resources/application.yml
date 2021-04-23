@@ -13,9 +13,8 @@ security:
   login-uri: /login
   login-success-uri: /dashboard
   login-failure-uri: /login
-
-ldap:
-  ip: 127.0.0.1
-  domain: ldap.zipe.com
-  port: 389
-  dn: zipe.com
+  ldap:
+    ip: 127.0.0.1
+    domain: ldap.zipe.com
+    port: 389
+    dn: DC=zipe,DC=local
