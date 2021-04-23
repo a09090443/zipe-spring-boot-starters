@@ -7,3 +7,5 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
+    base:
+      packages: com.zipe

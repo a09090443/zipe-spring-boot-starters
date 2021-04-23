@@ -416,7 +416,6 @@ public abstract class BaseJDBC {
         String sqlText = null;
 
         try {
-            new File(BaseJDBC.class.getResource(path.toString()).toURI());
             sqlText = FileUtil.readFileToString(new File(BaseJDBC.class.getResource(path.toString()).toURI()), StandardCharsets.UTF_8.name());
         } catch (IOException | URISyntaxException e) {
             log.error("Read SQL file error : {}", e.getMessage());
