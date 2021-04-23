@@ -1,8 +1,9 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.VelocityPropertyConfig;
-import com.zipe.util.string.StringConstant;
+import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.VelocityUtil;
+import com.zipe.util.string.StringConstant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnResource;
@@ -37,6 +38,11 @@ public class BaseAutoConfiguration {
         messageSource.setBasename("classpath:message");
         messageSource.setDefaultEncoding(StringConstant.ENCODE_UTF8);
         return messageSource;
+    }
+
+    @Bean
+    public ApplicationContextHelper applicationContextHelper() {
+        return new ApplicationContextHelper();
     }
 
     @Bean
