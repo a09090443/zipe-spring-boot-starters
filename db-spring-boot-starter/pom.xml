@@ -12,7 +12,7 @@
 
     <groupId>com.zipe</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>2.4.4.1</version>
     <name>db-spring-boot-starter</name>
     <description>Dynamic data source starter</description>
 
@@ -21,7 +21,7 @@
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>0.0.1-SNAPSHOT</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>2.4.4.1</base-spring-boot-starter.version>
         <p6spy.version>3.9.1</p6spy.version>
         <mssql-jdbc.version>8.4.1.jre11</mssql-jdbc.version>
         <jt400.version>10.5</jt400.version>
@@ -119,7 +119,7 @@
                 <version>${maven-deploy-plugin.version}</version>
                 <configuration>
                     <!-- altDeploymentRepository ：指定替代方案應該部署項目工件的存儲庫（除了指定的工件）。 -->
-                    <altDeploymentRepository>internal.repo::default::file://${project.basedir}/snapshot
+                    <altDeploymentRepository>internal.repo::default::file://${project.basedir}/mvn-repo
                     </altDeploymentRepository>
                 </configuration>
             </plugin>
@@ -132,7 +132,7 @@
                     <message>Creating site for ${project.artifactId} ${project.version}</message>
                     <noJekyll>true</noJekyll>
                     <!--本地jar地址, 對應上面的altDeploymentRepository-->
-                    <outputDirectory>${project.basedir}/snapshot</outputDirectory>
+                    <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
                     <!--分支-->
                     <branch>refs/heads/snapshot</branch>
                     <merge>true</merge>

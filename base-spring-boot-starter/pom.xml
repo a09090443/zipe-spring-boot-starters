@@ -11,7 +11,7 @@
 
     <groupId>com.zipe</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>2.4.4.1</version>
     <name>base-spring-boot-starter</name>
     <description>basic spring boot starter</description>
 
@@ -225,7 +225,7 @@
                 <version>${maven-deploy-plugin.version}</version>
                 <configuration>
                     <!-- altDeploymentRepository ：指定替代方案應該部署項目工件的存儲庫（除了指定的工件）。 -->
-                    <altDeploymentRepository>internal.repo::default::file://${project.basedir}/snapshot
+                    <altDeploymentRepository>internal.repo::default::file://${project.basedir}/mvn-repo
                     </altDeploymentRepository>
                 </configuration>
             </plugin>
@@ -238,9 +238,9 @@
                     <message>Creating site for ${project.artifactId} ${project.version}</message>
                     <noJekyll>true</noJekyll>
                     <!--本地jar地址, 對應上面的altDeploymentRepository-->
-                    <outputDirectory>${project.basedir}/snapshot</outputDirectory>
+                    <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
                     <!--分支-->
-                    <branch>refs/heads/snapshot</branch>
+                    <branch>refs/heads/mvn-repo</branch>
                     <merge>true</merge>
                     <includes>
                         <include>**/*</include>
