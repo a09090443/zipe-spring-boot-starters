@@ -134,7 +134,7 @@
                     <!--本地jar地址, 對應上面的altDeploymentRepository-->
                     <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
                     <!--分支-->
-                    <branch>refs/heads/snapshot</branch>
+                    <branch>refs/heads/mvn-repo</branch>
                     <merge>true</merge>
                     <includes>
                         <include>**/*</include>
