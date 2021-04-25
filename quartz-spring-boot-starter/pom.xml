@@ -23,16 +23,38 @@
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
     </properties>
+    <repositories>
+        <repository>
+            <id>zipe-spring-boot-starters</id>
+            <!-- //raw.github.com/用戶名/倉庫名/分支名 -->
+            <url>https://raw.github.com/a09090443/zipe-spring-boot-starters/mvn-repo</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
         </dependency>
-        <!-- Spring boot starters -->
+
         <dependency>
-            <groupId>com.zipe</groupId>
-            <artifactId>base-spring-boot-starter</artifactId>
-            <version>${base-spring-boot-starter.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
