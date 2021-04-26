@@ -1,6 +1,9 @@
 package com.zipe.autoconfiguration;
 
+import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.VelocityPropertyConfig;
+import com.zipe.service.MailService;
+import com.zipe.service.impl.MailServiceImpl;
 import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.VelocityUtil;
 import com.zipe.util.string.StringConstant;
@@ -20,15 +23,18 @@ import org.springframework.context.support.ReloadableResourceBundleMessageSource
  **/
 @Configuration
 @PropertySource({"classpath:resource.properties"})
-@ConditionalOnClass(VelocityPropertyConfig.class)
-@EnableConfigurationProperties(VelocityPropertyConfig.class)
+@ConditionalOnClass({VelocityPropertyConfig.class, MailPropertyConfig.class})
+@EnableConfigurationProperties({VelocityPropertyConfig.class, MailPropertyConfig.class})
 public class BaseAutoConfiguration {
 
     private final VelocityPropertyConfig velocityPropertyConfig;
 
+    private final MailPropertyConfig mailPropertyConfig;
+
     @Autowired
-    BaseAutoConfiguration(VelocityPropertyConfig velocityPropertyConfig) {
+    BaseAutoConfiguration(VelocityPropertyConfig velocityPropertyConfig, MailPropertyConfig mailPropertyConfig) {
         this.velocityPropertyConfig = velocityPropertyConfig;
+        this.mailPropertyConfig = mailPropertyConfig;
     }
 
     @Bean
@@ -52,4 +58,11 @@ public class BaseAutoConfiguration {
         velocityUtil.initClassPath();
         return velocityUtil;
     }
+
+    @Bean
+    public MailService mailService() {
+        MailService mailService = new MailServiceImpl(mailPropertyConfig);
+        return mailService;
+    }
+
 }
