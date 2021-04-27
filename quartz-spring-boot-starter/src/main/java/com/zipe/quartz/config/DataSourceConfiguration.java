@@ -1,5 +1,6 @@
 package com.zipe.quartz.config;
 
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.autoconfigure.quartz.QuartzDataSource;
@@ -39,7 +40,7 @@ public class DataSourceConfiguration {
      * 建立 quartz 資料來源
      */
     @Bean(name = "quartzDataSource")
-    @ConfigurationProperties(prefix = "spring.datasource.quartz.hikari")
+    @ConfigurationProperties(prefix = "spring.datasource.hikari")
     @QuartzDataSource
     public DataSource quartzDataSource() {
         // 獲得 DataSourceProperties 物件
