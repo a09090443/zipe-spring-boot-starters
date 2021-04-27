@@ -1,4 +1,4 @@
-package com.zipe.job;
+package com.zipe.quartz.job;
 
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;

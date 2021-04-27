@@ -46,7 +46,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
-            <version>2.2.5.RELEASE</version>
         </dependency>
 
         <!--使用嵌入式的 h2 数据库，这样就不需要安装数据库了 -->
@@ -106,6 +105,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!-- Spring boot starters -->
+        <dependency>
+            <groupId>com.zipe</groupId>
+            <artifactId>base-spring-boot-starter</artifactId>
+            <version>${base-spring-boot-starter.version}</version>
         </dependency>
     </dependencies>
 
