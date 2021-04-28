@@ -36,23 +36,14 @@
     </repositories>
 
     <dependencies>
-        <!--web 模块-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- quartz 定时器 https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-quartz -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
-        </dependency>
-
-        <!--使用嵌入式的 h2 数据库，这样就不需要安装数据库了 -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -66,17 +57,17 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- 引入mysql数据库连接驱动-->
+        <!--使用嵌入式的 h2 数据库，这样就不需要安装数据库了 -->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Spring boot starters -->

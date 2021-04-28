@@ -3,9 +3,11 @@ package com.zipe;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@PropertySource({"classpath:spring-quartz.properties", "classpath:quartz-h2.properties", "classpath:hikari-config.properties"})
+@EnableScheduling
+@PropertySource(value = {"classpath:spring-quartz.properties", "classpath:quartz-h2.properties", "classpath:hikari-config.properties", "classpath:quartz-jobs.properties"}, encoding = "UTF-8")
 public class Application {
 
     public static void main(String[] args) {

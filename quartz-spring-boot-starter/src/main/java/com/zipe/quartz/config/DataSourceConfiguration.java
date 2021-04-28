@@ -1,7 +1,7 @@
 package com.zipe.quartz.config;
 
-import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.autoconfigure.quartz.QuartzDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import javax.sql.DataSource;
 
 @Configuration
+@ConditionalOnProperty(name = "spring.quartz.job-store-type", havingValue = "jdbc")
 public class DataSourceConfiguration {
 
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {
@@ -26,12 +27,13 @@ public class DataSourceConfiguration {
     }
 
     /**
+     * 讀取 spring.datasource.quartz 設定到 DataSourceProperties 物件
+     *
      * 建立 quartz 資料來源的設定物件
      */
     @Primary
     @Bean(name = "quartzDataSourceProperties")
     @ConfigurationProperties(prefix = "spring.datasource.quartz")
-    // 讀取 spring.datasource.quartz 設定到 DataSourceProperties 物件
     public DataSourceProperties quartzDataSourceProperties() {
         return new DataSourceProperties();
     }
