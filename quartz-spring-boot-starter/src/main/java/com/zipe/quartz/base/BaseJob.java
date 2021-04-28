@@ -2,25 +2,26 @@ package com.zipe.quartz.base;
 
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.enums.ScheduleJobStatusEnum;
+import com.zipe.quartz.model.Job;
+import com.zipe.quartz.util.QuartzJobUtil;
 import com.zipe.quartz.vo.ScheduleJobVO;
 import com.zipe.util.time.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.quartz.JobBuilder;
-import org.quartz.JobDataMap;
+import org.apache.commons.lang3.StringUtils;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
+import org.quartz.ScheduleBuilder;
 import org.quartz.Scheduler;
-import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
-import org.quartz.TriggerBuilder;
 import org.quartz.TriggerKey;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.Date;
-import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Quartz job 管理
+ *
  * @author : Gary Tsai
  * @created : @Date 2021/4/28 上午 09:43
  **/
@@ -48,20 +49,31 @@ public abstract class BaseJob {
     private ScheduleJobVO scheduleJobStatusProcess(
             ScheduleJobVO scheduleJobDetail, ScheduleJobStatusEnum scheduleJobStatusEnum) {
         JobKey jobKey = JobKey.jobKey(scheduleJobDetail.getJobName(), scheduleJobDetail.getJobGroup());
+        ScheduleBuilder scheduleBuilder = ScheduleEnum.getTimeUnit(scheduleJobDetail.getTimeUnit())
+                .setCycle(scheduleJobDetail.getRepeatInterval(), scheduleJobDetail.getExecuteTimes());
+
+        Job job = new Job(scheduleJobDetail.getJobName(),
+                scheduleJobDetail.getJobDescription(),
+                scheduleJobDetail.getJobGroup(),
+                scheduleJobDetail.getJobClass(),
+                scheduleJobDetail.getCronExpression(), DateTimeUtils.localDateTimeToDate(scheduleJobDetail.getStartTime()),
+                DateTimeUtils.localDateTimeToDate(scheduleJobDetail.getEndTime()),
+                scheduleJobDetail.getJobDataMap());
+
+        if (StringUtils.isNotBlank(scheduleJobDetail.getCronExpression())) {
+            scheduleBuilder = ScheduleEnum.CRON.setExpression(scheduleJobDetail.getCronExpression());
+        }
 
         try {
             switch (scheduleJobStatusEnum) {
                 case MERGE:
-                    Date nextFireTime = DateTimeUtils.localDateTimeToDate(scheduleJobDetail.getNextFireTime());
-
                     if (!scheduler.checkExists(jobKey)) {
-                        this.createJob(nextFireTime, scheduleJobDetail);
+                        this.createJob(job, scheduleBuilder);
                     } else {
-                        this.updateTrigger(jobKey, nextFireTime, scheduleJobDetail);
+                        this.updateTrigger(jobKey, job, scheduleBuilder);
                     }
 
                     break;
-
                 case SUSPEND:
                     scheduler.pauseJob(jobKey);
                     break;
@@ -73,6 +85,9 @@ public abstract class BaseJob {
                 case DELETE:
                     scheduler.deleteJob(jobKey);
                     break;
+                case ONCE:
+                    scheduleBuilder = ScheduleEnum.NOW.setCycle(scheduleJobDetail.getRepeatInterval(), scheduleJobDetail.getExecuteTimes());
+                    this.executeOnce(jobKey, job, scheduleBuilder);
             }
         } catch (Exception e) {
             scheduleJobDetail.setMessage("排程: " + scheduleJobDetail.getJobName() + "發生未知錯誤。");
@@ -82,91 +97,30 @@ public abstract class BaseJob {
         return scheduleJobDetail;
     }
 
-    private ScheduleJobVO createJob(Date nextFireTime, ScheduleJobVO scheduleJobDetail) throws Exception {
-        JobDetail jobDetail = buildJobDetail(scheduleJobDetail);
-        Trigger trigger = buildJobTrigger(jobDetail, nextFireTime, scheduleJobDetail);
-        scheduler.scheduleJob(jobDetail, trigger);
-        log.debug("Job created: " + jobDetail);
-
-        return scheduleJobDetail;
+    private void createJob(Job job, ScheduleBuilder scheduleBuilder) throws Exception {
+        QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job);
+        JobDetail jobDetail = quartzManageUtil.buildJobDetail(job);
+        Trigger trigger = quartzManageUtil.buildJobTrigger(scheduleBuilder);
+        Set<Trigger> set = new HashSet<>();
+        set.add(trigger);
+        // boolean replace 表示啟動時對資料庫中的quartz的任務進行覆蓋。
+        scheduler.scheduleJob(jobDetail, set, true);
+        log.debug("Job created: {}", jobDetail.getKey());
     }
 
-    private JobDetail buildJobDetail(ScheduleJobVO scheduleJobDetail) throws Exception {
-        Class clazz = Class.forName(scheduleJobDetail.getJobClass());
-
-        if (null == scheduleJobDetail.getJobDataMap()) {
-            scheduleJobDetail.setJobDataMap(new JobDataMap());
-        }
-
-        return JobBuilder
-                .newJob(clazz)
-                .withIdentity(scheduleJobDetail.getJobName(), scheduleJobDetail.getJobGroup())
-                .withDescription(scheduleJobDetail.getJobDescription())
-                .usingJobData(scheduleJobDetail.getJobDataMap())
-                .storeDurably()
-                .build();
-    }
-
-    private Trigger buildJobTrigger(
-            JobDetail jobDetail, Date startTime, ScheduleJobVO scheduleJobDetail) {
-        return TriggerBuilder
-                .newTrigger()
-                .forJob(jobDetail)
-                .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                .withDescription(scheduleJobDetail.getJobDescription())
-                .startAt(startTime)
-                .endAt(null)
-                .withSchedule(ScheduleEnum.getTimeUnit(scheduleJobDetail.getTimeUnit())
-                        .setCycle(scheduleJobDetail.getRepeatInterval(), scheduleJobDetail.getExecuteTimes()))
-                .build();
-    }
-
-    private void updateTrigger(JobKey jobKey, Date nextFireTime, ScheduleJobVO newDetail) throws Exception {
+    private void updateTrigger(JobKey jobKey, Job job, ScheduleBuilder scheduleBuilder) throws Exception {
         JobDetail oriDetail = scheduler.getJobDetail(jobKey);
         TriggerKey triggerKey = TriggerKey.triggerKey(oriDetail.getKey().getName(), oriDetail.getKey().getGroup());
         Trigger trigger = scheduler.getTrigger(triggerKey);
 
-        /*
-         * 若是在編輯畫面選擇執行頻率「一次」的話會導致舊的Trigger因為已經跑完而銷毀,
-         * 且已銷毀Trigger的JobDetail無法refresh新的Trigger,
-         * 所以直接砍掉重建。
-         */
-        if (trigger == null) {
-            scheduler.deleteJob(jobKey);
-            createJob(nextFireTime, newDetail);
-        } else {
-            trigger = trigger
-                    .getTriggerBuilder()
-                    .withIdentity(triggerKey)
-                    .startAt(nextFireTime)
-                    .endAt(null)
-                    .withSchedule(ScheduleEnum.getTimeUnit(newDetail.getTimeUnit())
-                            .setCycle(newDetail.getRepeatInterval(), newDetail.getExecuteTimes()))
-                    .build();
-            scheduler.rescheduleJob(triggerKey, trigger);
-            log.debug("Job existed but update trigger: " + trigger);
-        }
+        createJob(job, scheduleBuilder);
+
+        log.debug("Job existed but update trigger: {}", trigger.getJobKey());
     }
 
-    private void executeOnce(JobKey jobKey, ScheduleJobVO scheduleJobDetail) throws Exception {
-        JobDetail detail = scheduler.getJobDetail(jobKey);
-
-        // 若是新的排程則新建一筆資料進quartz table。
-        if (detail == null) {
-            createJob(new Date(), scheduleJobDetail);
-            detail = scheduler.getJobDetail(jobKey);
-        }
-
-        Trigger newTrigger = TriggerBuilder
-                .newTrigger()
-                .startNow()
-                .forJob(detail)
-                .withIdentity(UUID.randomUUID().toString())
-                .withDescription(scheduleJobDetail.getJobDescription())
-                .withSchedule(SimpleScheduleBuilder.repeatSecondlyForTotalCount(1, 1))
-                .build();
-
-        scheduler.scheduleJob(newTrigger);
+    private void executeOnce(JobKey jobKey, Job job, ScheduleBuilder scheduleBuilder) throws Exception {
+        job.setName(job.getName() + "-Once");
+        createJob(job, scheduleBuilder);
     }
 
 }

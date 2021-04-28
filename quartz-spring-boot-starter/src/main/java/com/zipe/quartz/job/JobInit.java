@@ -3,7 +3,7 @@ package com.zipe.quartz.job;
 import com.zipe.quartz.config.QuartzJobPropertyConfig;
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.model.Job;
-import com.zipe.quartz.util.QuartzManageUtil;
+import com.zipe.quartz.util.QuartzJobUtil;
 import org.quartz.JobDetail;
 import org.quartz.Scheduler;
 import org.quartz.Trigger;
@@ -39,7 +39,7 @@ public class JobInit implements ApplicationRunner {
         job.setClazz("com.zipe.quartz.job.SecondJob");
         job.setGroup("TestSchedule");
         job.setCronExpression("0/10 * * * * ? *");
-        QuartzManageUtil quartzManageUtil = new QuartzManageUtil(job);
+        QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job);
         JobDetail detail = quartzManageUtil.buildJobDetail();
         Trigger trigger = quartzManageUtil.buildJobTrigger(ScheduleEnum.CRON.setExpression(job.getCronExpression()));
 //        JobDetail jobDetail = JobBuilder.newJob(SecondJob.class)
@@ -59,6 +59,6 @@ public class JobInit implements ApplicationRunner {
         Set<Trigger> set = new HashSet<>();
         set.add(trigger);
         // boolean replace 表示啟動時對資料庫中的quartz的任務進行覆蓋。
-        scheduler.scheduleJob(detail, set, true);
+//        scheduler.scheduleJob(detail, set, true);
     }
 }

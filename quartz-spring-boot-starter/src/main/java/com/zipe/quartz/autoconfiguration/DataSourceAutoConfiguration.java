@@ -1,4 +1,4 @@
-package com.zipe.quartz.config;
+package com.zipe.quartz.autoconfiguration;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,9 +12,14 @@ import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
 
+/**
+ * Quartz data source
+ *
+ * @author zipe
+ */
 @Configuration
 @ConditionalOnProperty(name = "spring.quartz.job-store-type", havingValue = "jdbc")
-public class DataSourceConfiguration {
+public class DataSourceAutoConfiguration {
 
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {
         // 建立 HikariDataSource 物件

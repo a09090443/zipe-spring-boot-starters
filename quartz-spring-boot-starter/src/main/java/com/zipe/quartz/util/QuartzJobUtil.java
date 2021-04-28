@@ -11,17 +11,18 @@ import java.util.Date;
 import java.util.Optional;
 
 /**
+ * Quartz 建立 Job 工具
+ *
  * @author : Gary Tsai
  * @created : @Date 2021/4/28 下午 04:37
  **/
-public class QuartzManageUtil {
+public class QuartzJobUtil {
 
     private Job job;
 
-    public QuartzManageUtil() {
-    }
+    public QuartzJobUtil() {}
 
-    public QuartzManageUtil(Job job) {
+    public QuartzJobUtil(Job job) {
         this.job = job;
     }
 

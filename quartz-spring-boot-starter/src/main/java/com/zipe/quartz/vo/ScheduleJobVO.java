@@ -53,12 +53,14 @@ public class ScheduleJobVO implements Serializable {
      * 重複執行的時間區間
      */
     private Integer repeatInterval;
-    //
     /**
      * 執行次數
      */
     private Integer executeTimes;
-    //
+    /**
+     * Cron job 表示式
+     */
+    private String cronExpression;
     /**
      * 備註
      */
@@ -73,6 +75,9 @@ public class ScheduleJobVO implements Serializable {
      */
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime endTime;
+    /**
+     * 排程參數
+     */
     private JobDataMap jobDataMap;
 
 }
