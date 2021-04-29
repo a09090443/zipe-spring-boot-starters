@@ -14,11 +14,12 @@ import org.quartz.Trigger;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,10 +32,11 @@ import java.util.Set;
  */
 @Slf4j
 @Configuration
+@EnableScheduling
 @ConditionalOnClass(QuartzJobPropertyConfig.class)
 @EnableConfigurationProperties(QuartzJobPropertyConfig.class)
-@PropertySource(value = {"classpath:quartz-jobs.properties", "classpath:spring-quartz.properties"}, encoding = "UTF-8")
 @Import(value = {QuartzController.class})
+@ConditionalOnProperty(name = "quartz.enable", havingValue = "true")
 public class InitialJobAutoConfiguration {
 
     private final String JOB_GROUP_NAME = "file";

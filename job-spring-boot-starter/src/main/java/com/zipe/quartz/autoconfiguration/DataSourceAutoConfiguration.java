@@ -1,10 +1,13 @@
 package com.zipe.quartz.autoconfiguration;
 
 import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.autoconfigure.quartz.QuartzDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -17,8 +20,11 @@ import javax.sql.DataSource;
  *
  * @author zipe
  */
+@Slf4j
 @Configuration
-@ConditionalOnProperty(name = "spring.quartz.job-store-type", havingValue = "jdbc")
+@ConditionalOnClass(DataSourceProperties.class)
+@EnableConfigurationProperties(DataSourceProperties.class)
+@ConditionalOnExpression("${quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")
 public class DataSourceAutoConfiguration {
 
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {
@@ -33,7 +39,7 @@ public class DataSourceAutoConfiguration {
 
     /**
      * 讀取 spring.datasource.quartz 設定到 DataSourceProperties 物件
-     *
+     * <p>
      * 建立 quartz 資料來源的設定物件
      */
     @Primary
