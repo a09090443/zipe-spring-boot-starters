@@ -4,7 +4,6 @@ import com.zipe.quartz.config.QuartzJobPropertyConfig;
 import com.zipe.quartz.controller.QuartzController;
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.model.Job;
-import com.zipe.quartz.service.impl.TestServiceImpl;
 import com.zipe.quartz.util.QuartzJobUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobDetail;
