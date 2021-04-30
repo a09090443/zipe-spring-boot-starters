@@ -1,15 +1,14 @@
 package com.zipe.autoconfiguration;
 
-import com.zipe.config.LdapPropertyConfig;
 import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.handler.LoginFailureHandler;
 import com.zipe.handler.LoginSuccessHandler;
 import com.zipe.handler.LogoutSuccessHandler;
-import com.zipe.util.ApplicationContextHelper;
-import com.zipe.util.string.StringConstant;
 import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
+import com.zipe.util.ApplicationContextHelper;
+import com.zipe.util.string.StringConstant;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
