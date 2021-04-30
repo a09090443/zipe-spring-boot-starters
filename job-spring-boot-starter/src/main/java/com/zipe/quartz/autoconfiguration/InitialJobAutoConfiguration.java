@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.ArrayList;
@@ -36,7 +37,8 @@ import java.util.Set;
 @ConditionalOnClass(QuartzJobPropertyConfig.class)
 @EnableConfigurationProperties(QuartzJobPropertyConfig.class)
 @Import(value = {QuartzController.class})
-@ConditionalOnProperty(name = "quartz.enable", havingValue = "true")
+@PropertySource(value = {"classpath:quartz.properties", "classpath:quartz-jobs.properties", "classpath:spring-quartz.properties"}, encoding = "UTF-8")
+@ConditionalOnProperty(name = "spring.quartz.enable", havingValue = "true")
 public class InitialJobAutoConfiguration {
 
     private final String JOB_GROUP_NAME = "file";

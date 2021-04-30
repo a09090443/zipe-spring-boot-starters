@@ -1,2 +1,7 @@
 server:
   port: 8080
+
+spring:
+  quartz:
+    enable: true
+    job-store-type: memory #jdbc-資料庫、memory 記憶體

@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
@@ -24,7 +25,8 @@ import javax.sql.DataSource;
 @Configuration
 @ConditionalOnClass(DataSourceProperties.class)
 @EnableConfigurationProperties(DataSourceProperties.class)
-@ConditionalOnExpression("${quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")
+@PropertySource(value = {"classpath:quartz-datasource.properties"})
+@ConditionalOnExpression("${spring.quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")
 public class DataSourceAutoConfiguration {
 
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {

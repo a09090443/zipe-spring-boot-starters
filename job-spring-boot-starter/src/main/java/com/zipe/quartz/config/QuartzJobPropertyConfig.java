@@ -15,6 +15,5 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "quartz")
 @Data
 public class QuartzJobPropertyConfig {
-    private Boolean enable;
     private Map<String, Job> jobMap;
 }
