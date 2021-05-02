@@ -1,0 +1,10 @@
+# Tomcat
+server:
+  port: 8080
+
+# Spring
+spring:
+  application:
+    name: web-service-spring-boot-starter
+  main:
+    allow-bean-definition-overriding: true
