@@ -1,0 +1,5 @@
+# Spring
+spring:
+  application:
+    # 應用名稱
+    name: web-service-spring-boot-starter
