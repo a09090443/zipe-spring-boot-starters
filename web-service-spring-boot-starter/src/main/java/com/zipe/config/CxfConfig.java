@@ -1,6 +1,7 @@
 package com.zipe.config;
 
 import com.zipe.model.Shanhy;
+import com.zipe.model.ShanhyA;
 import com.zipe.service.UserService;
 import org.apache.cxf.Bus;
 import org.apache.cxf.jaxws.EndpointImpl;
@@ -34,8 +35,8 @@ public class CxfConfig {
     }
 
     @Bean
-    public Endpoint userEndpoint(@Qualifier("shanhyB") Shanhy shanhy) {
-        shanhy.display();
+    public Endpoint userEndpoint(@Qualifier("shanhyA") ShanhyA shanhy) {
+        shanhy.testMethod("aaaa");
         EndpointImpl endpoint =
                 new EndpointImpl(bus, userService);
         endpoint.publish("/user");

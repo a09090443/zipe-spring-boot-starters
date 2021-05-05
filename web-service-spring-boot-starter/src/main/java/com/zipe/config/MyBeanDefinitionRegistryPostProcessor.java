@@ -1,5 +1,6 @@
 package com.zipe.config;
 
+import com.zipe.model.Shanhy;
 import com.zipe.model.ShanhyA;
 import com.zipe.model.ShanhyB;
 import org.slf4j.Logger;
@@ -30,6 +31,9 @@ public class MyBeanDefinitionRegistryPostProcessor implements BeanDefinitionRegi
     @Override
     public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
         logger.info("Invoke Metho postProcessBeanFactory");
+        BeanDefinition bd = beanFactory.getBeanDefinition("shanhyA");
+        MutablePropertyValues mpv = bd.getPropertyValues();
+        mpv.addPropertyValue("test", "123456788");
 // 這裡可以設定屬性，例如
 //        BeanDefinition bd = beanFactory.getBeanDefinition("dataSourceA");
 //        MutablePropertyValues mpv = bd.getPropertyValues();
@@ -42,6 +46,8 @@ public class MyBeanDefinitionRegistryPostProcessor implements BeanDefinitionRegi
     @Override
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
         logger.info("Invoke Metho postProcessBeanDefinitionRegistry");
+//        ShanhyA test = new ShanhyA();
+//        test.setTest("aaaaaaaaaa");
         registerBean(registry, "shanhyA", ShanhyA.class);
         registerBean(registry, "shanhyB", ShanhyB.class);
     }
