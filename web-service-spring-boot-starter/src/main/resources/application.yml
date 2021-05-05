@@ -3,3 +3,11 @@ spring:
   application:
     # 應用名稱
     name: web-service-spring-boot-starter
+
+web:
+  service:
+    uriMapping: /webservice/*
+    map:
+      example:
+        beanName: userService
+        address: /user

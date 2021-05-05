@@ -64,7 +64,6 @@
     <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-starter:2.4.4" level="project" />
     <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot:2.4.4" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-context:5.3.5" level="project" />
-    <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-autoconfigure:2.4.4" level="project" />
     <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-starter-logging:2.4.4" level="project" />
     <orderEntry type="library" name="Maven: ch.qos.logback:logback-classic:1.2.3" level="project" />
     <orderEntry type="library" name="Maven: ch.qos.logback:logback-core:1.2.3" level="project" />
@@ -91,6 +90,9 @@
     <orderEntry type="library" name="Maven: org.springframework:spring-webmvc:5.3.5" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-aop:5.3.5" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-expression:5.3.5" level="project" />
+    <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-autoconfigure:2.4.4" level="project" />
+    <orderEntry type="library" name="Maven: org.springframework.boot:spring-boot-configuration-processor:2.4.4" level="project" />
+    <orderEntry type="library" name="Maven: org.projectlombok:lombok:1.18.18" level="project" />
     <orderEntry type="library" name="Maven: org.apache.cxf:cxf-spring-boot-starter-jaxws:3.4.3" level="project" />
     <orderEntry type="library" name="Maven: org.apache.cxf:cxf-spring-boot-autoconfigure:3.4.3" level="project" />
     <orderEntry type="library" name="Maven: org.apache.cxf:cxf-rt-transports-http:3.4.3" level="project" />
