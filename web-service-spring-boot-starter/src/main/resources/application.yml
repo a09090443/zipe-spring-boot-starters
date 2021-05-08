@@ -6,8 +6,11 @@ spring:
 
 web:
   service:
-    uriMapping: /webservice/*
+    uri-mapping: /webservice/*
     map:
       example:
-        beanName: userService
-        address: /user
+        beanName: userServiceImpl
+        uri-mapping: /user
+      demo:
+        beanName: demoServiceImpl
+        uri-mapping: /demo

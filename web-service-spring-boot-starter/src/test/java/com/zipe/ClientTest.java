@@ -1,19 +1,13 @@
 package com.zipe;
 
-import com.zipe.model.User;
-import com.zipe.service.UserService;
-import org.apache.cxf.endpoint.Client;
-import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
-import org.apache.cxf.jaxws.endpoint.dynamic.JaxWsDynamicClientFactory;
-
-import java.util.Map;
+import com.zipe.util.WebServiceClientUtil;
 
 /**
  * @author : Gary Tsai
  * @created : @Date 2021/5/4 下午 02:55
  **/
 public class ClientTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
 //        try {
 //            // 接口地址
 //            String address = "http://127.0.0.1:8080/webservice/user?wsdl";
@@ -35,18 +29,9 @@ public class ClientTest {
 //            e.printStackTrace();
 //        }
 
-        // 創建動態客戶端
-        JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
-        Client client = dcf.createClient("http://127.0.0.1:8080/webservice/user?wsdl");
-        // 需要密碼的情況需要加上用戶名和密碼
-        // client.getOutInterceptors().add(new ClientLoginInterceptor(USER_NAME, PASS_WORD));
-        Object[] objects = new Object[0];
-        try {
-            // invoke("方法名",參數1,參數2,參數3....);
-            objects = client.invoke("getUserName", "test");
-            System.out.println("返回數據:" + objects[0]);
-        } catch (java.lang.Exception e) {
-            e.printStackTrace();
-        }
+        WebServiceClientUtil clientUtil = new WebServiceClientUtil("http://127.0.0.1:8080/webservice/helloWorld?wsdl",
+                "getAllUserData",new Object[]{});
+        Object[] test = clientUtil.invoke();
+        System.out.println(test);
     }
 }

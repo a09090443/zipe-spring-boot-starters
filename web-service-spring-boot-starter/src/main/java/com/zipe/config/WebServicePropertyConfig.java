@@ -6,12 +6,15 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Map;
 
+/**
+ * @author Gary.Tsai
+ */
 @Configuration
 @ConfigurationProperties(prefix = "web.service")
 @Data
 public class WebServicePropertyConfig {
 
-    private String uriMapping;
+    private String uriMapping = "/webservice/*";
 
     private Map<String, Service> map;
 }
