@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.4.4</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <groupId>com.zipe</groupId>
+    <artifactId>web-service-spring-boot-starter</artifactId>
+    <version>2.4.4.1</version>
+    <name>web-service-spring-boot-starter</name>
+    <description>Web Service spring boot project</description>
+
+    <properties>
+        <github.global.server>github</github.global.server>
+        <java.version>11</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <cxf-spring-boot-starter-jaxws.version>3.4.3</cxf-spring-boot-starter-jaxws.version>
+        <jaxws-ri.version>2.3.4</jaxws-ri.version>
+        <base-spring-boot-starter.version>2.4.4.1</base-spring-boot-starter.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
+        <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <site-maven-plugin.version>0.12</site-maven-plugin.version>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- CXF webservice -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-spring-boot-starter-jaxws</artifactId>
+            <version>${cxf-spring-boot-starter-jaxws.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.sun.xml.ws</groupId>
+            <artifactId>jaxws-ri</artifactId>
+            <version>${jaxws-ri.version}</version>
+            <type>pom</type>
+        </dependency>
+
+        <!-- Spring boot starters -->
+        <dependency>
+            <groupId>com.zipe</groupId>
+            <artifactId>base-spring-boot-starter</artifactId>
+            <version>${base-spring-boot-starter.version}</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <finalName>web-service-spring-boot-starter</finalName>
+        <plugins>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>${maven-deploy-plugin.version}</version>
+                <configuration>
+                    <!-- altDeploymentRepository ：指定替代方案應該部署項目工件的存儲庫（除了指定的工件）。 -->
+                    <altDeploymentRepository>
+                        internal.repo::default::file://${project.basedir}/mvn-repo
+                    </altDeploymentRepository>
+                </configuration>
+            </plugin>
+            <!--github上傳插件,用於修改後的發布,執行 mvn clean deploy 自動打包上傳到github-->
+            <plugin>
+                <groupId>com.github.github</groupId>
+                <artifactId>site-maven-plugin</artifactId>
+                <version>0.12</version>
+                <configuration>
+                    <message>Creating site for ${project.artifactId} ${project.version}</message>
+                    <noJekyll>true</noJekyll>
+                    <!--本地jar地址, 對應上面的altDeploymentRepository-->
+                    <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
+                    <!--分支-->
+                    <branch>refs/heads/mvn-repo</branch>
+                    <merge>true</merge>
+                    <includes>
+                        <include>**/*</include>
+                    </includes>
+                    <!--對應github上創建的倉庫名稱 name-->
+                    <repositoryName>zipe-spring-boot-starters</repositoryName>
+                    <!--github登錄帳號 對應的密碼存在maven的setting.xml文件中-->
+                    <!--由github組織擁有，則該值將是組織名稱，如果由用戶擁有，則該值將是用戶名-->
+                    <repositoryOwner>a09090443</repositoryOwner>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>site</goal>
+                        </goals>
+                        <phase>deploy</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
