@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: example
+  main:
+    allow-bean-definition-overriding: true
+  # db-spring-boot-starter
+  jpa:
+    hibernate:
+      ddl-auto: none # service 啟動時 database 自動建立機制 (create, create-drop, update, validate)
+    show-sql: false # 顯示 Sql 語法
+    base:
+      packages: com.example # Jpa repository package
+  # job-spring-boot-starter
+  quartz:
+    enable: true # 是否開啟 Job 功能
+    job-store-type: memory #jdbc-資料庫、memory 記憶體
+
+# web-service-spring-boot-starter
+web:
+  service:
+    uri-mapping: /webservice/* # Uri 對應,例：http://localhost:8080/demo/webservice?wsdl
+    map:
+      example:
+        beanName: userServiceImpl
+        uri-mapping: /user
+      demo:
+        beanName: demoServiceImpl
+        uri-mapping: /demo
+
+# logon-spring-boot-starter
+security:
+  enable: true
+  verification-type: custom #basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
+  custom-bean-name: test
+  record-log-enable: false
+  allow-uris: /resources/**,/static/**
+  login-uri: /login
+  login-success-uri: /dashboard
+  login-failure-uri: /login
+  ldap:
+    ip: 127.0.0.1
+    domain: ldap.zipe.com
+    port: 389
+    dn: DC=zipe,DC=local
+
+# base-spring-boot-starter
+mail:
+  debug-enable: true
+  username: zipe
+  pa55word: zipe
+  enable-encrypt: false
+  host: 127.0.0.1
+  port: 25
+  smtp-auth-enable: true
+  sender: zipe@localhost.com
+  transport-protocol: smtp
+  smtp-start-tls-enable: true
