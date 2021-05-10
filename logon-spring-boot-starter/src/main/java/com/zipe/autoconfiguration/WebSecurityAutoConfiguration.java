@@ -60,6 +60,9 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 auth.authenticationProvider(ldapUserDetailsService());
                 break;
             case CUSTOM:
+                if(StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())){
+                    throw new NullPointerException("Please enter value in custom-bean-name");
+                }
                 auth.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
                 break;
             case BASIC:
