@@ -62,9 +62,16 @@
             <groupId>org.apache.tomcat.embed</groupId>
             <artifactId>tomcat-embed-jasper</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.zipe</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
+            <version>${zipe.spring.starter.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.zipe</groupId>
+            <artifactId>db-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 

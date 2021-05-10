@@ -3,6 +3,9 @@ package com.example.job;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * @author Gary.Tsai
+ */
 @Component
 public class ExampleAnnotationJob {
 

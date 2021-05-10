@@ -1,12 +1,13 @@
 package com.example.job;
 
 import com.zipe.quartz.job.QuartJobFactory;
+import com.zipe.util.time.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobExecutionContext;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
+/**
+ * @author Gary.Tsai
+ */
 @Slf4j
 public class ExampleJob extends QuartJobFactory {
 
@@ -15,7 +16,6 @@ public class ExampleJob extends QuartJobFactory {
 
     @Override
     protected void executeJob(JobExecutionContext jobExecutionContext) throws Exception {
-        String now = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
-        log.info("TestJob執行, 當前的時間: " + now);
+        log.info("{}執行, 當前的時間:{}", this.getClass(), DateTimeUtils.getDateNow());
     }
 }

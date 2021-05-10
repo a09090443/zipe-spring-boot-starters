@@ -1,4 +1,12 @@
 package com.example.webservice;
 
-public class ExampleWebService {
+import javax.jws.WebService;
+
+/**
+ * @author Gary.Tsai
+ */
+@WebService(targetNamespace="http://service.example.com")
+public interface ExampleWebService {
+
+    public void reportDateTime();
 }
