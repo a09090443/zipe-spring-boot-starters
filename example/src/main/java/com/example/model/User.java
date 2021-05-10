@@ -3,6 +3,8 @@ package com.example.model;
 import lombok.Data;
 
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
@@ -11,17 +13,11 @@ import javax.persistence.Table;
  */
 @Data
 @Entity
-@Table(name = "LDAP_USER")
-public class LdapUser {
+public class User {
 
     @Id
-    private String userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
     private String name;
-
-    private String email;
-
-    private String ldapDn;
-
-    private String isEnabled;
 }

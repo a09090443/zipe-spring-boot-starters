@@ -75,7 +75,7 @@
     </dependencies>
 
     <build>
-        <finalName>logon-spring-boot-starter</finalName>
+        <finalName>web-spring-boot-starter</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>

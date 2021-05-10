@@ -86,21 +86,28 @@
             <artifactId>job-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>com.zipe</groupId>
-            <artifactId>web-service-spring-boot-starter</artifactId>
-            <version>${zipe.spring.starter.version}</version>
-        </dependency>
     </dependencies>
 
     <build>
+        <finalName>web-spring-boot-starter</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/webapp</directory>
+                <!--这里必须是META-INF/resources-->
+                <targetPath>META-INF/resources</targetPath>
+                <includes>
+                    <include>**/**</include>
+                </includes>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
+
     </build>
 
 </project>

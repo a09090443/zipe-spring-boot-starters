@@ -1,28 +1,20 @@
-package com.example.controller;
+package com.zipe.controller;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-/**
- * @author Gary.Tsai
- */
-@Slf4j
 @Controller
-@RequestMapping({"/"})
-public class ExampleController {
+@RequestMapping("/")
+public class WebController {
 
     @GetMapping({"/thymeleaf"})
     public String thymeleaf() {
-        log.info("thymeleaf");
-        return "html/hello";
+        return "th/hello";
     }
 
     @GetMapping({"/jsp"})
     public String jsp() {
-        log.info("jsp");
         return "jsp/hello";
     }
-
 }

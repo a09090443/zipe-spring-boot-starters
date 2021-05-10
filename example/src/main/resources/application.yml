@@ -34,20 +34,11 @@ web:
     viewNames: html/*, thymeleaf/*
     stuff: .html
     templateMode: HTML
-  service:
-    uri-mapping: /webservice/* # Uri 對應,例：http://localhost:8080/demo/webservice?wsdl
-    map:
-      example:
-        beanName: exampleWebServiceImpl
-        uri-mapping: /example
-#      demo:
-#        beanName: demoServiceImpl
-#        uri-mapping: /demo
 
 # logon-spring-boot-starter
 security:
-  enable: true
-  verification-type: custom #basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
+  enable: false
+  verification-type: basic #basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
   custom-bean-name: test # 自訂登入方式，請填入 bean name
   record-log-enable: false # 紀錄事件 Log
   allow-uris: /resources/**,/static/** # 設定不須授權即可登入的 Uri

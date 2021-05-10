@@ -1,7 +1,7 @@
 package com.example.service;
 
-import com.example.model.Gleepf;
-import com.example.model.LdapUser;
+import com.example.model.Info;
+import com.example.model.User;
 
 import java.util.List;
 
@@ -10,16 +10,19 @@ import java.util.List;
  */
 public interface ExampleService {
 
-    LdapUser findUserByUserId(String userId);
+    User findUserById(Integer id);
 
-    List<Gleepf> findAll();
+    User findUserByName(String name);
 
-    Gleepf findByEE010(String ee010);
+    List<User> findAll();
 
-    void saveGleepf(Gleepf gleepf);
+    User saveOrUpdateUser(User user);
 
-    void delGleepf(Gleepf gleepf);
+    void deleteUser(User user);
 
-    void updateGleepf(Gleepf gleepf);
+    Info findByUserId(Integer userId);
 
+    Info saveOrUpdateInfo(Info info);
+
+    void deleteInfo(Info info);
 }

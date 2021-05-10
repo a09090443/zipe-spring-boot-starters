@@ -19,7 +19,7 @@ public class ApplicationContextHelper implements ApplicationContextAware {
     }
 
     public static Object getBean(String beanName) {
-        if (applicationContext == null) {
+        if (null == applicationContext) {
             throw new NullPointerException("ApplicationContext is null!");
         }
         return applicationContext.getBean(beanName);
@@ -33,7 +33,7 @@ public class ApplicationContextHelper implements ApplicationContextAware {
      * @return <T>
      */
     public static <T> T popBean(Class<T> clazz) {
-        if (applicationContext == null) {
+        if (null == applicationContext) {
             return null;
         }
         return applicationContext.getBean(clazz);
@@ -48,7 +48,7 @@ public class ApplicationContextHelper implements ApplicationContextAware {
      * @return <T>
      */
     public static <T> T popBean(String name, Class<T> clazz) {
-        if (applicationContext == null) {
+        if (null == applicationContext) {
             return null;
         }
         return applicationContext.getBean(name, clazz);

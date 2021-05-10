@@ -22,3 +22,7 @@ web:
     viewNames: html/*, thymeleaf/*
     stuff: .html
     templateMode: HTML
+
+logging:
+  level:
+    ROOT: DEBUG

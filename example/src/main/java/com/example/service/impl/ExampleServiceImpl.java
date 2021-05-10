@@ -1,9 +1,9 @@
 package com.example.service.impl;
 
-import com.example.model.Gleepf;
-import com.example.model.LdapUser;
-import com.example.repository.GleepfRepository;
-import com.example.repository.LdapUserRepository;
+import com.example.model.Info;
+import com.example.model.User;
+import com.example.repository.InfoRepository;
+import com.example.repository.UserRepository;
 import com.example.service.ExampleService;
 import com.zipe.base.annotation.DS;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,53 +18,67 @@ import java.util.List;
 @Service
 public class ExampleServiceImpl implements ExampleService {
 
-    private final LdapUserRepository ldapUserRepository;
+    private final UserRepository userRepository;
 
-    private final GleepfRepository gleepfRepository;
+    private final InfoRepository infoRepository;
 
     @Autowired
-    public ExampleServiceImpl(LdapUserRepository ldapUserRepository,
-                              GleepfRepository gleepfRepository){
-        this.ldapUserRepository = ldapUserRepository;
-        this.gleepfRepository = gleepfRepository;
+    public ExampleServiceImpl(UserRepository userRepository,
+                              InfoRepository infoRepository) {
+        this.userRepository = userRepository;
+        this.infoRepository = infoRepository;
     }
 
     @Override
     @DS
-    public LdapUser findUserByUserId(String userId) {
-        return ldapUserRepository.findByUserId(userId);
+    public User findUserById(Integer id) {
+        return userRepository.findById(id).get();
     }
 
     @Override
-    @DS("example")
-    public List<Gleepf> findAll() {
-        return gleepfRepository.findAll();
+    @DS
+    public User findUserByName(String name) {
+        return userRepository.findUserByName(name);
     }
 
     @Override
-    @DS("example")
-    public Gleepf findByEE010(String ee010) {
-        return gleepfRepository.findByEe010(ee010);
+    @DS
+    public List<User> findAll() {
+        return userRepository.findAll();
     }
 
     @Override
+    @DS
     @Transactional
-    @DS("example")
-    public void saveGleepf(Gleepf gleepf) {
-        gleepfRepository.save(gleepf);
+    public User saveOrUpdateUser(User user) {
+        return userRepository.save(user);
     }
 
     @Override
+    @DS
     @Transactional
-    @DS("example")
-    public void delGleepf(Gleepf gleepf) {
-        gleepfRepository.delete(gleepf);
+    public void deleteUser(User user) {
+        userRepository.delete(user);
     }
 
     @Override
-    @Transactional
     @DS("example")
-    public void updateGleepf(Gleepf gleepf) {
-        gleepfRepository.save(gleepf);
+    public Info findByUserId(Integer userId) {
+        return infoRepository.findById(userId).get();
     }
+
+    @Override
+    @DS("example")
+    @Transactional
+    public Info saveOrUpdateInfo(Info info) {
+        return infoRepository.save(info);
+    }
+
+    @Override
+    @DS("example")
+    @Transactional
+    public void deleteInfo(Info info) {
+        infoRepository.delete(info);
+    }
+
 }
