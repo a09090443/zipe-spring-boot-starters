@@ -15,6 +15,7 @@
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>11</java.version>
+        <jaxws-ri.version>2.3.4</jaxws-ri.version>
         <zipe.spring.starter.version>2.4.4.1</zipe.spring.starter.version>
     </properties>
 
@@ -64,6 +65,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.sun.xml.ws</groupId>
+            <artifactId>jaxws-ri</artifactId>
+            <version>${jaxws-ri.version}</version>
+            <type>pom</type>
+        </dependency>
+
+        <dependency>
             <groupId>com.zipe</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
@@ -90,6 +98,12 @@
         <dependency>
             <groupId>com.zipe</groupId>
             <artifactId>job-spring-boot-starter</artifactId>
+            <version>${zipe.spring.starter.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.zipe</groupId>
+            <artifactId>web-service-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
     </dependencies>

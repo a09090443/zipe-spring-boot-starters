@@ -11,6 +11,6 @@ web:
       example:
         beanName: userServiceImpl
         uri-mapping: /user
-      demo:
-        beanName: demoServiceImpl
-        uri-mapping: /demo
+#      demo:
+#        beanName: demoServiceImpl
+#        uri-mapping: /demo

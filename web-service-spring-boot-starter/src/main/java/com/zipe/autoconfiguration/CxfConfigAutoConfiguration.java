@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/5/4 下午 02:09
  **/
 @Configuration
 @ConditionalOnClass(WebServicePropertyConfig.class)

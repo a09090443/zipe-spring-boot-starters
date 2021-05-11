@@ -19,6 +19,8 @@ server:
   servlet:
     context-path: /example
   port: 8080
+  tomcat:
+    additional-tld-skip-patterns: '*.jar' # Comma-separated list of additional patterns that match jars to ignore for TLD scanning.
 
 # web-service-spring-boot-starter
 web:
@@ -34,6 +36,12 @@ web:
     viewNames: html/*, thymeleaf/*
     stuff: .html
     templateMode: HTML
+  service:
+    uri-mapping: /webservice/*
+    map:
+      example:
+        beanName: exampleWebServiceImpl
+        uri-mapping: /example
 
 # logon-spring-boot-starter
 security:
@@ -41,7 +49,7 @@ security:
   verification-type: basic #basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
   custom-bean-name: test # 自訂登入方式，請填入 bean name
   record-log-enable: false # 紀錄事件 Log
-  allow-uris: /resources/**,/static/** # 設定不須授權即可登入的 Uri
+  allow-uris: /resources/**,/static/**,/webservice/** # 設定不須授權即可登入的 Uri
 #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
   login-success-uri: /jsp # 登入成功後的頁面
   login-failure-uri: /login # 登入失敗的頁面
