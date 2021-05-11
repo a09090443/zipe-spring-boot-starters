@@ -1,6 +1,6 @@
 package com.example.repository;
 
-import com.example.model.Info;
+import com.example.model.UserDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,5 +8,5 @@ import org.springframework.stereotype.Repository;
  * @author zipe
  */
 @Repository
-public interface InfoRepository extends JpaRepository<Info, Integer> {
+public interface UserDetailRepository extends JpaRepository<UserDetail, String> {
 }

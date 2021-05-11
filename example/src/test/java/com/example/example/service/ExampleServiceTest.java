@@ -1,8 +1,8 @@
 package com.example.example.service;
 
 import com.example.example.base.TestBase;
-import com.example.model.Info;
-import com.example.model.User;
+import com.example.model.UserDetail;
+import com.example.model.UserMain;
 import com.example.service.ExampleService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * @author : Gary Tsai
@@ -27,39 +27,45 @@ public class ExampleServiceTest extends TestBase {
     @BeforeEach
     public void insertNewRecord() {
 
-        User user = new User();
-        user.setName("Gary");
-        user = exampleServiceImpl.saveOrUpdateUser(user);
+        UserMain main = new UserMain();
+        main.setName("Gary");
+        main = exampleServiceImpl.saveOrUpdateUser(main);
 
-        Info info = new Info();
-        info.setUserId(user.getId());
-        info.setGender("M");
-        exampleServiceImpl.saveOrUpdateInfo(info);
+        UserDetail detail = new UserDetail();
+        detail.setName(main.getName());
+        detail.setGender("M");
+        exampleServiceImpl.saveOrUpdateInfo(detail);
     }
 
     @AfterEach
     public void deleteRecord() {
-        User user = exampleServiceImpl.findUserByName("Gary");
-        exampleServiceImpl.deleteUser(user);
-        Info info = exampleServiceImpl.findByUserId(user.getId());
-        exampleServiceImpl.deleteInfo(info);
+        UserMain main = exampleServiceImpl.findUserByName("Gary");
+        exampleServiceImpl.deleteUser(main);
+        UserDetail detail = exampleServiceImpl.findByUserName(main.getName());
+        exampleServiceImpl.deleteInfo(detail);
     }
 
     @Test
-    public void findGleepfTest() {
-        User user = exampleServiceImpl.findUserByName("Gary");
-        Assertions.assertNotNull(user);
+    public void findUserByNameTest() {
+        UserMain main = exampleServiceImpl.findUserByName("Gary");
+        Assertions.assertNotNull(main);
     }
 
     @Test
-    public void updateGleepfTest() {
-        User user = exampleServiceImpl.findUserByName("Gary");
-        Info info = exampleServiceImpl.findByUserId(user.getId());
+    public void updateUserAndInfoTest() {
+        UserMain main = exampleServiceImpl.findUserByName("Gary");
+        UserDetail detail = exampleServiceImpl.findByUserName(main.getName());
         String gender = "F";
-        info.setGender(gender);
-        exampleServiceImpl.saveOrUpdateInfo(info);
-        Info newInfo = exampleServiceImpl.findByUserId(user.getId());
+        detail.setGender(gender);
+        exampleServiceImpl.saveOrUpdateInfo(detail);
+        UserDetail newInfo = exampleServiceImpl.findByUserName(main.getName());
         Assertions.assertEquals(newInfo.getGender(), gender);
+    }
+
+    @Test
+    public void findUserByJdbcTest() {
+        List<UserMain> users = exampleServiceImpl.findUserByJdbc("Jen");
+        Assertions.assertNotNull(users);
     }
 
 }

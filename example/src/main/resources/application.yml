@@ -25,27 +25,28 @@ server:
 # web-service-spring-boot-starter
 web:
   resource:
-    pathPattern: /static/**
-    location: /WEB-INF/static/
+    pathPattern: /static/** # 靜態資源 Uri
+    location: /WEB-INF/static/ # 靜態資源對應目錄，預設是在 /WEB-INF 目錄下
   jsp:
-    enable: true
-    viewNames: jsp/*
-    stuff: .jsp
+    enable: true # jsp page 開關
+    viewNames: jsp/* # jsp 對應 uri
+    stuff: .jsp # jsp 副檔名
   thymeleaf:
-    enable: true
-    viewNames: html/*, thymeleaf/*
-    stuff: .html
-    templateMode: HTML
+    enable: true # thymeleaf page 開關
+    viewNames: html/*, thymeleaf/* # thymeleaf 對應 uri
+    stuff: .html # thymeleaf 副檔名
+    templateMode: HTML # thymeleaf 模式
+  # web-service-spring-boot-starter
   service:
-    uri-mapping: /webservice/*
+    uri-mapping: /webservice/* # web service 對應 Uri，http://localhost:8080/webservice?wsdl
     map:
       example:
-        beanName: exampleWebServiceImpl
-        uri-mapping: /example
+        beanName: exampleWebServiceImpl # example 資源對應的 bean
+        uri-mapping: /example # web service 資源對應 Uri，http://localhost:8080/webservice/example?wsdl
 
 # logon-spring-boot-starter
 security:
-  enable: true
+  enable: true # security 開關
   verification-type: basic #basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
   custom-bean-name: test # 自訂登入方式，請填入 bean name
   record-log-enable: false # 紀錄事件 Log

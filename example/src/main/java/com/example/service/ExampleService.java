@@ -1,7 +1,7 @@
 package com.example.service;
 
-import com.example.model.Info;
-import com.example.model.User;
+import com.example.model.UserDetail;
+import com.example.model.UserMain;
 
 import java.util.List;
 
@@ -10,19 +10,21 @@ import java.util.List;
  */
 public interface ExampleService {
 
-    User findUserById(Integer id);
+    UserMain findUserById(Integer id);
 
-    User findUserByName(String name);
+    UserMain findUserByName(String name);
 
-    List<User> findAll();
+    List<UserMain> findAll();
 
-    User saveOrUpdateUser(User user);
+    UserMain saveOrUpdateUser(UserMain userMain);
 
-    void deleteUser(User user);
+    void deleteUser(UserMain user);
 
-    Info findByUserId(Integer userId);
+    UserDetail findByUserName(String name);
 
-    Info saveOrUpdateInfo(Info info);
+    UserDetail saveOrUpdateInfo(UserDetail userDetail);
 
-    void deleteInfo(Info info);
+    void deleteInfo(UserDetail userDetail);
+
+    List<UserMain> findUserByJdbc(String name);
 }
