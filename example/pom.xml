@@ -71,6 +71,12 @@
 
         <dependency>
             <groupId>com.zipe</groupId>
+            <artifactId>logon-spring-boot-starter</artifactId>
+            <version>${zipe.spring.starter.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.zipe</groupId>
             <artifactId>db-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
