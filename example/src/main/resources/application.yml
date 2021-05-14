@@ -19,8 +19,6 @@ server:
   servlet:
     context-path: /example
   port: 8080
-  tomcat:
-    additional-tld-skip-patterns: '*.jar' # Comma-separated list of additional patterns that match jars to ignore for TLD scanning.
 
 # web-service-spring-boot-starter
 web:
