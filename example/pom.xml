@@ -109,11 +109,11 @@
     </dependencies>
 
     <build>
-        <finalName>web-spring-boot-starter</finalName>
+        <finalName>example</finalName>
         <resources>
             <resource>
                 <directory>src/main/webapp</directory>
-                <!--这里必须是META-INF/resources-->
+                <!--這裡必須是META-INF/resources-->
                 <targetPath>META-INF/resources</targetPath>
                 <includes>
                     <include>**/**</include>
