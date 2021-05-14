@@ -25,7 +25,7 @@ public class CxfConfigAutoConfiguration {
     }
 
     @Bean
-    public ServletRegistrationBean cxfServlet() {
+    public ServletRegistrationBean cxfServletRegistration() {
         return new ServletRegistrationBean(new CXFServlet(), webServicePropertyConfig.getUriMapping());
     }
 
