@@ -1,15 +1,14 @@
 package com.zipe.util.crypto;
 
 /**
- * @Description 16进制工具类
+ * @Description 16進制工具
  */
 public class HexUtil {
 
     /**
-     * @param bytes byte二进制
-     * @return hex 十六进制
-     * @Description byte二进制 转 hex 十六进制
-     * @author 王鑫
+     * @param bytes byte二進制
+     * @return hex 十六進制
+     * @Description byte二進制 轉 hex 十六進制
      */
     public static String byte2hex(byte[] bytes) {
         StringBuilder hexStr = new StringBuilder();
@@ -20,10 +19,9 @@ public class HexUtil {
     }
 
     /**
-     * @param hex hex十六进制
-     * @return byte二进制
-     * @Description hex十六进制 转 byte二进制
-     * @author 王鑫
+     * @param hex hex十六進制
+     * @return byte二進制
+     * @Description hex十六進制 轉 byte二進制
      */
     public static byte[] hex2byte(String hex) {
         if (isBlank(hex)) {
