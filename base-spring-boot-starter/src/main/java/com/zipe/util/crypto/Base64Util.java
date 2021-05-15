@@ -17,29 +17,29 @@ public class Base64Util implements Crypto {
     }
 
     @Override
-    public String getEncrypt(String str) {
-        return this.getEncrypt(str, (String) null);
+    public String getEncrypt(String content) {
+        return this.getEncrypt(content, null);
     }
 
     @Override
-    public String getDecode(String str) {
-        return this.getDecode(str, (String) null);
+    public String getDecode(String content) {
+        return this.getDecode(content, null);
     }
 
     @Override
-    public String getEncrypt(String str, String charCode) {
-        log.info("into getBase64Encrypt orgString:{}", str);
-        if (StringUtils.isBlank(str)) {
+    public String getEncrypt(String content, String charset) {
+        log.info("into getBase64Encrypt orgString:{}", charset);
+        if (StringUtils.isBlank(content)) {
             return "";
         } else {
             byte[] b;
-            if (StringUtils.isBlank(charCode)) {
-                b = str.getBytes();
+            if (StringUtils.isBlank(charset)) {
+                b = content.getBytes();
             } else {
                 try {
-                    b = str.getBytes(charCode);
+                    b = content.getBytes(charset);
                 } catch (UnsupportedEncodingException var5) {
-                    b = str.getBytes();
+                    b = content.getBytes();
                     log.error(var5.getMessage());
                 }
             }
@@ -49,19 +49,19 @@ public class Base64Util implements Crypto {
     }
 
     @Override
-    public String getDecode(String str, String charCode) {
-        log.info("into getBase64Decode encString:{}", str);
-        if (StringUtils.isBlank(str)) {
+    public String getDecode(String content, String charset) {
+        log.info("into getBase64Decode encString:{}", content);
+        if (StringUtils.isBlank(content)) {
             return "";
         } else {
             byte[] b;
-            if (StringUtils.isBlank(charCode)) {
-                b = str.getBytes();
+            if (StringUtils.isBlank(charset)) {
+                b = content.getBytes();
             } else {
                 try {
-                    b = str.getBytes(charCode);
+                    b = content.getBytes(charset);
                 } catch (UnsupportedEncodingException var5) {
-                    b = str.getBytes();
+                    b = content.getBytes();
                     log.error(var5.getMessage());
                 }
             }

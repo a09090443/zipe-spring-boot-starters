@@ -2,14 +2,36 @@ package com.zipe.util.crypto;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2020/11/23 上午 09:32
  **/
 public interface Crypto {
-    String getEncrypt(String var1);
 
-    String getEncrypt(String var1, String var2);
+    /**
+     * 加密
+     * @param content
+     * @return
+     */
+    String getEncrypt(String content);
 
-    String getDecode(String var1);
+    /**
+     * 加密
+     * @param content
+     * @param charset
+     * @return
+     */
+    String getEncrypt(String content, String charset);
 
-    String getDecode(String var1, String var2);
+    /**
+     * 解密
+     * @param content
+     * @return
+     */
+    String getDecode(String content);
+
+    /**
+     * 解密
+     * @param content
+     * @param charset
+     * @return
+     */
+    String getDecode(String content, String charset);
 }
