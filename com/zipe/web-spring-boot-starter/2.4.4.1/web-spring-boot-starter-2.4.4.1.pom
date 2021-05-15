@@ -76,6 +76,26 @@
 
     <build>
         <finalName>web-spring-boot-starter</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/webapp</directory>
+                <!--這裡必須是META-INF/resources-->
+                <targetPath>META-INF/resources</targetPath>
+                <includes>
+                    <include>**/**</include>
+                </includes>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/resources/META-INF</directory>
+                <!--這裡必須是META-INF-->
+                <targetPath>META-INF</targetPath>
+                <includes>
+                    <include>**/**</include>
+                </includes>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
