@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 
 /**
- * @Description 3DES算法工具类
+ * @Description 3DES算法工具類
  */
 public class DESedeUtil implements Crypto {
 
