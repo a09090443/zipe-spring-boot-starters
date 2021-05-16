@@ -1,4 +1,4 @@
-package com.example.example.util.jasperreport;
+package com.example.util.jasperreport;
 
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.JRDataSource;

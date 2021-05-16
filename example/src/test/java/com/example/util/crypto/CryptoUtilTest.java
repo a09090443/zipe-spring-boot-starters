@@ -1,4 +1,4 @@
-package com.example.example.util.crypto;
+package com.example.util.crypto;
 
 import com.zipe.util.crypto.AesUtil;
 import com.zipe.util.crypto.Base64Util;

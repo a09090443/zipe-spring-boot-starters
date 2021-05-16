@@ -1,9 +1,8 @@
-package com.example.example.service;
+package com.example.service;
 
-import com.example.example.base.TestBase;
+import com.example.base.TestBase;
 import com.example.model.UserDetail;
 import com.example.model.UserMain;
-import com.example.service.ExampleService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;

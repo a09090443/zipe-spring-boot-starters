@@ -1,6 +1,6 @@
-package com.example.example.service;
+package com.example.service;
 
-import com.example.example.base.TestBase;
+import com.example.base.TestBase;
 import com.zipe.model.Mail;
 import com.zipe.service.MailService;
 import org.junit.jupiter.api.Test;

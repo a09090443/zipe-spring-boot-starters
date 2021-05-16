@@ -1,4 +1,4 @@
-package com.example.example.util.jasperreport;
+package com.example.util.jasperreport;
 
 public class Country {
 

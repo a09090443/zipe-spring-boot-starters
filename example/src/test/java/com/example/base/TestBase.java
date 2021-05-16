@@ -1,4 +1,4 @@
-package com.example.example.base;
+package com.example.base;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.test.context.SpringBootTest;
