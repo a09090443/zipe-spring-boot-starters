@@ -93,6 +93,8 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .httpBasic()
                 .and().sessionManagement().invalidSessionUrl("/login")
                 .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
+        // 關閉 iframe 阻擋
+        http.headers().frameOptions().disable();
     }
 
     private void customLoginConfigure(HttpSecurity http) throws Exception {
@@ -117,6 +119,8 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .logoutSuccessHandler(logoutSuccessHandler())
                 .and().sessionManagement().invalidSessionUrl(securityPropertyConfig.getLoginUri())
                 .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
+        // 關閉 iframe 阻擋
+        http.headers().frameOptions().disable();
     }
 
     @Bean
