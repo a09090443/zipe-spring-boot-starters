@@ -25,7 +25,7 @@ public class RestSecurityTest extends TestBase {
 
     @BeforeEach
     public void getAccess() {
-        log.debug("测试使用 port:{}", port);
+        log.debug("測試使用 port:{}", port);
         // 如有登入需求，需輸入帳號密碼
         testRestTemplate = testRestTemplate.withBasicAuth(USERNAME, PASSWORD);
     }
