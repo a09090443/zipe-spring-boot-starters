@@ -1,8 +1,12 @@
 package com.zipe.handler;
 
 import com.zipe.config.SecurityPropertyConfig;
+import com.zipe.service.CustomLogonLogRecord;
+import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.UserInfoUtil;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuccessHandler;
@@ -14,7 +18,6 @@ import java.io.IOException;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/20 下午 13:46
  **/
 @Slf4j
 public class LogoutSuccessHandler extends SimpleUrlLogoutSuccessHandler {
@@ -28,6 +31,7 @@ public class LogoutSuccessHandler extends SimpleUrlLogoutSuccessHandler {
         setAlwaysUseDefaultTargetUrl(true);
     }
 
+    @SneakyThrows
     @Override
     public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
             throws IOException, ServletException {
@@ -35,6 +39,15 @@ public class LogoutSuccessHandler extends SimpleUrlLogoutSuccessHandler {
 
         if (authentication != null) {
             log.debug("user:{}, logout:{}", authentication.getPrincipal().toString(), request.getContextPath());
+        }
+
+
+        if(securityPropertyConfig.getRecordLogEnable()){
+            if(StringUtils.isBlank(securityPropertyConfig.getCustomRecordLogBean())){
+                throw new Exception("The Custom-Record-Log must have value while Record-Log-Enable = true");
+            }
+            CustomLogonLogRecord logRecord = (CustomLogonLogRecord) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomRecordLogBean());
+            logRecord.recordFailureLog(UserInfoUtil.loginUserId());
         }
 
         super.onLogoutSuccess(request, response, authentication);

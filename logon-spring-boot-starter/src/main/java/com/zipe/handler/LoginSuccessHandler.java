@@ -1,8 +1,13 @@
 package com.zipe.handler;
 
 import com.zipe.config.SecurityPropertyConfig;
+import com.zipe.service.CustomLogonLogRecord;
+import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.UserInfoUtil;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.context.ApplicationContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 
@@ -26,11 +31,19 @@ public class LoginSuccessHandler extends SavedRequestAwareAuthenticationSuccessH
         this.securityPropertyConfig = securityPropertyConfig;
     }
 
+    @SneakyThrows
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         log.debug("User:{}, login uri:{}", UserInfoUtil.loginUserId(), request.getContextPath());
         log.debug("Client ip:{}", getIpAddress(request));
+        if(securityPropertyConfig.getRecordLogEnable()){
+            if(StringUtils.isBlank(securityPropertyConfig.getCustomRecordLogBean())){
+                throw new Exception("The Custom-Record-Log must have value while Record-Log-Enable = true");
+            }
+            CustomLogonLogRecord logRecord = (CustomLogonLogRecord) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomRecordLogBean());
+            logRecord.recordLoginSuccessLog(UserInfoUtil.loginUserId());
+        }
         super.onAuthenticationSuccess(request, response, authentication);
     }
 

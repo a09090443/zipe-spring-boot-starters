@@ -16,6 +16,7 @@ public class SecurityPropertyConfig {
     private Boolean enable = Boolean.TRUE;
     private String verificationType;
     private Boolean recordLogEnable = Boolean.FALSE;
+    private String customRecordLogBean;
     private String allowUris;
     private String loginUri;
     private String loginSuccessUri = "/";

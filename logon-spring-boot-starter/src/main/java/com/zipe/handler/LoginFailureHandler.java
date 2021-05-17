@@ -2,7 +2,11 @@ package com.zipe.handler;
 
 import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.exception.LdapException;
+import com.zipe.service.CustomLogonLogRecord;
+import com.zipe.util.ApplicationContextHelper;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -17,7 +21,6 @@ import java.io.IOException;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/20 上午 11:52
  **/
 @Slf4j
 public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
@@ -31,6 +34,7 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
         setUseForward(true);
     }
 
+    @SneakyThrows
     @Override
     public void onAuthenticationFailure(
             HttpServletRequest request,
@@ -54,6 +58,14 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
             log.warn("帳號系統連線無回應");
         } else {
             log.warn("登入錯誤");
+        }
+
+        if(securityPropertyConfig.getRecordLogEnable()){
+            if(StringUtils.isBlank(securityPropertyConfig.getCustomRecordLogBean())){
+                throw new Exception("The Custom-Record-Log must have value while Record-Log-Enable = true");
+            }
+            CustomLogonLogRecord logRecord = (CustomLogonLogRecord) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomRecordLogBean());
+            logRecord.recordFailureLog(loginId);
         }
 
         super.onAuthenticationFailure(request, response, exception);

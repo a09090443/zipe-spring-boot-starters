@@ -9,6 +9,7 @@ import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.string.StringConstant;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * @author : Gary Tsai
  * @created : @Date 2021/4/19 下午 04:16
  **/
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
@@ -55,6 +57,8 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
             throws Exception {
 
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        log.info("登入模式:{}", verificationTypeEnum.name());
+
         switch (verificationTypeEnum) {
             case LDAP:
                 auth.authenticationProvider(ldapUserDetailsService());
