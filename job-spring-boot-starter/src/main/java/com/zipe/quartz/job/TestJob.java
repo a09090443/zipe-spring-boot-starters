@@ -11,7 +11,7 @@ import java.time.format.DateTimeFormatter;
  * @created : @Date 2021/4/26 下午 05:38
  **/
 @Slf4j
-public class TestJob extends QuartJobFactory {
+public class TestJob extends QuartzJobFactory {
 
     @Override
     protected void executeJob(JobExecutionContext jobExecutionContext) throws Exception {

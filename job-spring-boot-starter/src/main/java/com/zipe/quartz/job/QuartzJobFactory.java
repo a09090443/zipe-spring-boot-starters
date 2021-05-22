@@ -11,7 +11,7 @@ import org.springframework.scheduling.quartz.QuartzJobBean;
  * @created : @Date 2021/4/28 上午 09:08
  **/
 @Slf4j
-public abstract class QuartJobFactory extends QuartzJobBean {
+public abstract class QuartzJobFactory extends QuartzJobBean {
 
     /**
      * 排程執行前 Log 紀錄
