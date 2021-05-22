@@ -1,13 +1,15 @@
 package com.example.job
 
 import com.example.service.ExampleService
-import com.zipe.quartz.job.QuartJobFactory
+import com.zipe.quartz.job.QuartzJobFactory
 import com.zipe.util.log.logger
 import com.zipe.util.time.DateTimeUtils
 import org.quartz.JobExecutionContext
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
 
-class ExampleJob: QuartJobFactory() {
+@Component
+class ExampleJob: QuartzJobFactory() {
 
     @Autowired
     lateinit var exampleServiceImpl: ExampleService
