@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.zipe</groupId>
+  <artifactId>keycloak-spring-boot-starter</artifactId>
+  <versioning>
+    <release>2.4.4.1-SANPSHOT</release>
+    <versions>
+      <version>2.4.4.1-SANPSHOT</version>
+    </versions>
+    <lastUpdated>20210621021641</lastUpdated>
+  </versioning>
+</metadata>
