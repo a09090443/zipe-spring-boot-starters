@@ -11,7 +11,7 @@
 
     <groupId>com.zipe</groupId>
     <artifactId>keycloak-spring-boot-starter</artifactId>
-    <version>2.4.4.1-SANPSHOT</version>
+    <version>2.4.4.1-SNAPSHOT</version>
     <name>keycloak-spring-boot-starter</name>
     <description>Oauth-spring-boot-start reference https://github.com/thomasdarimont/embedded-spring-boot-keycloak-server</description>
 
