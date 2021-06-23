@@ -31,6 +31,8 @@
         <smallrye-metrics.version>2.4.6</smallrye-metrics.version> <!-- 2.4.0-2.4.2 causes compilation error with Java 11 on Maven -->
 
         <auto-service.version>1.0</auto-service.version>
+
+        <base-spring-boot-starter.version>2.4.4.1</base-spring-boot-starter.version>
     </properties>
 
     <repositories>
@@ -70,6 +72,17 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -274,10 +287,11 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Spring boot starters -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
+            <groupId>com.zipe</groupId>
+            <artifactId>base-spring-boot-starter</artifactId>
+            <version>${base-spring-boot-starter.version}</version>
         </dependency>
     </dependencies>
 

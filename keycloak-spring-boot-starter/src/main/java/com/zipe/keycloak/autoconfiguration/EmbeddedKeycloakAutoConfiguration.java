@@ -1,5 +1,9 @@
-package com.zipe.keycloak;
+package com.zipe.keycloak.autoconfiguration;
 
+import com.zipe.keycloak.EmbeddedKeycloakApplication;
+import com.zipe.keycloak.EmbeddedKeycloakServer;
+import com.zipe.keycloak.KeycloakCustomProperties;
+import com.zipe.keycloak.KeycloakProperties;
 import com.zipe.keycloak.support.DynamicJndiContextFactoryBuilder;
 import com.zipe.keycloak.support.KeycloakUndertowRequestFilter;
 import com.zipe.keycloak.support.SpringBootConfigProvider;
@@ -14,6 +18,7 @@ import org.keycloak.platform.Platform;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +35,8 @@ import java.util.concurrent.Executors;
 
 @Slf4j
 @Configuration
-public class EmbeddedKeycloakConfig {
+@EnableConfigurationProperties({KeycloakProperties.class, KeycloakCustomProperties.class})
+public class EmbeddedKeycloakAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "embeddedKeycloakServer")
