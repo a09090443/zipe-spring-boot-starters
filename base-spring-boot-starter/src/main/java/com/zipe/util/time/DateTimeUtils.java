@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DecimalStyle;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
@@ -49,39 +50,6 @@ public class DateTimeUtils {
     public static DateTimeFormatter dateTimeFormate17 = DateTimeFormatter.ofPattern("yyy");
     public static DateTimeFormatter dateTimeFormate18 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    public static LocalTime localTime = LocalTime.now(ZoneOffset.of(UTC_ADD_8));
-    public static LocalDate localDate = LocalDate.now(ZoneOffset.of(UTC_ADD_8));
-
-    /**
-     * 獲取秒級時間戳
-     */
-    public static Long epochSecond = LocalDateTime.now().toEpochSecond(ZoneOffset.of(UTC_ADD_8));
-
-    /**
-     * 獲取毫秒級時間戳
-     */
-    public static Long epochMilli = LocalDateTime.now().toInstant(ZoneOffset.of(UTC_ADD_8)).toEpochMilli();
-
-    /**
-     * 獲取當前詳細時間，like 2018-08-27 17:20:06
-     */
-    public static String dateTime = getDateNow().format(dateTimeFormate1);
-
-    /**
-     * 獲取當前日期，like 2018-08-27
-     */
-    public static String date = LocalDate.now(ZoneId.of("UTC+8")) + "";
-
-    /**
-     * 獲取當前時間，like 17:20:06
-     */
-    public static String time = localTime.format(dateTimeFormate3);
-
-    /**
-     * 獲取目前年份
-     */
-    public static int year = localDate.getYear();
-
     public static String getDateNow(DateTimeFormatter formatter) {
         return getDateNow().format(formatter);
     }
@@ -98,14 +66,9 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusYears(long yearsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusYears(yearsToAddOrSubtract).format(formatter) :
-                localDate.plusYears(yearsToAddOrSubtract) + "";
+                LocalDate.now(ZoneOffset.of(UTC_ADD_8)).plusYears(yearsToAddOrSubtract) + "";
         return date;
     }
-
-    /**
-     * 獲取目前月份
-     */
-    public static int month = localDate.getMonthValue();
 
     /**
      * 獲取當前月的前幾月/後幾月的日期
@@ -115,19 +78,22 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusMonths(long monthsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusMonths(monthsToAddOrSubtract).format(formatter) :
-                localDate.plusMonths(monthsToAddOrSubtract) + "";
+                LocalDate.now(ZoneOffset.of(UTC_ADD_8)).plusMonths(monthsToAddOrSubtract) + "";
         return date;
     }
 
     /**
-     * 獲取目前年份中的日
+     * 獲取當前月的前幾月/後幾月的日期
+     *
+     * @param monthsToAddOrSubtract 後幾月傳正整數，前幾月傳負數
+     * @param formatter
+     * @param startDate 需計算的起始日期
      */
-    public static int dayOfYear = localDate.getDayOfYear();
-
-    /**
-     * 獲取目前月份中的日
-     */
-    public static int dayOfMonth = localDate.getDayOfMonth();
+    public static String getMinusOrPlusMonthsByStartDate(long monthsToAddOrSubtract, DateTimeFormatter formatter, LocalDateTime startDate) {
+        String date = !Objects.isNull(formatter) ? startDate.plusMonths(monthsToAddOrSubtract).format(formatter) :
+                LocalDate.now(ZoneOffset.of(UTC_ADD_8)).plusMonths(monthsToAddOrSubtract) + "";
+        return date;
+    }
 
     /**
      * 獲取目前日的前幾日/後幾日的日期
@@ -137,14 +103,9 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusDays(long daysToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusDays(daysToAddOrSubtract).format(formatter) :
-                localDate.plusDays(daysToAddOrSubtract) + "";
+                LocalDate.now(ZoneOffset.of(UTC_ADD_8)).plusDays(daysToAddOrSubtract) + "";
         return date;
     }
-
-    /**
-     * 獲取目前星期中的日
-     */
-    public static int dayOfWeek = localDate.getDayOfWeek().getValue();
 
     /**
      * 獲取目前星期的前幾星期/後幾星期的日期
@@ -154,14 +115,9 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusWeeks(long weeksToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusWeeks(weeksToAddOrSubtract).format(formatter) :
-                localDate.plusWeeks(weeksToAddOrSubtract) + "";
+                LocalDate.now(ZoneOffset.of(UTC_ADD_8)).plusWeeks(weeksToAddOrSubtract) + "";
         return date;
     }
-
-    /**
-     * 獲取當前小時
-     */
-    public static int hour = localTime.getHour();
 
     /**
      * 獲取當前小時的前幾小時/後幾小時的日期
@@ -171,14 +127,9 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusHours(long hoursToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusHours(hoursToAddOrSubtract).format(formatter) :
-                localTime.plusHours(hoursToAddOrSubtract).format(formatter);
+                LocalTime.now(ZoneOffset.of(UTC_ADD_8)).plusHours(hoursToAddOrSubtract).format(formatter);
         return date;
     }
-
-    /**
-     * 獲取當前分鐘
-     */
-    public static int minute = localTime.getMinute();
 
     /**
      * 獲取當前分鐘的前幾分鐘/後幾分鐘的日期
@@ -188,14 +139,9 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusMinutes(long minutesToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusMinutes(minutesToAddOrSubtract).format(formatter) :
-                localTime.plusMinutes(minutesToAddOrSubtract).format(formatter);
+                LocalTime.now(ZoneOffset.of(UTC_ADD_8)).plusMinutes(minutesToAddOrSubtract).format(formatter);
         return date;
     }
-
-    /**
-     * 獲取當前秒
-     */
-    public static int second = localTime.getSecond();
 
     /**
      * 獲取當前秒的前幾秒/後幾秒的日期
@@ -205,7 +151,7 @@ public class DateTimeUtils {
      */
     public static String getMinusOrPlusSeconds(long secondsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusSeconds(secondsToAddOrSubtract).format(formatter) :
-                localTime.plusSeconds(secondsToAddOrSubtract).format(formatter);
+                LocalTime.now(ZoneOffset.of(UTC_ADD_8)).plusSeconds(secondsToAddOrSubtract).format(formatter);
         return date;
     }
 
@@ -250,7 +196,7 @@ public class DateTimeUtils {
             instant = ((LocalDate) java8Date).atStartOfDay().atZone(zone).toInstant();
         }
         if (java8Date instanceof LocalTime) {
-            LocalDateTime localDateTime = LocalDateTime.of(localDate, localTime);
+            LocalDateTime localDateTime = LocalDateTime.of(LocalDate.now(ZoneOffset.of(UTC_ADD_8)), LocalTime.now(ZoneOffset.of(UTC_ADD_8)));
             instant = localDateTime.atZone(zone).toInstant();
         }
         return instant == null ? null : Date.from(instant);
@@ -407,7 +353,7 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取前個月的1號0點 00:00:00
+     * 獲取前幾個月的1號0點 00:00:00
      *
      * @param localDateTime
      * @param month
@@ -550,10 +496,9 @@ public class DateTimeUtils {
         return Date.from(localDateTime.atZone(ZoneId.of(UTC_ADD_8)).toInstant());
     }
 
-    public static String getMinguoYear() {
-        return MinguoDate.from(localDate).format(dateTimeFormate17);
+    public static String getMinguoYear(){
+        return MinguoDate.from(LocalDate.now(ZoneOffset.of(UTC_ADD_8))).format(dateTimeFormate17);
     }
-
     /**
      * Transfer AD date to minguo date.
      * 西元年 yyyyMM 轉 民國年 yyyMM
@@ -571,15 +516,14 @@ public class DateTimeUtils {
      *
      * @return
      */
-    public static String getMinguoYearIfJanuary() {
-        if (month == 1) {
+    public static String getMinguoYearIfJanuary(){
+        if (getDateNow().getMonthValue() == 1) {
             LocalDate localDate = LocalDate.parse(getMinusOrPlusYears(-1, dateTimeFormate7), dateTimeFormate7);
             return MinguoDate.from(localDate).format(dateTimeFormate17);
         } else {
             return getMinguoYear();
         }
     }
-
     /**
      * Transfer minguo date to AD date.
      * 民國年 yyyMMdd 轉 西元年 yyyy-MM-dd
@@ -604,10 +548,10 @@ public class DateTimeUtils {
      * @return
      */
     public static String getLastYearOnJanuary() {
-        if (month == 1) {
+        if (getDateNow().getMonthValue() == 1) {
             return getMinusOrPlusYears(-1, dateTimeFormate9);
         } else {
-            return String.valueOf(year);
+            return String.valueOf(getDateNow().getYear());
         }
     }
 
@@ -638,12 +582,33 @@ public class DateTimeUtils {
     public static Date localDateTimeToDate(LocalDateTime localDateTime) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();
-        calendar.set(localDateTime.getYear(), localDateTime.getMonthValue() - 1, localDateTime.getDayOfMonth(),
+        calendar.set(localDateTime.getYear(), localDateTime.getMonthValue()-1, localDateTime.getDayOfMonth(),
                 localDateTime.getHour(), localDateTime.getMinute(), localDateTime.getSecond());
         return calendar.getTime();
+    }
+    /**
+     * 傳入日期取得前期雙月份
+     * 如:傳入 202105 取得 03,04
+     *    傳入 202106 取得 03,04
+     *    傳入 202112 取得 09,10
+     *
+     * @param dateTime
+     * @return
+     */
+    public static ArrayList<String> getPreviousMonths(LocalDateTime dateTime) {
+        ArrayList<String> values = new ArrayList<>();
+        if (dateTime.getMonthValue() % 2 == 0) {
+            values.add(DateTimeUtils.getMinusOrPlusMonthsByStartDate(-2, DateTimeUtils.dateTimeFormate10, dateTime));
+            values.add(DateTimeUtils.getMinusOrPlusMonthsByStartDate(-3, DateTimeUtils.dateTimeFormate10, dateTime));
+        } else {
+            values.add(DateTimeUtils.getMinusOrPlusMonthsByStartDate(-1, DateTimeUtils.dateTimeFormate10, dateTime));
+            values.add(DateTimeUtils.getMinusOrPlusMonthsByStartDate(-2, DateTimeUtils.dateTimeFormate10, dateTime));
+        }
+        return values;
     }
 
     public static void main(String[] args) {
         System.out.println(DateTimeUtils.getMinusOrPlusMonths(-1, DateTimeUtils.dateTimeFormate14));
     }
+
 }
