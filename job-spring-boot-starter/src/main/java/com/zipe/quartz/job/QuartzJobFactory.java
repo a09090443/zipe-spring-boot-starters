@@ -20,7 +20,7 @@ public abstract class QuartzJobFactory extends QuartzJobBean {
      */
     protected void beforeExecuteJobLog(JobExecutionContext jobExecutionContext) {
         String jobName = jobExecutionContext.getJobDetail().getKey().getName();
-        log.info("排程名稱:{} 執行開始:時間{}", jobName, DateTimeUtils.dateTime);
+        log.info("排程名稱:{} 執行開始:時間{}", jobName, DateTimeUtils.getDateNow());
     }
     /**
      * 排程執行後 Log 紀錄
@@ -29,7 +29,7 @@ public abstract class QuartzJobFactory extends QuartzJobBean {
      */
     protected void afterExecuteJobLog(JobExecutionContext jobExecutionContext) {
         String jobName = jobExecutionContext.getJobDetail().getKey().getName();
-        log.info("排程名稱:{} 執行結束:時間{}", jobName, DateTimeUtils.dateTime);
+        log.info("排程名稱:{} 執行結束:時間{}", jobName, DateTimeUtils.getDateNow());
     }
 
     /**
