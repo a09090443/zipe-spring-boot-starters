@@ -119,6 +119,13 @@
             <artifactId>web-service-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <build>
