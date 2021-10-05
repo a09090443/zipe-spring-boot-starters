@@ -9,9 +9,9 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.zipe</groupId>
-    <artifactId>job-spring-boot-starter</artifactId>
+    <artifactId>quartz-spring-boot-starter</artifactId>
     <version>2.4.4.1</version>
-    <name>job-spring-boot-starter</name>
+    <name>quartz-spring-boot-starter</name>
     <description>Schedule job spring boot starter</description>
     <properties>
         <github.global.server>github</github.global.server>
@@ -64,6 +64,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Spring boot starters -->
         <dependency>
             <groupId>com.zipe</groupId>
@@ -73,7 +79,7 @@
     </dependencies>
 
     <build>
-        <finalName>job-spring-boot-starter</finalName>
+        <finalName>quartz-spring-boot-starter</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
