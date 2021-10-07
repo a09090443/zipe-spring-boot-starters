@@ -25,4 +25,10 @@ public class ExampleController {
         return "jsp/hello";
     }
 
+    @GetMapping({"/demo"})
+    public String demo() {
+        log.info("webjars");
+        return "html/demo";
+    }
+
 }

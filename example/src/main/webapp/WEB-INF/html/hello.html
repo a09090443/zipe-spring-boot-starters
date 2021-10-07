@@ -4,8 +4,15 @@
 <head>
   <meta charset="UTF-8">
   <title>Thymeleaf</title>
+  <script type="text/javascript" th:src="@{/static/js/hello.js}"></script>
 </head>
 <body>
 <h1>Thymeleaf Say Hello!!</h1>
 </body>
+<script>
+  (function () {
+    hello();
+  })();
+
+</script>
 </html>

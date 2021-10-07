@@ -16,6 +16,9 @@
     <properties>
         <java.version>11</java.version>
         <jaxws-ri.version>2.3.4</jaxws-ri.version>
+        <webjars-bootstrap.version>5.1.1</webjars-bootstrap.version>
+        <webjars-jquery.version>3.6.0</webjars-jquery.version>
+        <webjars-locator.version>0.42</webjars-locator.version>
         <zipe.spring.starter.version>2.5.5.1</zipe.spring.starter.version>
     </properties>
 
@@ -82,6 +85,23 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>bootstrap</artifactId>
+            <version>${webjars-bootstrap.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>jquery</artifactId>
+            <version>${webjars-jquery.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>webjars-locator</artifactId>
+            <version>${webjars-locator.version}</version>
         </dependency>
 
         <dependency>
