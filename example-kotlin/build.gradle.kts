@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.springframework.boot") version "2.4.4"
+    id("org.springframework.boot") version "2.5.12"
     id("io.spring.dependency-management") version "1.0.11.RELEASE"
     kotlin("jvm") version "1.4.32"
     kotlin("plugin.spring") version "1.4.32"
@@ -17,12 +17,12 @@ repositories {
         url = uri("https://raw.github.com/a09090443/zipe-spring-boot-starters/mvn-repo")
     }
 }
-extra["BaseZipeSpringStarterVersion"] = "2.4.4.1"
-extra["WebZipeSpringStarterVersion"] = "2.4.4.1"
-extra["LogonSpringStarterVersion"] = "2.4.4.1"
-extra["DbSpringStarterVersion"] = "2.4.4.1"
-extra["JobSpringStarterVersion"] = "2.4.4.1"
-extra["WebServiceSpringStarterVersion"] = "2.4.4.1"
+extra["BaseZipeSpringStarterVersion"] = "2.5.12.1"
+extra["WebZipeSpringStarterVersion"] = "2.5.12.1"
+extra["LogonSpringStarterVersion"] = "2.5.12.1"
+extra["DbSpringStarterVersion"] = "2.5.12.1"
+extra["JobSpringStarterVersion"] = "2.5.12.1"
+extra["WebServiceSpringStarterVersion"] = "2.5.12.1"
 extra["KotestJunit5Version"] = "4.6.0"
 extra["KotestExtensionsSpringVersion"] = "4.4.3"
 

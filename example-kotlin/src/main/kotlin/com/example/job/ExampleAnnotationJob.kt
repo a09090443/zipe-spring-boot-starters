@@ -16,7 +16,7 @@ class ExampleAnnotationJob {
 
     @Scheduled(cron = "0/20 * * * * ?")
     fun exampleJob() {
-        logger().info("Job class: ${this::class.simpleName}, 當前執行時間:${DateTimeUtils.dateTime}")
+        logger().info("Job class: ${this::class.simpleName}, 當前執行時間:${DateTimeUtils.getDateNow()}")
         val user = exampleServiceImpl.findUserByName("Andy")
         logger().info("取得使用者:${user.toString()}")
     }

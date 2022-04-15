@@ -15,7 +15,7 @@ class ExampleJob: QuartzJobFactory() {
     lateinit var exampleServiceImpl: ExampleService
 
     override fun executeJob(jobExecutionContext: JobExecutionContext?) {
-        logger().info("Job class: ${this::class.simpleName}, 當前執行時間:${DateTimeUtils.dateTime}")
+        logger().info("Job class: ${this::class.simpleName}, 當前執行時間:${DateTimeUtils.getDateNow()}")
         val user = exampleServiceImpl.findUserByName("Tom")
         logger().info("取得使用者:${user.toString()}")
     }
