@@ -14,7 +14,7 @@ security:
   login-uri: /login
   login-success-uri: /dashboard
   login-failure-uri: /login
-  csrf-enabled: true
+  csrf-enabled: false
   ldap:
     ip: 127.0.0.1
     domain: ldap.zipe.com

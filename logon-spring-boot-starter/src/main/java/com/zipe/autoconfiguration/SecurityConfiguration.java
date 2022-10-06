@@ -14,10 +14,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -55,9 +53,7 @@ public class SecurityConfiguration {
     }
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
-        http
-                .csrf().disable()
-                .authorizeRequests()
+        http.authorizeRequests()
                 .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
                 .anyRequest()
                 .authenticated()
@@ -77,6 +73,10 @@ public class SecurityConfiguration {
                 .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
+        // 關閉 csrf 功能
+        if (!securityPropertyConfig.getCsrfEnabled()) {
+            http.csrf().disable();
+        }
         authenticationProvider(http);
 
     }
@@ -105,6 +105,10 @@ public class SecurityConfiguration {
                 .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
+        // 關閉 csrf 功能
+        if (!securityPropertyConfig.getCsrfEnabled()) {
+            http.csrf().disable();
+        }
         authenticationProvider(http);
     }
 
