@@ -14,66 +14,44 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * @author : Gary Tsai
- * @created : @Date 2021/4/19 下午 04:16
- **/
+ * @author Gary Tsai
+ * @Date 2022/10/6
+ */
 @Slf4j
 @Configuration
 @EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
-public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
+public class SecurityConfiguration {
 
     private final SecurityPropertyConfig securityPropertyConfig;
 
-    WebSecurityAutoConfiguration(SecurityPropertyConfig securityPropertyConfig) {
-        if (!securityPropertyConfig.getEnable()) {
-            securityPropertyConfig.setAllowUris("/**");
-        }
+    public SecurityConfiguration(SecurityPropertyConfig securityPropertyConfig) {
         this.securityPropertyConfig = securityPropertyConfig;
     }
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         if (StringUtils.isNotBlank(securityPropertyConfig.getLoginUri())) {
             customLoginConfigure(http);
         } else {
             basicLoginConfigure(http);
         }
-    }
-
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth)
-            throws Exception {
-
-        VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
-        log.info("登入模式:{}", verificationTypeEnum.name());
-
-        switch (verificationTypeEnum) {
-            case LDAP:
-                auth.authenticationProvider(ldapUserDetailsService());
-                break;
-            case CUSTOM:
-                if(StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())){
-                    throw new NullPointerException("Please enter value in custom-bean-name");
-                }
-                auth.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-                break;
-            case BASIC:
-            default:
-                auth.userDetailsService(basicUserServiceImpl()).passwordEncoder(passwordEncoder());
-                break;
-        }
+        return http.build();
     }
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
@@ -99,6 +77,8 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
+        authenticationProvider(http);
+
     }
 
     private void customLoginConfigure(HttpSecurity http) throws Exception {
@@ -125,6 +105,30 @@ public class WebSecurityAutoConfiguration extends WebSecurityConfigurerAdapter {
                 .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
+        authenticationProvider(http);
+    }
+
+    private void authenticationProvider(HttpSecurity http){
+        VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        log.info("登入模式:{}", verificationTypeEnum.name());
+
+        switch (verificationTypeEnum) {
+            case LDAP:
+                http.authenticationProvider(ldapUserDetailsService());
+                break;
+            case CUSTOM:
+                if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
+                    throw new NullPointerException("Please enter value in custom-bean-name");
+                }
+                http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
+                break;
+            case BASIC:
+            default:
+                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+                authProvider.setUserDetailsService(basicUserServiceImpl());
+                authProvider.setPasswordEncoder(passwordEncoder());
+                http.authenticationProvider(authProvider);
+        }
     }
 
     @Bean

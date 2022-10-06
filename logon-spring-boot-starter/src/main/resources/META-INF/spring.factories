@@ -1,2 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.zipe.autoconfiguration.WebSecurityAutoConfiguration
+com.zipe.autoconfiguration.SecurityConfiguration
