@@ -5,11 +5,20 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.SecureRandom;
+import java.util.Objects;
 
 /**
  * @author Gary Tsai
@@ -32,6 +41,8 @@ public class AesUtil implements Crypto {
     private static final Integer PRIVATE_KEY_SIZE_BIT = 128;
 
     private static final Integer PRIVATE_KEY_SIZE_BYTE = 16;
+
+    public static final int BUFFER_SIZE = 512;
 
     /**
      * 初始化參數
@@ -154,8 +165,65 @@ public class AesUtil implements Crypto {
         return plainText;
     }
 
+    /**
+     * @param source 來源檔案
+     * @param target 加密檔案
+     * @Description: 檔案加密
+     */
+    public void encryptFile(File source, File target) throws Exception {
+        checkPath(source, target);
+        Cipher cipher = initParam(secretKey, Cipher.ENCRYPT_MODE);
+        try (FileOutputStream fos = new FileOutputStream(target);
+             CipherInputStream cis = new CipherInputStream(Files.newInputStream(source.toPath()), cipher)) {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int len;
+            while ((len = cis.read(buffer)) != -1) {
+                fos.write(buffer, 0, len);
+            }
+            fos.flush();
+        }
+    }
 
-    public static void main(String[] args) {
+    /**
+     * @param source 來源檔案
+     * @param target 加密檔案
+     * @Description: 檔案解密
+     */
+    public void decryptFile(File source, File target) throws Exception {
+        checkPath(source, target);
+        Cipher cipher = initParam(secretKey, Cipher.DECRYPT_MODE);
+        try (FileInputStream fis = new FileInputStream(source);
+             CipherOutputStream cos = new CipherOutputStream(new FileOutputStream(target), cipher)) {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                cos.write(buffer, 0, len);
+            }
+            cos.flush();
+        }
+    }
+
+    /**
+     * @param source 來源檔案
+     * @param target 目標檔案
+     * @Description: 確認來源和目標檔案類型及是否存在
+     */
+    public static void checkPath(File source, File target) throws IOException {
+        Objects.requireNonNull(source);
+        Objects.requireNonNull(target);
+        if (source.isDirectory() || !source.exists()) {
+            throw new FileNotFoundException(source.toString());
+        }
+        if (Objects.equals(source.getCanonicalPath(), target.getCanonicalPath())) {
+            throw new IllegalArgumentException("sourceFile equals targetFile");
+        }
+        File parentDirectory = target.getParentFile();
+        if (parentDirectory != null && !parentDirectory.exists()) {
+            Files.createDirectories(parentDirectory.toPath());
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
         long s = System.currentTimeMillis();
         AesUtil aesUtil = new AesUtil("asdasdadetsaacac");
         String encryptMsg = aesUtil.getEncrypt("aaa", StandardCharsets.UTF_8.name());
@@ -170,6 +238,11 @@ public class AesUtil implements Crypto {
 
         long d = System.currentTimeMillis();
 
+        File source = new File("D:\\tmp\\InstallCert.java");
+        File encryptedFile = new File("D:\\tmp\\InstallCert.javaen");
+        File decryptedFile = new File("D:\\tmp\\InstallCert.javade");
+        aesUtil.encryptFile(source, encryptedFile);
+        aesUtil.decryptFile(encryptedFile, decryptedFile);
         System.out.println(d - e);
     }
 
