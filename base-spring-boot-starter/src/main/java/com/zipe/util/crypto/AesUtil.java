@@ -1,6 +1,5 @@
 package com.zipe.util.crypto;
 
-
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 
@@ -225,16 +224,16 @@ public class AesUtil implements Crypto {
 
     public static void main(String[] args) throws Exception {
         long s = System.currentTimeMillis();
-        AesUtil aesUtil = new AesUtil("asdasdadetsaacac");
-        String encryptMsg = aesUtil.getEncrypt("aaa", StandardCharsets.UTF_8.name());
-        System.out.println("密文为：" + encryptMsg);
+        AesUtil aesUtil = new AesUtil("2022120220221202");
+        String encryptMsg = aesUtil.getEncrypt("AESTest", StandardCharsets.UTF_8.name());
+        System.out.println("加密後：" + encryptMsg);
 
         long e = System.currentTimeMillis();
 
         System.out.println(e - s);
 
         String decryptMsg = aesUtil.getDecode(encryptMsg, StandardCharsets.UTF_8.name());
-        System.out.println("明文为：" + decryptMsg);
+        System.out.println("解密後：" + decryptMsg);
 
         long d = System.currentTimeMillis();
 
