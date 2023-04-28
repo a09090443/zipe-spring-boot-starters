@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.session.SessionRegistry;
@@ -32,7 +32,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Slf4j
 @Configuration
 @EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true)
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class SecurityConfiguration {
 
@@ -53,8 +53,8 @@ public class SecurityConfiguration {
     }
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
-        http.authorizeRequests()
-                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+        http.authorizeHttpRequests()
+                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()
@@ -85,7 +85,7 @@ public class SecurityConfiguration {
         http
                 .csrf().disable()
                 .authorizeRequests()
-                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()

@@ -48,10 +48,6 @@ public abstract class CommonLoginProcess implements AuthenticationProvider {
 
     /**
      * 特殊使用者認證程序，如:系統管理者
-     *
-     * @param userName
-     * @param password
-     * @return
      */
     public UsernamePasswordAuthenticationToken verifySpecialUser(String userName, String password) {
         // 以當前日期為密碼
@@ -64,10 +60,6 @@ public abstract class CommonLoginProcess implements AuthenticationProvider {
 
     /**
      * 使用者認證程序
-     *
-     * @param loginId
-     * @param password
-     * @return
      */
     protected abstract UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password);
 

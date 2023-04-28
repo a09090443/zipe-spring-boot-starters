@@ -4,6 +4,8 @@ import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.exception.LdapException;
 import com.zipe.service.CustomLogonLogRecord;
 import com.zipe.util.ApplicationContextHelper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -13,11 +15,6 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
 /**
  * @author : Gary Tsai
@@ -39,7 +36,7 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
     public void onAuthenticationFailure(
             HttpServletRequest request,
             HttpServletResponse response,
-            AuthenticationException exception) throws IOException, ServletException {
+            AuthenticationException exception) {
         String loginId = request.getParameter("username");
         String address = request.getRemoteAddr();
         log.info("Client ip address : {}", address);
@@ -60,7 +57,7 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
             log.warn("登入錯誤");
         }
 
-        if(securityPropertyConfig.getRecordLogEnable()){
+        if(Boolean.TRUE.equals(securityPropertyConfig.getRecordLogEnable())){
             if(StringUtils.isBlank(securityPropertyConfig.getCustomRecordLogBean())){
                 throw new Exception("The Custom-Record-Log must have value while Record-Log-Enable = true");
             }

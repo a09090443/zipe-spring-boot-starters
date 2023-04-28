@@ -35,9 +35,6 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     /**
      * 一般使用者認證程序
      *
-     * @param loginId
-     * @param password
-     * @return
      */
     @Override
     public UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
@@ -78,7 +75,7 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     }
 
     private LdapUser convertLdapUser(String userId, Attributes attrs, DirContext context) throws Exception {
-        Hashtable envInfo = context.getEnvironment();
+        Hashtable<?, ?> envInfo = context.getEnvironment();
         LdapUser ldapUser = new LdapUser();
         ldapUser.setUserId(userId);
         ldapUser.setIsEnabled(StringConstant.SHORT_YES);
@@ -92,9 +89,6 @@ public class LdapUserDetailsService extends CommonLoginProcess {
      * 依LDAP的欄位屬性名稱取出，如: distinguishedName: CN=PWA User
      * PWA使用者,OU=System,OU=zipe,DC=com,DC=tw 並分割字串並只取得內容值
      *
-     * @param attrs
-     * @param attrName
-     * @return
      */
     private String getAttrValue(Attributes attrs, String attrName) {
         return !Objects.isNull(attrs.get(attrName)) ? attrs.get(attrName).toString().split(StringConstant.COLON, 2)[1].trim() : null;

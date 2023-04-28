@@ -13,7 +13,6 @@ public class UserInfoUtil {
     /**
      * 取得登入者ID
      *
-     * @return
      */
     public static String loginUserId() {
         String userId;
