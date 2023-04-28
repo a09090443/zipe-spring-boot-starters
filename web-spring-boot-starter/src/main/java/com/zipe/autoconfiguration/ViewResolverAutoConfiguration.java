@@ -2,6 +2,7 @@ package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.string.StringConstant;
+import java.util.Locale;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,7 +12,6 @@ import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerF
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.LocaleResolver;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.thymeleaf.spring6.SpringTemplateEngine;
@@ -20,8 +20,6 @@ import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ITemplateResolver;
 
-import java.util.Locale;
-
 /**
  * @author : Gary Tsai
  * @created : @Date 2021/4/21 上午 11:38
@@ -29,7 +27,7 @@ import java.util.Locale;
 @Configuration
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
-public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
+public class ViewResolverAutoConfiguration {
     private final String WEB_BASE_DIR = "/WEB-INF/";
 
     private final WebPropertyConfig webPropertyConfig;
@@ -94,7 +92,6 @@ public class ViewResolverAutoConfiguration extends WebMvcConfigurationSupport {
      * @return
      */
     @Bean
-    @Override
     public LocaleResolver localeResolver() {
         CookieLocaleResolver resolver = new CookieLocaleResolver();
         resolver.setDefaultLocale(Locale.TAIWAN);
