@@ -21,7 +21,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <jstl.version>1.2</jstl.version>
-        <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
         <base-spring-boot-starter.version>3.0.6.1</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
@@ -61,14 +60,6 @@
             <groupId>javax.servlet</groupId>
             <artifactId>jstl</artifactId>
             <version>${jstl.version}</version>
-        </dependency>
-
-        <!-- Java Servlet -->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>${javax.servlet-api.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -116,7 +107,7 @@
             <plugin>
                 <groupId>com.github.github</groupId>
                 <artifactId>site-maven-plugin</artifactId>
-                <version>0.12</version>
+                <version>${site-maven-plugin.version}</version>
                 <configuration>
                     <message>Creating site for ${project.artifactId} ${project.version}</message>
                     <noJekyll>true</noJekyll>
