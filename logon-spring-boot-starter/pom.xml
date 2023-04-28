@@ -6,24 +6,24 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.3</version>
+        <version>3.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>com.zipe</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>2.7.3.1</version>
+    <version>3.0.6.1</version>
     <name>logon-spring-boot-starter</name>
     <description>Spring boot security starter</description>
 
     <properties>
         <github.global.server>github</github.global.server>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>2.7.3.1</base-spring-boot-starter.version>
-        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
-        <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <base-spring-boot-starter.version>3.0.6.1</base-spring-boot-starter.version>
+        <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
+        <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
     </properties>
 

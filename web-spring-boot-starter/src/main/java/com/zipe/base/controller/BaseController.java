@@ -1,14 +1,14 @@
 package com.zipe.base.controller;
 
 import com.zipe.util.string.StringConstant;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.util.Locale;
 
 /**
@@ -25,7 +25,9 @@ public abstract class BaseController {
     @Autowired
     private MessageSource messageSource;
 
+    @Autowired
     protected HttpServletRequest request;
+
     protected HttpServletResponse response;
     protected Locale currentLocale;
     protected String defaultMsg;

@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.5.12</version>
+        <version>3.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
@@ -14,12 +14,12 @@
     <name>example</name>
     <description>Demo project for Spring Boot</description>
     <properties>
-        <java.version>11</java.version>
-        <jaxws-ri.version>2.3.4</jaxws-ri.version>
-        <webjars-bootstrap.version>5.1.1</webjars-bootstrap.version>
-        <webjars-jquery.version>3.6.0</webjars-jquery.version>
-        <webjars-locator.version>0.42</webjars-locator.version>
-        <zipe.spring.starter.version>2.5.12.1</zipe.spring.starter.version>
+        <java.version>17</java.version>
+        <jaxws-ri.version>4.0.1</jaxws-ri.version>
+        <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
+        <webjars-jquery.version>3.6.4</webjars-jquery.version>
+        <webjars-locator.version>0.46</webjars-locator.version>
+        <zipe.spring.starter.version>3.0.6.1</zipe.spring.starter.version>
     </properties>
 
     <repositories>
