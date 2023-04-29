@@ -12,7 +12,7 @@ public abstract class BaseDataSourceConfig {
     protected DataSourcePropertyConfig dynamicDataSource;
 
     @Autowired
-    public BaseDataSourceConfig(Environment env, DataSourcePropertyConfig dynamicDataSource) {
+    protected BaseDataSourceConfig(Environment env, DataSourcePropertyConfig dynamicDataSource) {
         this.env = env;
         this.dynamicDataSource = dynamicDataSource;
     }

@@ -7,17 +7,17 @@ import org.apache.cxf.jaxws.EndpointImpl;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * @author Gary Tsai
  */
 @Slf4j
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(WebServicePropertyConfig.class)
 @EnableConfigurationProperties(WebServicePropertyConfig.class)
 public class WebServiceRegisterAutoConfiguration implements InitializingBean, ApplicationContextAware {

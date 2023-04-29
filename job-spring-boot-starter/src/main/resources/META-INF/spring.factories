@@ -1,3 +1,0 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.zipe.quartz.autoconfiguration.DataSourceAutoConfiguration,\
-com.zipe.quartz.autoconfiguration.InitialJobAutoConfiguration

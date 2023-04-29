@@ -2,6 +2,8 @@ package com.example.config;
 
 import com.zipe.service.CustomLogonLogRecord;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+//@ComponentScan(basePackages = {"com.zipe"})
 public class LogonLogRecord implements CustomLogonLogRecord {
     @Override
     public void recordLoginSuccessLog(String userId) {

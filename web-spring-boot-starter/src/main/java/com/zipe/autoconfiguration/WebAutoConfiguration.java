@@ -2,9 +2,9 @@ package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.DateFormatter;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -16,7 +16,7 @@ import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
  * @author : Gary Tsai
  * @created : @Date 2021/4/22 下午 05:06
  **/
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
 public class WebAutoConfiguration implements WebMvcConfigurer {

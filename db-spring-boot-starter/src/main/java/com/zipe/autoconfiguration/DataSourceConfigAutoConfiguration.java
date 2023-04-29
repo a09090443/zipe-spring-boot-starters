@@ -9,11 +9,20 @@ import com.zipe.base.database.DynamicDataSource;
 import com.zipe.base.model.DynamicDataSourceConfig;
 import com.zipe.util.crypto.Base64Util;
 import com.zipe.util.crypto.CryptoUtil;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import javax.sql.DataSource;
+import org.hibernate.cfg.AvailableSettings;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
+import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
@@ -26,17 +35,11 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-
 /**
  * @author : Gary Tsai
  * @created : @Date 2021/4/14 下午 05:52
  **/
-@Configuration
+@AutoConfiguration
 @PropertySource({"classpath:data-source.properties"})
 @EnableJpaRepositories(
         basePackages = "${spring.jpa.base.packages}",
@@ -47,46 +50,44 @@ import java.util.Optional;
 @EnableConfigurationProperties(DataSourcePropertyConfig.class)
 public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
-    DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource) {
+    private final HibernateProperties hibernateProperties;
+
+    private final JpaProperties jpaProperties;
+
+    @Autowired
+    DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource,
+        HibernateProperties hibernateProperties, JpaProperties jpaProperties) {
         super(env, dynamicDataSource);
+        this.hibernateProperties = hibernateProperties;
+        this.jpaProperties = jpaProperties;
     }
 
     private DataSource createDataSource(DynamicDataSourceConfig dataSource) {
-        //資料來源
-        baseHikariConfig().setJdbcUrl(dataSource.getUrl());
-        //使用者名稱
-        baseHikariConfig().setUsername(dataSource.getUsername());
-        String dbPassword = dataSource.getPa55word();
-        if (dynamicDataSource.getIsEncrypt()) {
-            CryptoUtil cryptoUtil = new CryptoUtil(new Base64Util());
-            dbPassword = cryptoUtil.decode(dbPassword);
-        }
-        //密碼
-        baseHikariConfig().setPassword(dbPassword);
-
-        baseHikariConfig().setDriverClassName(dataSource.getDriverClassName());
-
-        return new HikariDataSource(baseHikariConfig());
+        HikariConfig config = this.baseHikariConfig();
+        return new HikariDataSource(setHikariConnection(config, dataSource));
     }
 
     private DataSource createAs400DataSource(DynamicDataSourceConfig dataSource) {
         // 因 AS400 使用 Hikari 額外設定時會發生錯誤，所以只有基本設定
-        HikariConfig config = new HikariConfig();
+        HikariConfig config = setHikariConnection(new HikariConfig(), dataSource);
+        // AS400 語法不能使用 SELECT 1
+        config.setConnectionTestQuery("VALUES 1");
+        return new HikariDataSource(config);
+    }
+
+    private HikariConfig setHikariConnection(HikariConfig config, DynamicDataSourceConfig dataSource) {
         //資料來源
         config.setJdbcUrl(dataSource.getUrl());
         //使用者名稱
         config.setUsername(dataSource.getUsername());
         String dbPassword = dataSource.getPa55word();
-        if (dynamicDataSource.getIsEncrypt()) {
+        if (Boolean.TRUE.equals(dynamicDataSource.getIsEncrypt())) {
             CryptoUtil cryptoUtil = new CryptoUtil(new Base64Util());
             dbPassword = cryptoUtil.decode(dbPassword);
         }
         //密碼
         config.setPassword(dbPassword);
-        config.setDriverClassName(dataSource.getDriverClassName());
-        // AS400 語法不能使用 SELECT 1
-        config.setConnectionTestQuery("VALUES 1");
-        return new HikariDataSource(config);
+        return config;
     }
 
     @Bean
@@ -97,17 +98,15 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
             throw new DataSourceLookupFailureException("請設定 data-source.properties 內容");
         }
 
-        Optional.ofNullable(dynamicDataSource.getDataSourceMap()).ifPresent(dataSource -> {
-            dataSource.forEach((k, v) -> {
-                if (!v.getUrl().toLowerCase().contains("as400")) {
-                    dataSourceMap.put(k, createDataSource(v));
-                } else {
-                    dataSourceMap.put(k, createAs400DataSource(v));
-                }
+        Optional.of(dynamicDataSource.getDataSourceMap()).ifPresent(dataSource -> dataSource.forEach((k, v) -> {
+            if (!v.getUrl().toLowerCase().contains("as400")) {
+                dataSourceMap.put(k, createDataSource(v));
+            } else {
+                dataSourceMap.put(k, createAs400DataSource(v));
+            }
 
-                DataSourceHolder.dataSourceNames.add(k);
-            });
-        });
+            DataSourceHolder.dataSourceNames.add(k);
+        }));
         DynamicDataSource dataSource = new DynamicDataSource();
         //設定資料來源對映
         dataSource.setTargetDataSources(dataSourceMap);
@@ -118,28 +117,30 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     }
 
     @Bean(name = "multiEntityManager")
-    public LocalContainerEntityManagerFactoryBean multiEntityManager() {
+    public LocalContainerEntityManagerFactoryBean multiEntityManager(@Qualifier("dataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
-
-        factory.setDataSource(dataSource());
+        factory.setDataSource(dataSource);
         factory.setPackagesToScan(dynamicDataSource.getEntityScan());
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        jpaProperties.getProperties().put(AvailableSettings.HBM2DDL_AUTO, hibernateProperties.getDdlAuto());
+        factory.afterPropertiesSet();
         return factory;
     }
 
     @Primary
     @Bean(name = "multiTransactionManager")
-    public PlatformTransactionManager multiTransactionManager() {
-        return new JpaTransactionManager(Objects.requireNonNull(multiEntityManager().getObject()));
+    public PlatformTransactionManager multiTransactionManager(@Qualifier("multiEntityManager") LocalContainerEntityManagerFactoryBean multiEntityManager) {
+//        LocalContainerEntityManagerFactoryBean multiEntityManager = multiEntityManager(dataSource);
+        return new JpaTransactionManager(Objects.requireNonNull(multiEntityManager.getObject()));
     }
 
     @Bean
-    public JdbcTemplate jdbcTemplate(@Qualifier("dataSource") DataSource dataSource) {
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     @Bean
-    public NamedParameterJdbcDaoSupport namedParameterJdbcDaoSupport(@Qualifier("dataSource") DataSource dataSource) {
+    public NamedParameterJdbcDaoSupport namedParameterJdbcDaoSupport(DataSource dataSource) {
         NamedParameterJdbcDaoSupport dao = new NamedParameterJdbcDaoSupport();
         dao.setDataSource(dataSource);
         return dao;

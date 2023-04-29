@@ -18,7 +18,8 @@ public class MailServiceTest extends TestBase {
     public MailService mailService;
 
     @Test
-    public void sendSimpleContextMailTest() throws MessagingException {
+    public void sendSimpleContextMailTest()
+        throws MessagingException, jakarta.mail.MessagingException {
         Mail mail = new Mail();
         mail.setMailTo(new String[]{"gary_tsai@fglife.com.tw"});
         mail.setMailCc(new String[]{"gary_tsai@fglife.com.tw"});

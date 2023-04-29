@@ -3,6 +3,7 @@ package com.zipe.autoconfiguration;
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.string.StringConstant;
 import java.util.Locale;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,7 +11,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
@@ -24,7 +24,7 @@ import org.thymeleaf.templateresolver.ITemplateResolver;
  * @author : Gary Tsai
  * @created : @Date 2021/4/21 上午 11:38
  **/
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
 public class ViewResolverAutoConfiguration {

@@ -1,0 +1,2 @@
+com.zipe.autoconfiguration.DataSourceConfigAutoConfiguration
+com.zipe.autoconfiguration.DataSourceAspectAutoConfiguration

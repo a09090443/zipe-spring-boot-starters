@@ -1,0 +1,3 @@
+com.zipe.autoconfiguration.ViewResolverAutoConfiguration
+com.zipe.autoconfiguration.WebAutoConfiguration
+com.zipe.autoconfiguration.TomcatAutoConfiguration

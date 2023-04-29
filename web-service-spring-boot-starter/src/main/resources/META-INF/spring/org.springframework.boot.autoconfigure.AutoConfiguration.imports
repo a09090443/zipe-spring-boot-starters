@@ -1,0 +1,2 @@
+com.zipe.autoconfiguration.CxfConfigAutoConfiguration
+com.zipe.autoconfiguration.WebServiceRegisterAutoConfiguration

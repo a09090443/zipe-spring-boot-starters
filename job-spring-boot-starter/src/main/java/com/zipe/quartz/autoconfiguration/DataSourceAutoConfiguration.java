@@ -1,7 +1,9 @@
 package com.zipe.quartz.autoconfiguration;
 
 import com.zaxxer.hikari.HikariDataSource;
+import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
@@ -9,12 +11,9 @@ import org.springframework.boot.autoconfigure.quartz.QuartzDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.util.StringUtils;
-
-import javax.sql.DataSource;
 
 /**
  * Quartz data source
@@ -22,7 +21,7 @@ import javax.sql.DataSource;
  * @author zipe
  */
 @Slf4j
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(DataSourceProperties.class)
 @EnableConfigurationProperties(DataSourceProperties.class)
 @PropertySource(value = {"classpath:quartz-datasource.properties"})

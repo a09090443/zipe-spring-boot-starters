@@ -1,6 +1,6 @@
 package com.example.webservice;
 
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 @WebService(targetNamespace = "http://service.example.com")
 public interface ExampleWebService {

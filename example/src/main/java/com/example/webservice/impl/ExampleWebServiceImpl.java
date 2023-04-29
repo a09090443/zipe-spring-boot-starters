@@ -1,9 +1,8 @@
 package com.example.webservice.impl;
 
 import com.example.webservice.ExampleWebService;
+import jakarta.jws.WebService;
 import org.springframework.stereotype.Component;
-
-import javax.jws.WebService;
 
 @WebService(serviceName = "ExampleWebService",//對外發布的服務名
         targetNamespace = "http://service.example.com",//指定你想要的名稱空間，通常使用使用包名反轉

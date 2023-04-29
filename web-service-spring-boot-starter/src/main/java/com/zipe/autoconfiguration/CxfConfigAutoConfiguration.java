@@ -3,16 +3,16 @@ package com.zipe.autoconfiguration;
 import com.zipe.config.WebServicePropertyConfig;
 import org.apache.cxf.transport.servlet.CXFServlet;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * @author : Gary Tsai
  **/
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(WebServicePropertyConfig.class)
 @EnableConfigurationProperties(WebServicePropertyConfig.class)
 public class CxfConfigAutoConfiguration {

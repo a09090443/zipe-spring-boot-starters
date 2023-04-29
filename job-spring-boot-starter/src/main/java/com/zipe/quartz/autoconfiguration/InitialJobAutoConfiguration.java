@@ -5,6 +5,9 @@ import com.zipe.quartz.controller.QuartzController;
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.model.Job;
 import com.zipe.quartz.util.QuartzJobUtil;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
@@ -13,18 +16,14 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * 從 quartz-jobs.properties 自動建立排程
@@ -32,7 +31,7 @@ import java.util.Set;
  * @author zipe
  */
 @Slf4j
-@Configuration
+@AutoConfiguration
 @EnableScheduling
 @ConditionalOnClass(QuartzJobPropertyConfig.class)
 @EnableConfigurationProperties(QuartzJobPropertyConfig.class)
