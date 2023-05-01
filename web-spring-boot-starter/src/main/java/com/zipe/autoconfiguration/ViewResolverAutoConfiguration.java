@@ -45,6 +45,7 @@ public class ViewResolverAutoConfiguration {
     @ConditionalOnProperty(name = "web.jsp.enable", havingValue = "true")
     public InternalResourceViewResolver viewResolver() {
         InternalResourceViewResolver resolver = new InternalResourceViewResolver();
+        resolver.setApplicationContext(webApplicationContext);
         //不在此加上jsp檔案所在資料目錄，而在controller回傳值才加上檔案所在目錄
         resolver.setPrefix(WEB_BASE_DIR);
         resolver.setSuffix(webPropertyConfig.getJsp().getStuff());
