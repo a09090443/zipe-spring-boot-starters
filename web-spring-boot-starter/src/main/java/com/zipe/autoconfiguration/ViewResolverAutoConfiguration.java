@@ -3,6 +3,7 @@ package com.zipe.autoconfiguration;
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.string.StringConstant;
 import java.util.Locale;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -11,13 +12,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.spring6.templateresolver.SpringResourceTemplateResolver;
 import org.thymeleaf.spring6.view.ThymeleafViewResolver;
-import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ITemplateResolver;
 
 /**
@@ -28,12 +29,16 @@ import org.thymeleaf.templateresolver.ITemplateResolver;
 @ConditionalOnClass(WebPropertyConfig.class)
 @EnableConfigurationProperties(WebPropertyConfig.class)
 public class ViewResolverAutoConfiguration {
+
     private final String WEB_BASE_DIR = "/WEB-INF/";
 
     private final WebPropertyConfig webPropertyConfig;
 
-    ViewResolverAutoConfiguration(WebPropertyConfig webPropertyConfig) {
+    WebApplicationContext webApplicationContext;
+    @Autowired
+    ViewResolverAutoConfiguration(WebPropertyConfig webPropertyConfig, WebApplicationContext webApplicationContext) {
         this.webPropertyConfig = webPropertyConfig;
+        this.webApplicationContext = webApplicationContext;
     }
 
     @Bean
@@ -52,7 +57,8 @@ public class ViewResolverAutoConfiguration {
     @ConditionalOnProperty(name = "web.thymeleaf.enable", havingValue = "true")
     public ITemplateResolver templateResolver() {
         SpringResourceTemplateResolver templateResolver = new SpringResourceTemplateResolver();
-        templateResolver.setTemplateMode(TemplateMode.HTML);
+        templateResolver.setApplicationContext(webApplicationContext);
+        templateResolver.setTemplateMode(webPropertyConfig.getThymeleaf().getTemplateMode());
         //不在此加上jsp檔案所在資料目錄，而在controller回傳值才加上檔案所在目錄
         templateResolver.setPrefix(WEB_BASE_DIR);
         templateResolver.setSuffix(webPropertyConfig.getThymeleaf().getStuff());
