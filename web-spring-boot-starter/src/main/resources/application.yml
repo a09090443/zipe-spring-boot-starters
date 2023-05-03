@@ -19,7 +19,7 @@ web:
     stuff: .jsp
   thymeleaf:
     enable: true
-    viewNames: html/*, th/*
+    viewNames: /*, html/*, th/*
     stuff: .html
     templateMode: HTML
 
