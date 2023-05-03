@@ -2,6 +2,7 @@ package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.string.StringConstant;
+import java.time.Duration;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -23,7 +24,6 @@ import org.thymeleaf.templateresolver.ITemplateResolver;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/21 上午 11:38
  **/
 @AutoConfiguration
 @ConditionalOnClass(WebPropertyConfig.class)
@@ -90,20 +90,18 @@ public class ViewResolverAutoConfiguration {
 
     @Bean
     WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> enableDefaultServlet() {
-        return (factory) -> factory.setRegisterDefaultServlet(true);
+        return factory -> factory.setRegisterDefaultServlet(true);
     }
 
     /**
      * 默認解析器 其中locale表示默認語言
      *
-     * @return
      */
     @Bean
     public LocaleResolver localeResolver() {
-        CookieLocaleResolver resolver = new CookieLocaleResolver();
+        CookieLocaleResolver resolver = new CookieLocaleResolver("localeCookie");
         resolver.setDefaultLocale(Locale.TAIWAN);
-        resolver.setCookieName("localeCookie");
-        resolver.setCookieMaxAge(4800);
+        resolver.setCookieMaxAge(Duration.ofSeconds(4800));
         return resolver;
     }
 

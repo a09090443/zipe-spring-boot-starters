@@ -19,14 +19,18 @@ import java.util.Locale;
  */
 public abstract class BaseController {
 
-    @Autowired
     protected Environment env;
 
-    @Autowired
-    private MessageSource messageSource;
+    private final MessageSource messageSource;
+
+    protected HttpServletRequest request;
 
     @Autowired
-    protected HttpServletRequest request;
+    BaseController(Environment env, MessageSource messageSource, HttpServletRequest request){
+        this.env = env;
+        this.messageSource = messageSource;
+        this.request = request;
+    }
 
     protected HttpServletResponse response;
     protected Locale currentLocale;
