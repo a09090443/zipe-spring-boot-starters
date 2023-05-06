@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import javax.sql.DataSource;
 import org.hibernate.cfg.AvailableSettings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
-import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -52,14 +52,11 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
     private final HibernateProperties hibernateProperties;
 
-    private final JpaProperties jpaProperties;
-
     @Autowired
     DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource,
-        HibernateProperties hibernateProperties, JpaProperties jpaProperties) {
+        HibernateProperties hibernateProperties) {
         super(env, dynamicDataSource);
         this.hibernateProperties = hibernateProperties;
-        this.jpaProperties = jpaProperties;
     }
 
     private DataSource createDataSource(DynamicDataSourceConfig dataSource) {
@@ -122,7 +119,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
         factory.setDataSource(dataSource);
         factory.setPackagesToScan(dynamicDataSource.getEntityScan());
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        jpaProperties.getProperties().put(AvailableSettings.HBM2DDL_AUTO, hibernateProperties.getDdlAuto());
+        factory.setJpaProperties(this.additionalProperties());
         factory.afterPropertiesSet();
         return factory;
     }
@@ -144,5 +141,12 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
         NamedParameterJdbcDaoSupport dao = new NamedParameterJdbcDaoSupport();
         dao.setDataSource(dataSource);
         return dao;
+    }
+
+    Properties additionalProperties() {
+        Properties properties = new Properties();
+        properties.setProperty(AvailableSettings.HBM2DDL_AUTO, hibernateProperties.getDdlAuto());
+
+        return properties;
     }
 }
