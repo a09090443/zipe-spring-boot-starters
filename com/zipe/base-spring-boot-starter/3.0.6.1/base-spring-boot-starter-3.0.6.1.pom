@@ -32,7 +32,7 @@
         <velocity.version>1.7</velocity.version>
         <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
         <poi.version>5.2.3</poi.version>
-        <jasperreports.version>6.20.3</jasperreports.version>
+        <jasperreports.version>6.20.5</jasperreports.version>
         <mail.version>1.6.2</mail.version>
         <okhttp3.version>4.11.0</okhttp3.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
@@ -218,7 +218,18 @@
                     <artifactId>jackson-databind</artifactId>
                     <groupId>com.fasterxml.jackson.core</groupId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.lowagie</groupId>
+                    <artifactId>itext</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.lowagie</groupId>
+            <artifactId>itext</artifactId>
+            <version>[1.02b,2.1.7]</version>
+            <scope>compile</scope>
         </dependency>
 
         <!-- JavaMail -->
