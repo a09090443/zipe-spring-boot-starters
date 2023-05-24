@@ -1,4 +1,0 @@
-org.springframework.context.ApplicationListener=\
-com.zipe.keycloak.support.PopulateKeycloakPropertiesApplicationListener
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.zipe.keycloak.autoconfiguration.EmbeddedKeycloakAutoConfiguration
