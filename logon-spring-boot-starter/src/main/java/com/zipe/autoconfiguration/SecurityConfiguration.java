@@ -27,7 +27,6 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * @author Gary Tsai
- * @Date 2022/10/6
  */
 @Slf4j
 @AutoConfiguration
@@ -53,8 +52,13 @@ public class SecurityConfiguration {
     }
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
+        String[] matchUri = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
+        if (Boolean.FALSE.equals(securityPropertyConfig.getEnable())) {
+            matchUri = new String[]{"/**"};
+        }
+
         http.authorizeHttpRequests()
-                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .requestMatchers(matchUri).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()
@@ -82,10 +86,15 @@ public class SecurityConfiguration {
     }
 
     private void customLoginConfigure(HttpSecurity http) throws Exception {
+
+        String[] matchUri = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
+        if (Boolean.FALSE.equals(securityPropertyConfig.getEnable())) {
+            matchUri = new String[]{"/**"};
+        }
         http
                 .csrf().disable()
-                .authorizeRequests()
-                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .authorizeHttpRequests ()
+                .requestMatchers(matchUri).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()
@@ -117,21 +126,21 @@ public class SecurityConfiguration {
         log.info("登入模式:{}", verificationTypeEnum.name());
 
         switch (verificationTypeEnum) {
-            case LDAP:
-                http.authenticationProvider(ldapUserDetailsService());
-                break;
-            case CUSTOM:
+            case LDAP -> http.authenticationProvider(ldapUserDetailsService());
+            case CUSTOM -> {
                 if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
                     throw new NullPointerException("Please enter value in custom-bean-name");
                 }
-                http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-                break;
-            case BASIC:
-            default:
+                http.authenticationProvider(
+                    (AuthenticationProvider) ApplicationContextHelper.getBean(
+                        securityPropertyConfig.getCustomBeanName()));
+            }
+            default -> {
                 DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
                 authProvider.setUserDetailsService(basicUserServiceImpl());
                 authProvider.setPasswordEncoder(passwordEncoder());
                 http.authenticationProvider(authProvider);
+            }
         }
     }
 
