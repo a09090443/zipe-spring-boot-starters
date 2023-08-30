@@ -74,7 +74,7 @@ public class SecurityConfiguration {
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
         // 關閉 csrf 功能
-        if (!securityPropertyConfig.getCsrfEnabled()) {
+        if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
             http.csrf().disable();
         }
         authenticationProvider(http);
@@ -106,7 +106,7 @@ public class SecurityConfiguration {
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
         // 關閉 csrf 功能
-        if (!securityPropertyConfig.getCsrfEnabled()) {
+        if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
             http.csrf().disable();
         }
         authenticationProvider(http);
@@ -117,21 +117,19 @@ public class SecurityConfiguration {
         log.info("登入模式:{}", verificationTypeEnum.name());
 
         switch (verificationTypeEnum) {
-            case LDAP:
-                http.authenticationProvider(ldapUserDetailsService());
-                break;
-            case CUSTOM:
+            case LDAP -> http.authenticationProvider(ldapUserDetailsService());
+            case CUSTOM -> {
                 if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
                     throw new NullPointerException("Please enter value in custom-bean-name");
                 }
                 http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-                break;
-            case BASIC:
-            default:
+            }
+            default -> {
                 DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
                 authProvider.setUserDetailsService(basicUserServiceImpl());
                 authProvider.setPasswordEncoder(passwordEncoder());
                 http.authenticationProvider(authProvider);
+            }
         }
     }
 
