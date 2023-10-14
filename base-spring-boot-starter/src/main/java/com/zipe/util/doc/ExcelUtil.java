@@ -1,6 +1,7 @@
 package com.zipe.util.doc;
 
 import com.zipe.util.string.StringConstant;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.beanutils.BeanComparator;
 import org.apache.commons.collections.ComparatorUtils;
 import org.apache.commons.collections.comparators.ComparableComparator;
@@ -32,8 +33,6 @@ import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -63,9 +62,8 @@ import java.util.regex.Pattern;
 /**
  * The <code>ExcelUtil</code> 與 {@link ExcelCell}搭配使用
  */
+@Slf4j
 public class ExcelUtil {
-
-    private static Logger LG = LoggerFactory.getLogger(ExcelUtil.class);
 
     /**
      * 用來驗證excel與Vo中的類型是否一致 <br>
@@ -88,14 +86,6 @@ public class ExcelUtil {
     /**
      * 獲取cell類型的文字描述
      *
-     * @param cellType <pre>
-     *                                                                 CellType.BLANK
-     *                                                                 CellType.BOOLEAN
-     *                                                                 CellType.ERROR
-     *                                                                 CellType.FORMULA
-     *                                                                 CellType.NUMERIC
-     *                                                                 CellType.STRING
-     *                                                                 </pre>
      * @return
      */
     private static String getCellTypeByInt(CellType cellType) {
@@ -253,7 +243,7 @@ public class ExcelUtil {
                 FileInputStream fileInput = new FileInputStream(file);
                 workbook = new XSSFWorkbook(fileInput);
             } catch (IOException e) {
-                LG.error(e.toString(), e);
+                log.error(e.toString(), e);
             }
         } else {
             // 宣告一個工作薄
@@ -299,14 +289,14 @@ public class ExcelUtil {
                     List<FieldForSortting> fields = sortFieldByAnno(t.getClass());
                     int cellNum = 0;
                     for (int i = 0; i < fields.size(); i++) {
-                        System.out.println(i + "." + "h_cellNum = " + cellNum);
+                        log.info(i + "." + "h_cellNum = " + cellNum);
                         XSSFCell cell = row.createCell(cellNum);
                         Field field = fields.get(i).getField();
                         field.setAccessible(true);
                         Object value = field.get(t);
                         if (value == null) {
-                            System.out.println("run null");
-                            System.out.println("mergeColumns = " + mergeColumns + ",mergeRows = " + mergeRows);
+                            log.info("run null");
+                            log.info("mergeColumns = " + mergeColumns + ",mergeRows = " + mergeRows);
                             if (mergeColumns > 0 && cellNum > 0) {
                                 Map<Integer, Integer> temp = new HashMap<Integer, Integer>();
                                 int per = 0;
@@ -316,7 +306,7 @@ public class ExcelUtil {
                                 temp.put(per++, cellNum - 1);
                                 if (follow == 0) {
                                     merge.put(mergeCount, temp);
-                                    System.out.println("run,4,put[" + mergeCount + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
+                                    log.info("run,4,put[" + mergeCount + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
 
                                 } else {
                                     merge.put(mergeCount - 1, temp);
@@ -336,7 +326,7 @@ public class ExcelUtil {
                                 } else {
                                     merge.put(mergeCount, temp);
                                 }
-                                System.out.println("run,1,put[" + (mergeCount - 1) + "]=(" + index + ","
+                                log.info("run,1,put[" + (mergeCount - 1) + "]=(" + index + ","
                                         + (index + mergeRows) + "," + (cellNum) + "," + (cellNum)
                                         + ")");
                                 mergeCount++;
@@ -348,7 +338,7 @@ public class ExcelUtil {
                         if (value instanceof String) {
                             if (String.valueOf(value).contains(StringConstant.EQUALS)) {
 
-                                System.out.println("run true");
+                                log.info("run true");
                                 if (String.valueOf(value).equals(StringConstant.PARAM_SKIP_A_LINE)) {
                                     follow = 0;
                                     break;
@@ -391,8 +381,8 @@ public class ExcelUtil {
                                 follow = 0;
                             } else {
                                 follow = 1;
-                                System.out.println("run false");
-                                System.out.println("mergeColumns = " + mergeColumns + ",mergeRows = " + mergeRows);
+                                log.info("run false");
+                                log.info("mergeColumns = " + mergeColumns + ",mergeRows = " + mergeRows);
                                 if (mergeColumns > 0 && cellNum > 0) {
                                     Map<Integer, Integer> temp = new HashMap<Integer, Integer>();
                                     int per = 0;
@@ -400,15 +390,15 @@ public class ExcelUtil {
                                     temp.put(per++, mergeRows == -1 ? index : (index + mergeRows));
                                     temp.put(per++, cellNum - mergeColumns - 1);
                                     temp.put(per++, cellNum - 1);
-                                    System.out.println("*cellNum=" + cellNum);
-                                    System.out.println("*mergeColumns=" + mergeColumns);
+                                    log.info("*cellNum=" + cellNum);
+                                    log.info("*mergeColumns=" + mergeColumns);
                                     if (follow == 1) {
                                         merge.put(mergeCount, temp);
-                                        System.out.println("run,2,put[" + mergeCount + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
+                                        log.info("run,2,put[" + mergeCount + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
                                         mergeCount++;
                                     } else {
                                         merge.put(mergeCount - 1, temp);
-                                        System.out.println("run,2,put[" + (mergeCount - 1) + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
+                                        log.info("run,2,put[" + (mergeCount - 1) + "]=(" + index + "," + (mergeRows == -1 ? index : (index + mergeRows)) + "," + (cellNum - mergeColumns - 1) + "," + (cellNum - 1) + ")");
                                     }
                                     mergeColumns = -1;
                                     follow = 1;
@@ -420,8 +410,8 @@ public class ExcelUtil {
                                     temp.put(per++, cellNum - 1);
                                     temp.put(per++, cellNum - 1);
                                     merge.put(mergeCount, temp);
-                                    System.out.println("cellnumber=" + cellNum);
-                                    System.out.println("run,3,put[" + mergeCount + "]=(" + index + "," + (index + mergeRows) + "," + (mergeColumns <= 0 ? cellNum : (cellNum)) + "," + (mergeColumns <= 0 ? cellNum : (cellNum)) + ")");
+                                    log.info("cellnumber=" + cellNum);
+                                    log.info("run,3,put[" + mergeCount + "]=(" + index + "," + (index + mergeRows) + "," + (mergeColumns <= 0 ? cellNum : (cellNum)) + "," + (mergeColumns <= 0 ? cellNum : (cellNum)) + ")");
                                     mergeCount++;
                                     follow = 1;
                                 }
@@ -450,7 +440,7 @@ public class ExcelUtil {
                             cell.setCellStyle(style);
                         }
                         cellNum = setCellValue(cell, value, pattern, cellNum, field, row);
-                        System.out.println(i + "." + "f_cellNum = " + cellNum);
+                        log.info(i + "." + "f_cellNum = " + cellNum);
                         cellNum++;
 
                     }
@@ -464,7 +454,7 @@ public class ExcelUtil {
                     type = "";
                 }
             } catch (Exception e) {
-                LG.error(e.toString(), e);
+                log.error(e.toString(), e);
             }
             if (lastTime > 0) {
                 index = index + lastTime + 1;
@@ -476,9 +466,9 @@ public class ExcelUtil {
         }
 
         if (merge.size() > 0) {
-            System.out.println("執行結果:");
+            log.info("執行結果:");
             for (Entry<Integer, Map<Integer, Integer>> entry : merge.entrySet()) {
-                System.out.println("merge [" + entry.getKey() + "]=" + entry.getValue().get(0) + "," + entry.getValue().get(1) + "," + entry.getValue().get(2) + "," + entry.getValue().get(3));
+                log.info("merge [" + entry.getKey() + "]=" + entry.getValue().get(0) + "," + entry.getValue().get(1) + "," + entry.getValue().get(2) + "," + entry.getValue().get(3));
                 sheet.addMergedRegion(new CellRangeAddress(
                         entry.getValue().get(0), entry.getValue().get(1), entry.getValue().get(2), entry.getValue().get(3)));
             }
@@ -489,7 +479,7 @@ public class ExcelUtil {
             workbook.write(fileOutput);
             fileOutput.close();
         } catch (IOException e) {
-            LG.error(e.toString(), e);
+            log.error(e.toString(), e);
         }
     }
 
@@ -542,7 +532,7 @@ public class ExcelUtil {
                                 while (it2.hasNext()) {
                                     key = it2.next();
                                     if (!headers.containsKey(key)) {
-                                        LG.error("Map 中 不存在 key [" + key + "]");
+                                        log.error("Map 中 不存在 key [" + key + "]");
                                         continue;
                                     }
                                     Object value = map.get(key);
@@ -567,7 +557,7 @@ public class ExcelUtil {
                                 }
                             }
                         } catch (Exception e) {
-                            LG.error(e.toString(), e);
+                            log.error(e.toString(), e);
                         }
                     }
                 }
@@ -580,7 +570,7 @@ public class ExcelUtil {
                 out.close();
             }
         } catch (IOException e) {
-            LG.error(e.toString(), e);
+            log.error(e.toString(), e);
         }
     }
 
@@ -621,7 +611,7 @@ public class ExcelUtil {
         try {
             workbook.write(out);
         } catch (IOException e) {
-            LG.error(e.toString(), e);
+            log.error(e.toString(), e);
         }
     }
 
@@ -657,7 +647,7 @@ public class ExcelUtil {
             }
             workbook.write(out);
         } catch (IOException e) {
-            LG.error(e.toString(), e);
+            log.error(e.toString(), e);
         }
     }
 
@@ -701,7 +691,7 @@ public class ExcelUtil {
         try {
             workbook.write(out);
         } catch (IOException e) {
-            LG.error(e.toString(), e);
+            log.error(e.toString(), e);
         }
     }
 
@@ -753,7 +743,7 @@ public class ExcelUtil {
                     while (it2.hasNext()) {
                         key = it2.next();
                         if (!headers.containsKey(key)) {
-                            LG.error("Map 中 不存在 key [" + key + "]");
+                            log.error("Map 中 不存在 key [" + key + "]");
                             continue;
                         }
                         Object value = map.get(key);
@@ -778,7 +768,7 @@ public class ExcelUtil {
                     }
                 }
             } catch (Exception e) {
-                LG.error(e.toString(), e);
+                log.error(e.toString(), e);
             }
         }
         // 設定自動寬度
@@ -940,14 +930,14 @@ public class ExcelUtil {
                     FileInputStream inputStream = new FileInputStream(excelFile);
                     workBook = new XSSFWorkbook(inputStream);
                 } else {
-                    LG.error("load excel file error", "File type error!!");
+                    log.error("load excel file error", "File type error!!");
                     throw new Exception("Excel file type error!!");
                 }
             } else {
                 throw new FileNotFoundException(excelFile.getAbsolutePath() + " not found.");
             }
         } catch (Exception e) {
-            LG.error("load excel file error", e);
+            log.error("load excel file error", e);
             return null;
         }
         List<T> list = new ArrayList<>();
@@ -984,7 +974,7 @@ public class ExcelUtil {
                     }
                 }
                 if (allRowIsNull) {
-                    LG.warn("Excel row " + row.getRowNum() + " all row value is null!");
+                    log.warn("Excel row " + row.getRowNum() + " all row value is null!");
                     continue;
                 }
                 StringBuilder log = new StringBuilder();
@@ -997,7 +987,6 @@ public class ExcelUtil {
                         if (cell == null) {
                             map.put(k, null);
                         } else {
-//                            String value = cell.getStringCellValue();
                             String value = Objects.isNull(getCellValue(cell)) ? null : getCellValue(cell).toString();
                             map.put(k, value);
                         }

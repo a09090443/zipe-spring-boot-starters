@@ -61,8 +61,7 @@ public class BaseAutoConfiguration {
 
     @Bean
     public MailService mailService() {
-        MailService mailService = new MailServiceImpl(mailPropertyConfig);
-        return mailService;
+        return new MailServiceImpl(mailPropertyConfig);
     }
 
 }
