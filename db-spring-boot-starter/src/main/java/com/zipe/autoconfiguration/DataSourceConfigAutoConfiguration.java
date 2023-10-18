@@ -21,6 +21,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcDaoSupport;
 import org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException;
+import org.springframework.jdbc.datasource.lookup.JndiDataSourceLookup;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -65,8 +66,21 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
         baseHikariConfig().setPassword(dbPassword);
 
         baseHikariConfig().setDriverClassName(dataSource.getDriverClassName());
-
         return new HikariDataSource(baseHikariConfig());
+    }
+
+    private DataSource createJndiDataSource(DynamicDataSourceConfig dataSource) {
+        final JndiDataSourceLookup dataSourceLookup = new JndiDataSourceLookup();
+        dataSourceLookup.setResourceRef(true);
+        DataSource dataSourceTemp = null;
+        try {
+            dataSourceTemp = dataSourceLookup.getDataSource(dataSource.getUrl());
+        } catch (DataSourceLookupFailureException e) {
+            throw new DataSourceLookupFailureException(null);
+        }
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setDataSource(dataSourceTemp);
+        return new HikariDataSource(hikariConfig);
     }
 
     private DataSource createAs400DataSource(DynamicDataSourceConfig dataSource) {
@@ -93,13 +107,15 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     public DataSource dataSource() {
 
         Map<Object, Object> dataSourceMap = new HashMap<>(16);
-        if(Objects.isNull(dynamicDataSource.getDataSourceMap())){
+        if (Objects.isNull(dynamicDataSource.getDataSourceMap())) {
             throw new DataSourceLookupFailureException("請設定 data-source.properties 內容");
         }
 
         Optional.ofNullable(dynamicDataSource.getDataSourceMap()).ifPresent(dataSource -> {
             dataSource.forEach((k, v) -> {
-                if (!v.getUrl().toLowerCase().contains("as400")) {
+                if (v.getName().contains("jndi")) {
+                    dataSourceMap.put(k, createJndiDataSource(v));
+                } else if (!v.getUrl().toLowerCase().contains("as400")) {
                     dataSourceMap.put(k, createDataSource(v));
                 } else {
                     dataSourceMap.put(k, createAs400DataSource(v));
