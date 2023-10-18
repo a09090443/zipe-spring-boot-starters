@@ -23,6 +23,7 @@
         <p6spy.version>3.9.1</p6spy.version>
         <mssql-jdbc.version>12.4.1.jre8</mssql-jdbc.version>
         <mysql-connector-java.version>8.0.33</mysql-connector-java.version>
+        <db2.version>11.5.8.0</db2.version>
         <jt400.version>11.1</jt400.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
@@ -97,6 +98,13 @@
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Db2 JDBC -->
+        <dependency>
+            <groupId>com.ibm.db2</groupId>
+            <artifactId>jcc</artifactId>
+            <version>${db2.version}</version>
         </dependency>
 
         <!-- AS400 JDBC -->
