@@ -6,7 +6,12 @@ import com.zipe.base.config.DataSourcePropertyConfig;
 import com.zipe.base.database.BaseDataSourceConfig;
 import com.zipe.base.database.DataSourceHolder;
 import com.zipe.base.database.DynamicDataSource;
+import com.zipe.base.database.datasourceconfig.AS400HikariConfig;
+import com.zipe.base.database.datasourceconfig.DB2HikariConfig;
+import com.zipe.base.database.datasourceconfig.JndiHikariConfig;
+import com.zipe.base.database.datasourceconfig.MysqlHikariConfig;
 import com.zipe.base.model.DynamicDataSourceConfig;
+import com.zipe.enums.DatasourceType;
 import com.zipe.util.crypto.Base64Util;
 import com.zipe.util.crypto.CryptoUtil;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -53,22 +58,44 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     }
 
     private DataSource createDataSource(DynamicDataSourceConfig dataSource) {
+        HikariConfig hikariConfig;
+        DatasourceType type = DatasourceType.ifContains(dataSource.getName());
+        // Default is Mysql
+        switch (Objects.requireNonNull(type)) {
+            case JNDI: {
+                hikariConfig = baseHikariConfig(new JndiHikariConfig(dataSource.getUrl()));
+                return new HikariDataSource(hikariConfig);
+            }
+            case DB2: {
+                hikariConfig = baseHikariConfig(new DB2HikariConfig());
+                break;
+            }
+            case AS400: {
+                hikariConfig = baseHikariConfig(new AS400HikariConfig());
+                break;
+            }
+            default: {
+                hikariConfig = baseHikariConfig(new MysqlHikariConfig());
+            }
+        }
+
         //資料來源
-        baseHikariConfig().setJdbcUrl(dataSource.getUrl());
+        hikariConfig.setJdbcUrl(dataSource.getUrl());
         //使用者名稱
-        baseHikariConfig().setUsername(dataSource.getUsername());
+        hikariConfig.setUsername(dataSource.getUsername());
         String dbPassword = dataSource.getPa55word();
-        if (dynamicDataSource.getIsEncrypt()) {
+        if (Boolean.TRUE.equals(dynamicDataSource.getIsEncrypt())) {
             CryptoUtil cryptoUtil = new CryptoUtil(new Base64Util());
             dbPassword = cryptoUtil.decode(dbPassword);
         }
         //密碼
-        baseHikariConfig().setPassword(dbPassword);
+        hikariConfig.setPassword(dbPassword);
 
-        baseHikariConfig().setDriverClassName(dataSource.getDriverClassName());
-        return new HikariDataSource(baseHikariConfig());
+        hikariConfig.setDriverClassName(dataSource.getDriverClassName());
+        return new HikariDataSource(hikariConfig);
     }
 
+    @Deprecated
     private DataSource createJndiDataSource(DynamicDataSourceConfig dataSource) {
         final JndiDataSourceLookup dataSourceLookup = new JndiDataSourceLookup();
         dataSourceLookup.setResourceRef(true);
@@ -76,13 +103,14 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
         try {
             dataSourceTemp = dataSourceLookup.getDataSource(dataSource.getUrl());
         } catch (DataSourceLookupFailureException e) {
-            throw new DataSourceLookupFailureException(null);
+            throw new DataSourceLookupFailureException("Jndi:" + dataSource.getUrl() + " 連線失敗");
         }
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setDataSource(dataSourceTemp);
         return new HikariDataSource(hikariConfig);
     }
 
+    @Deprecated
     private DataSource createAs400DataSource(DynamicDataSourceConfig dataSource) {
         // 因 AS400 使用 Hikari 額外設定時會發生錯誤，所以只有基本設定
         HikariConfig config = new HikariConfig();
@@ -113,14 +141,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
         Optional.ofNullable(dynamicDataSource.getDataSourceMap()).ifPresent(dataSource -> {
             dataSource.forEach((k, v) -> {
-                if (v.getName().contains("jndi")) {
-                    dataSourceMap.put(k, createJndiDataSource(v));
-                } else if (!v.getUrl().toLowerCase().contains("as400")) {
-                    dataSourceMap.put(k, createDataSource(v));
-                } else {
-                    dataSourceMap.put(k, createAs400DataSource(v));
-                }
-
+                dataSourceMap.put(k, createDataSource(v));
                 DataSourceHolder.dataSourceNames.add(k);
             });
         });
