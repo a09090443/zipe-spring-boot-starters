@@ -1,5 +1,6 @@
 package com.zipe.controller;
 
+import com.zipe.annotation.ResponseResultBody;
 import com.zipe.dto.Result;
 import com.zipe.dto.User;
 import com.zipe.exception.ResultException;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping(value = "/rest", produces = "application/json")
+@ResponseResultBody
 public class RestfulController {
 
     private static final HashMap<String, Object> INFO;
