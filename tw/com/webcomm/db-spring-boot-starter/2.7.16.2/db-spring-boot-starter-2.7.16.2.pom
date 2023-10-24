@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.16</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <groupId>tw.com.webcomm</groupId>
+    <artifactId>db-spring-boot-starter</artifactId>
+    <version>2.7.16.2</version>
+    <name>db-spring-boot-starter</name>
+    <description>database spring boot starter</description>
+
+    <properties>
+        <github.global.server>github</github.global.server>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <base-spring-boot-starter.version>2.7.16.1</base-spring-boot-starter.version>
+        <p6spy.version>3.9.1</p6spy.version>
+        <mssql-jdbc.version>12.4.1.jre8</mssql-jdbc.version>
+        <mysql-connector-java.version>8.0.33</mysql-connector-java.version>
+        <db2.version>11.5.8.0</db2.version>
+        <jt400.version>11.1</jt400.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
+        <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <site-maven-plugin.version>0.12</site-maven-plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring boot starters -->
+        <dependency>
+            <groupId>tw.com.webcomm</groupId>
+            <artifactId>base-spring-boot-starter</artifactId>
+            <version>2.7.16.1</version>
+        </dependency>
+
+        <!-- P6SPY -->
+        <dependency>
+            <groupId>p6spy</groupId>
+            <artifactId>p6spy</artifactId>
+            <version>${p6spy.version}</version>
+        </dependency>
+
+        <!-- Mssql JDBC -->
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+            <version>${mssql-jdbc.version}</version>
+        </dependency>
+
+        <!-- Mysql JDBC -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>${mysql-connector-java.version}</version>
+        </dependency>
+
+        <!-- Maria JDBC -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Db2 JDBC -->
+        <dependency>
+            <groupId>com.ibm.db2</groupId>
+            <artifactId>jcc</artifactId>
+            <version>${db2.version}</version>
+        </dependency>
+
+        <!-- AS400 JDBC -->
+        <dependency>
+            <groupId>net.sf.jt400</groupId>
+            <artifactId>jt400-jdk8</artifactId>
+            <version>${jt400.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>db-spring-boot-starter</finalName>
+        <plugins>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>${maven-deploy-plugin.version}</version>
+                <configuration>
+                    <!-- altDeploymentRepository ：指定替代方案應該部署項目工件的存儲庫（除了指定的工件）。 -->
+                    <altDeploymentRepository>internal.repo::default::file://${project.basedir}/mvn-repo
+                    </altDeploymentRepository>
+                </configuration>
+            </plugin>
+            <!--github上傳插件,用於修改後的發布,執行 mvn clean deploy 自動打包上傳到github-->
+            <plugin>
+                <groupId>com.github.github</groupId>
+                <artifactId>site-maven-plugin</artifactId>
+                <version>${site-maven-plugin.version}</version>
+                <configuration>
+                    <message>Creating site for ${project.artifactId} ${project.version}</message>
+                    <noJekyll>true</noJekyll>
+                    <!--本地jar地址, 對應上面的altDeploymentRepository-->
+                    <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
+                    <!--分支-->
+                    <branch>refs/heads/mvn-repo</branch>
+                    <merge>true</merge>
+                    <includes>
+                        <include>**/*</include>
+                    </includes>
+                    <!--對應github上創建的倉庫名稱 name-->
+                    <repositoryName>zipe-spring-boot-starters</repositoryName>
+                    <!--github登錄帳號 對應的密碼存在maven的setting.xml文件中-->
+                    <!--由github組織擁有，則該值將是組織名稱，如果由用戶擁有，則該值將是用戶名-->
+                    <repositoryOwner>a09090443</repositoryOwner>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>site</goal>
+                        </goals>
+                        <phase>deploy</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
