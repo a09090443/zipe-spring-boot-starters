@@ -103,11 +103,11 @@ public abstract class BaseJob {
                     this.executeOnce(convertToJob(scheduleJobDetail), scheduleBuilder);
                     break;
                 case MERGE:
-                    scheduleBuilder = ScheduleEnum.getTimeUnit(scheduleJobDetail.getTimeUnit())
-                            .setCycle(scheduleJobDetail.getRepeatInterval());
-
                     if (StringUtils.isNotBlank(scheduleJobDetail.getCronExpression())) {
                         scheduleBuilder = ScheduleEnum.CRON.setExpression(scheduleJobDetail.getCronExpression());
+                    } else {
+                        scheduleBuilder = ScheduleEnum.getTimeUnit(scheduleJobDetail.getTimeUnit())
+                                .setCycle(scheduleJobDetail.getRepeatInterval());
                     }
                     this.createJob(convertToJob(scheduleJobDetail), scheduleBuilder);
                     break;

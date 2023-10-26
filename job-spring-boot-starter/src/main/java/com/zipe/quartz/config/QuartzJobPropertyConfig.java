@@ -5,6 +5,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -15,5 +16,5 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "quartz")
 @Data
 public class QuartzJobPropertyConfig {
-    private Map<String, Job> jobMap;
+    private Map<String, Job> jobMap = new HashMap<>();
 }
