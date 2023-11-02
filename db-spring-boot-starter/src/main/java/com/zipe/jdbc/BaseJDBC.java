@@ -405,7 +405,7 @@ public abstract class BaseJDBC {
         return getSqlText(resource, null);
     }
 
-    private synchronized String getSqlText(ResourceEnum resource, Conditions conditions) {
+    private static synchronized String getSqlText(ResourceEnum resource, Conditions conditions) {
         StringBuilder path = new StringBuilder();
         path.append(resource.dir());
         path.append(resource.file());
