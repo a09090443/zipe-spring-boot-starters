@@ -114,14 +114,14 @@ public abstract class BaseJob {
                 case PAUSE:
                     scheduler.pauseJob(jobKey);
                     break;
-
                 case RESUME:
                     scheduler.resumeJob(jobKey);
                     break;
-
                 case DELETE:
                     scheduler.deleteJob(jobKey);
                     break;
+                default:
+                    throw new Exception("請確認排程動作");
             }
         } catch (Exception e) {
             scheduleJobDetail.setMessage("排程: " + scheduleJobDetail.getJobName() + "發生未知錯誤。");

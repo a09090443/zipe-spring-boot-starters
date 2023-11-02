@@ -32,11 +32,9 @@ import java.util.Map;
 @Slf4j
 public abstract class BaseJDBC {
 
-    @Autowired
-    protected JdbcTemplate jdbcTemplate;
+    private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    protected NamedParameterJdbcDaoSupport support;
+    private NamedParameterJdbcDaoSupport support;
 
     /**
      * @param resource
@@ -159,7 +157,7 @@ public abstract class BaseJDBC {
             return dataLs.get(0);
         }
 
-        return null;
+        return Collections.emptyMap();
     }
 
     /**
@@ -180,7 +178,7 @@ public abstract class BaseJDBC {
             return dataLs.get(0);
         }
 
-        return null;
+        return Collections.emptyMap();
     }
 
     /**
@@ -201,14 +199,14 @@ public abstract class BaseJDBC {
             return dataLs.get(0);
         }
 
-        return null;
+        return Collections.emptyMap();
     }
 
     /**
      * @param resource
      * @return
      */
-    public <T> List<Map<String, Object>> queryForList(ResourceEnum resource) {
+    public List<Map<String, Object>> queryForList(ResourceEnum resource) {
         List<Map<String, Object>> rtnLs =
                 support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource), new HashMap<String, Object>());
 
@@ -224,7 +222,7 @@ public abstract class BaseJDBC {
      * @param conditions
      * @return
      */
-    public <T> List<Map<String, Object>> queryForList(ResourceEnum resource, Conditions conditions) {
+    public List<Map<String, Object>> queryForList(ResourceEnum resource, Conditions conditions) {
         List<Map<String, Object>> rtnLs =
                 support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource, conditions), new HashMap<String, Object>());
 
@@ -240,7 +238,7 @@ public abstract class BaseJDBC {
      * @param params   查詢條件參數
      * @return
      */
-    public <T> List<Map<String, Object>> queryForList(ResourceEnum resource, Map<String, Object> params) {
+    public List<Map<String, Object>> queryForList(ResourceEnum resource, Map<String, Object> params) {
         List<Map<String, Object>> rtnLs =
                 support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource), params);
 
@@ -257,7 +255,7 @@ public abstract class BaseJDBC {
      * @param params     查詢條件參數
      * @return
      */
-    public <T> List<Map<String, Object>> queryForList(ResourceEnum resource, Conditions conditions, Map<String, Object> params) {
+    public List<Map<String, Object>> queryForList(ResourceEnum resource, Conditions conditions, Map<String, Object> params) {
         List<Map<String, Object>> rtnLs =
                 support.getNamedParameterJdbcTemplate().queryForList(getSqlText(resource, conditions), params);
         if (CollectionUtils.isEmpty(rtnLs)) {
@@ -403,11 +401,11 @@ public abstract class BaseJDBC {
         return rtnLs;
     }
 
-    private static String getSqlText(ResourceEnum resource) {
+    private String getSqlText(ResourceEnum resource) {
         return getSqlText(resource, null);
     }
 
-    private synchronized static String getSqlText(ResourceEnum resource, Conditions conditions) {
+    private synchronized String getSqlText(ResourceEnum resource, Conditions conditions) {
         StringBuilder path = new StringBuilder();
         path.append(resource.dir());
         path.append(resource.file());
@@ -454,4 +452,23 @@ public abstract class BaseJDBC {
         return template;
     }
 
+    protected JdbcTemplate getJdbcTemplate() {
+        return jdbcTemplate;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    protected NamedParameterJdbcDaoSupport getSupport() {
+        return support;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setSupport(NamedParameterJdbcDaoSupport support) {
+        this.support = support;
+    }
 }

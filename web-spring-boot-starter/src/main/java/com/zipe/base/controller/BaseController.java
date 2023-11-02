@@ -19,10 +19,8 @@ import java.util.Locale;
  */
 public abstract class BaseController {
 
-    @Autowired
-    protected Environment env;
+    private Environment env;
 
-    @Autowired
     private MessageSource messageSource;
 
     protected HttpServletRequest request;
@@ -35,7 +33,7 @@ public abstract class BaseController {
      *
      * @return
      */
-    public abstract ModelAndView initPage ();
+    public abstract ModelAndView initPage();
 
     protected String getMessage(String key, String... args) {
         if (StringUtils.isBlank(key)) {
@@ -45,4 +43,23 @@ public abstract class BaseController {
         return messageSource.getMessage(key, args, currentLocale);
     }
 
+    protected Environment getEnv() {
+        return env;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setEnv(Environment env) {
+        this.env = env;
+    }
+
+    protected MessageSource getMessageSource() {
+        return messageSource;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setMessageSource(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 }

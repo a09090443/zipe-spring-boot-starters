@@ -13,9 +13,6 @@ import java.util.Base64;
 @Slf4j
 public class Base64Util implements Crypto {
 
-    public Base64Util() {
-    }
-
     @Override
     public String getEncrypt(String content) {
         return this.getEncrypt(content, null);

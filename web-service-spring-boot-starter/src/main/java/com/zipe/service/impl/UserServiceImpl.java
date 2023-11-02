@@ -2,6 +2,7 @@ package com.zipe.service.impl;
 
 import com.zipe.model.User;
 import com.zipe.service.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.jws.WebService;
@@ -13,6 +14,7 @@ import java.util.UUID;
  * @ClassName:UserServiceImpl
  * @Description:測試服務接口實現類
  */
+@Slf4j
 @WebService(serviceName = "UserService",//對外發布的服務名
         targetNamespace = "http://service.zipe.com",//指定你想要的名稱空間，通常使用使用包名反轉
         endpointInterface = "com.zipe.service.UserService")//服務接口全路徑, 指定做SEI（Service EndPoint Interface）服務端點接口
@@ -22,7 +24,7 @@ public class UserServiceImpl implements UserService {
     private Map<String, User> userMap = new HashMap<String, User>();
 
     public UserServiceImpl() {
-        System.out.println("向實體類插入數據");
+        log.info("向實體類插入數據");
         User user = new User();
         user.setUserId(UUID.randomUUID().toString().replace("-", ""));
         user.setUserName("mracale01");
@@ -54,7 +56,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User getUser(String userId) {
-        System.out.println("userMap是:" + userMap);
+        log.info("userMap是:" + userMap);
         return userMap.get(userId);
     }
 
