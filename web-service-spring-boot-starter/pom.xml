@@ -20,7 +20,7 @@
         <github.global.server>github</github.global.server>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <cxf-spring-boot-starter-jaxws.version>4.0.3</cxf-spring-boot-starter-jaxws.version>
+        <cxf-spring-boot-starter-jaxws.version>3.5.7</cxf-spring-boot-starter-jaxws.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
         <base-spring-boot-starter.version>2.7.16.1</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
