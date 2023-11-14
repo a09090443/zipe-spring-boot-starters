@@ -36,6 +36,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class SecurityConfiguration {
 
+    private final String PERMIT_ALL = "/**";
     private final SecurityPropertyConfig securityPropertyConfig;
 
     public SecurityConfiguration(SecurityPropertyConfig securityPropertyConfig) {
@@ -54,7 +55,7 @@ public class SecurityConfiguration {
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
-                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .antMatchers(switchSecurity()).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()
@@ -71,12 +72,6 @@ public class SecurityConfiguration {
                 .httpBasic()
                 .and().sessionManagement().invalidSessionUrl("/login")
                 .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
-        // 關閉 iframe 阻擋
-        http.headers().frameOptions().disable();
-        // 關閉 csrf 功能
-        if (!securityPropertyConfig.getCsrfEnabled()) {
-            http.csrf().disable();
-        }
         authenticationProvider(http);
 
     }
@@ -85,7 +80,7 @@ public class SecurityConfiguration {
         http
                 .csrf().disable()
                 .authorizeRequests()
-                .antMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
+                .antMatchers(switchSecurity()).permitAll()
                 .anyRequest()
                 .authenticated()
                 .and().formLogin()
@@ -103,16 +98,17 @@ public class SecurityConfiguration {
                 .logoutSuccessHandler(logoutSuccessHandler())
                 .and().sessionManagement().invalidSessionUrl(securityPropertyConfig.getLoginUri())
                 .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
+        authenticationProvider(http);
+    }
+
+    private void authenticationProvider(HttpSecurity http) throws Exception {
         // 關閉 iframe 阻擋
         http.headers().frameOptions().disable();
         // 關閉 csrf 功能
         if (!securityPropertyConfig.getCsrfEnabled()) {
             http.csrf().disable();
         }
-        authenticationProvider(http);
-    }
 
-    private void authenticationProvider(HttpSecurity http){
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
         log.info("登入模式:{}", verificationTypeEnum.name());
 
@@ -133,6 +129,16 @@ public class SecurityConfiguration {
                 authProvider.setPasswordEncoder(passwordEncoder());
                 http.authenticationProvider(authProvider);
         }
+    }
+
+    private String[] switchSecurity() {
+        String[] allowUris;
+        if (!securityPropertyConfig.getEnable()) {
+            allowUris = new String[]{PERMIT_ALL};
+        } else {
+            allowUris = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
+        }
+        return allowUris;
     }
 
     @Bean
