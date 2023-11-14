@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.5.12</version>
+        <version>2.7.16</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
@@ -14,12 +14,14 @@
     <name>example</name>
     <description>Demo project for Spring Boot</description>
     <properties>
-        <java.version>11</java.version>
-        <jaxws-ri.version>2.3.4</jaxws-ri.version>
-        <webjars-bootstrap.version>5.1.1</webjars-bootstrap.version>
-        <webjars-jquery.version>3.6.0</webjars-jquery.version>
-        <webjars-locator.version>0.42</webjars-locator.version>
-        <zipe.spring.starter.version>2.5.12.1</zipe.spring.starter.version>
+        <java.version>1.8</java.version>
+        <env>dev</env>
+        <jaxws-ri.version>3.0.2</jaxws-ri.version>
+        <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
+        <webjars-jquery.version>3.6.4</webjars-jquery.version>
+        <webjars-locator.version>0.46</webjars-locator.version>
+        <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
+        <zipe.spring.starter.version>2.7.16.1</zipe.spring.starter.version>
     </properties>
 
     <repositories>
@@ -112,12 +114,6 @@
 
         <dependency>
             <groupId>com.zipe</groupId>
-            <artifactId>logon-spring-boot-starter</artifactId>
-            <version>${zipe.spring.starter.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.zipe</groupId>
             <artifactId>db-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
@@ -160,11 +156,75 @@
                 </includes>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/**</include>
+                </includes>
+                <filtering>false</filtering>
+            </resource>
         </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--引入第三方jar 包-->
+            <plugin>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>${maven-war-plugin.version}</version>
+                <configuration>
+                    <webResources>
+                        <resource>
+                            <directory>${basedir}/src/main/lib</directory>
+                            <targetPath>WEB-INF/lib</targetPath>
+                            <includes>
+                                <include>**/*.jar</include>
+                            </includes>
+                        </resource>
+                    </webResources>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.coderplus.maven.plugins</groupId>
+                <artifactId>copy-rename-maven-plugin</artifactId>
+                <version>1.0</version>
+                <executions>
+                    <execution>
+                        <id>rename-file</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>rename</goal>
+                        </goals>
+                        <configuration>
+                            <sourceFile>${project.build.outputDirectory}/resources_${env}.properties</sourceFile>
+                            <destinationFile>${project.build.outputDirectory}/resources.properties</destinationFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>delete-files</id>
+                        <phase>compile</phase>
+                        <configuration>
+                            <target>
+                                <delete includeemptydirs="true">
+                                    <fileset dir="${project.build.directory}/classes">
+                                        <include name="**/resources_*.properties"/>
+                                    </fileset>
+                                </delete>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
 

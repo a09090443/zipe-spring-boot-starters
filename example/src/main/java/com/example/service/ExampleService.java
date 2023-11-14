@@ -1,30 +1,20 @@
 package com.example.service;
 
-import com.example.model.UserDetail;
-import com.example.model.UserMain;
+import com.example.model.User;
 
 import java.util.List;
 
-/**
- * @author Gary.Tsai
- */
 public interface ExampleService {
 
-    UserMain findUserById(Integer id);
+    List<User> findUsers();
 
-    UserMain findUserByName(String name);
+    void findExample1Data();
 
-    List<UserMain> findAll();
+    void findExample2Data();
 
-    UserMain saveOrUpdateUser(UserMain userMain);
+    void findDb2Data();
 
-    void deleteUser(UserMain user);
+    void findByNativeSQL(String name);
 
-    UserDetail findByUserName(String name);
-
-    UserDetail saveOrUpdateInfo(UserDetail userDetail);
-
-    void deleteInfo(UserDetail userDetail);
-
-    List<UserMain> findUserByJdbc(String name);
+    String testException();
 }

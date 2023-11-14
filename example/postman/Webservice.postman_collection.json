@@ -1,0 +1,158 @@
+{
+	"info": {
+		"_postman_id": "1745f922-f772-454f-aaa9-7c4edf34e289",
+		"name": "Webservice",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3129584"
+	},
+	"item": [
+		{
+			"name": "WebServiceExample_getUser",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<getUser xmlns=\"http://service.example.com/\">\r\n        <User>\r\n            <userId>1111</userId>\r\n            <name>mracale02</name>\r\n            <email>test@localhost.com</email>\r\n        </User>\r\n　　　　</getUser>\r\n　　</soap:Body>\r\n</soap:Envelope>"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/webservice/exampleUserService?wsdl",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"webservice",
+						"exampleUserService"
+					],
+					"query": [
+						{
+							"key": "wsdl",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "WebServiceExample_getUserName",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<getUserId xmlns=\"http://service.example.com/\">\r\n          <name>mracale02</name>\r\n　　　　</getUserId>\r\n　　</soap:Body>\r\n</soap:Envelope>"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/webservice/exampleUserService?wsdl",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"webservice",
+						"exampleUserService"
+					],
+					"query": [
+						{
+							"key": "wsdl",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "WebServiceExample_sayHello",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<sayHello xmlns=\"http://service.example.com/\">\r\n          <name>Gary</name>\r\n　　　　</sayHello>\r\n　　</soap:Body>\r\n</soap:Envelope>"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/webservice/exampleWebService?wsdl",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"webservice",
+						"exampleWebService"
+					],
+					"query": [
+						{
+							"key": "wsdl",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "WebServiceExample_getAllUserData",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<getAllUserData xmlns=\"http://service.example.com/\">\r\n　　　　</getAllUserData>\r\n　　</soap:Body>\r\n</soap:Envelope>"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/webservice/exampleUserService?wsdl",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"webservice",
+						"exampleUserService"
+					],
+					"query": [
+						{
+							"key": "wsdl",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

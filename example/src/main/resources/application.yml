@@ -5,21 +5,17 @@ spring:
     allow-bean-definition-overriding: true
   # db-spring-boot-starter
   jpa:
+    base:
+      packages: com.example # Jpa repository package
     hibernate:
       ddl-auto: none # service 啟動時 database 自動建立機制 (create, create-drop, update, validate)
     show-sql: false # 顯示 Sql 語法
-    base:
-      packages: com.example # Jpa repository package
   # job-spring-boot-starter
   quartz:
     enable: true # 是否開啟 Job 功能
-    job-store-type: memory #jdbc-資料庫、memory 記憶體
+    job-store-type: jdbc #jdbc-資料庫、memory 記憶體
   config:
     import: classpath:resources.properties
-  h2:
-    console:
-      enabled: true
-
 server:
   servlet:
     context-path: /example
@@ -41,34 +37,20 @@ web:
     templateMode: HTML # thymeleaf 模式
   # web-service-spring-boot-starter
   service:
-    uri-mapping: /webservice/* # web service 對應 Uri，http://localhost:8080/webservice?wsdl
     map:
       example:
-        beanName: exampleWebServiceImpl # example 資源對應的 bean
-        uri-mapping: /example # web service 資源對應 Uri，http://localhost:8080/webservice/example?wsdl
-
-# logon-spring-boot-starter
-security:
-  enable: true # security 開關
-  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
-  custom-bean-name: test # 自訂登入方式，請填入 bean name
-  record-log-enable: true # 紀錄事件 Log
-  custom-record-log-bean: logonLogRecord # 自訂使用者登出入紀錄，record-log-enable 須為 true
-  allow-uris: /resources/**,/static/**,/webservice/** # 設定不須授權即可登入的 Uri
-#  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
-  login-success-uri: /jsp # 登入成功後的頁面
-  login-failure-uri: /login # 登入失敗的頁面
-  ldap:
-    ip: 127.0.0.1 # Ldap 主機
-    domain: ldap.zipe.com # Ldap domain name
-    port: 389 # Ldap port
-    dn: DC=zipe,DC=local # Ldap dn
+        beanName: exampleWebServiceImpl
+        uri-mapping: /exampleWebService
+      exampleUser:
+        beanName: exampleUserServiceImpl
+        uri-mapping: /exampleUserService
+    uri-mapping: /webservice/* # web service 對應 Uri，http://localhost:8080/webservice?wsdl
 
 # base-spring-boot-starter
 mail:
   debug-enable: true # 是否開啟 debug 模式
   username: zipe # Username
-  pa55word: zipe # Password
+  pa55word: 1234 # Password
   enable-encrypt: false # 密碼是否有加密
   host: 127.0.0.1 # Mail server ip
   port: 25 # Mail server port

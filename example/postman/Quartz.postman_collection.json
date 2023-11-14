@@ -1,0 +1,185 @@
+{
+	"info": {
+		"_postman_id": "f4ae186c-8481-4c68-9316-030cd5becbec",
+		"name": "Quartz",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3129584"
+	},
+	"item": [
+		{
+			"name": "createExampleJob",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobName\": \"ExampleDbJob\",\n  \"jobGroup\": \"job\",\n  \"jobDescription\": \"Ceate job use db\",\n  \"jobClass\": \"com.example.job.ExampleDbJob\",\n  \"startTime\": \"2023-10-26 17:22:12\",\n  \"endTime\": \"2025-10-26 18:02:12\",\n//   \"cronExpression\": \"0 30 16 ? * * *\", //如果有設定該值startTime,endTime皆無作用\n  \"repeatInterval\": 1,\n  \"repeatTimes\": -1,\n  \"timeUnit\": 2,\n  \"jobDataMap\": {\n    \"name\":\"Gary\",\n    \"age\":28\n  }\n}"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/job/register",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"job",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "deleteExampleJob",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobName\": \"ExampleDbJob\",\n  \"jobGroup\": \"job\"\n}"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/job/delete",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"job",
+						"delete"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "pauseExampleJob",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobName\": \"ExampleDbJob\",\n  \"jobGroup\": \"job\"\n}"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/job/pause",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"job",
+						"pause"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "resumeExampleJob",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobName\": \"ExampleDbJob\",\n  \"jobGroup\": \"job\"\n}"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/job/resume",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"job",
+						"resume"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "runExampleJob",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobName\": \"ExampleDbJob\",\n  \"jobGroup\": \"job\",\n  \"jobDescription\": \"Ceate job use db\",\n  \"jobClass\": \"com.example.job.ExampleDbJob\",\n  \"startTime\": \"2023-10-26 17:22:12\",\n  \"endTime\": \"2025-10-26 18:02:12\",\n//   \"cronExpression\": \"0 30 16 ? * * *\", //如果有設定該值startTime,endTime皆無作用\n  \"repeatInterval\": 1,\n  \"repeatTimes\": 3,\n  \"timeUnit\": 2,\n  \"jobDataMap\": {\n    \"name\":\"Gary\",\n    \"age\":28\n  }\n}"
+				},
+				"url": {
+					"raw": "http://{{domain}}:{{port}}/example/job/run",
+					"protocol": "http",
+					"host": [
+						"{{domain}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"example",
+						"job",
+						"run"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
