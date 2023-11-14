@@ -19,7 +19,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<getUser xmlns=\"http://service.example.com/\">\r\n        <User>\r\n            <userId>1111</userId>\r\n            <name>mracale02</name>\r\n            <email>test@localhost.com</email>\r\n        </User>\r\n　　　　</getUser>\r\n　　</soap:Body>\r\n</soap:Envelope>"
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n　　<soap:Body>\r\n　　　　<getUser xmlns=\"http://service.user.com/\">\r\n        <User>\r\n            <UserId>1111</UserId>\r\n            <UserName>mracale02</UserName>\r\n            <Email>test@localhost.com</Email>\r\n        </User>\r\n　　　　</getUser>\r\n　　</soap:Body>\r\n</soap:Envelope>"
 				},
 				"url": {
 					"raw": "http://{{domain}}:{{port}}/example/webservice/exampleUserService?wsdl",

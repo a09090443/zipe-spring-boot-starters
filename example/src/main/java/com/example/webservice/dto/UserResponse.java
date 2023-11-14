@@ -8,8 +8,8 @@ import lombok.Data;
 import javax.xml.bind.annotation.XmlElement;
 
 @Data
-@JacksonXmlRootElement(localName = "User")
-public class UserRequest {
+@JacksonXmlRootElement(localName = "userResult")
+public class UserResponse {
     /**
      * user id
      */
@@ -29,15 +29,15 @@ public class UserRequest {
     @JacksonXmlCData
     private String email;
 
-    @XmlElement(namespace = "http://service.user.com/", name="UserId")
+    @XmlElement(namespace = "http://service.user.com/", name = "id")
     public void setUserId(String userId) {
         this.userId = userId;
     }
-    @XmlElement(namespace = "http://service.user.com/", name="UserName")
+    @XmlElement(namespace = "http://service.user.com/", name = "name")
     public void setName(String name) {
         this.name = name;
     }
-    @XmlElement(namespace = "http://service.user.com/", name="Email")
+    @XmlElement(namespace = "http://service.user.com/", name = "email")
     public void setEmail(String email) {
         this.email = email;
     }
