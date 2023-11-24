@@ -1,6 +1,7 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.MailPropertyConfig;
+import com.zipe.config.ThreadPoolTaskExecutorConfig;
 import com.zipe.config.VelocityPropertyConfig;
 import com.zipe.service.MailService;
 import com.zipe.service.impl.MailServiceImpl;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * @author : Gary Tsai
@@ -64,4 +66,18 @@ public class BaseAutoConfiguration {
         return new MailServiceImpl(mailPropertyConfig);
     }
 
+    @Bean(name = "threadPoolTaskExecutor")
+    public ThreadPoolTaskExecutor serviceJobTaskExecutor() {
+        ThreadPoolTaskExecutor poolTaskExecutor = new ThreadPoolTaskExecutor();
+        //線程池維護線程的最少數量
+        poolTaskExecutor.setCorePoolSize(ThreadPoolTaskExecutorConfig.CORE_POOL_SIZE);
+        //線程池維護線程的最大數量
+        poolTaskExecutor.setMaxPoolSize(ThreadPoolTaskExecutorConfig.MAX_POOL_SIZE);
+        //線程池所使用的緩衝隊列
+        poolTaskExecutor.setQueueCapacity(200);
+        //線程池維護線程所允許的空閒時間
+        poolTaskExecutor.setKeepAliveSeconds(30000);
+        poolTaskExecutor.setWaitForTasksToCompleteOnShutdown(true);
+        return poolTaskExecutor;
+    }
 }
