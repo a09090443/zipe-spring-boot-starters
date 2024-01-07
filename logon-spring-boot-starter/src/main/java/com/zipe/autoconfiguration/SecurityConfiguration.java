@@ -36,6 +36,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class SecurityConfiguration {
 
+    private final String PERMIT_ALL = "/**";
     private final SecurityPropertyConfig securityPropertyConfig;
 
     public SecurityConfiguration(SecurityPropertyConfig securityPropertyConfig) {
@@ -71,12 +72,6 @@ public class SecurityConfiguration {
                 .httpBasic()
                 .and().sessionManagement().invalidSessionUrl("/login")
                 .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
-        // 關閉 iframe 阻擋
-        http.headers().frameOptions().disable();
-        // 關閉 csrf 功能
-        if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
-            http.csrf().disable();
-        }
         authenticationProvider(http);
 
     }
@@ -103,34 +98,47 @@ public class SecurityConfiguration {
                 .logoutSuccessHandler(logoutSuccessHandler())
                 .and().sessionManagement().invalidSessionUrl(securityPropertyConfig.getLoginUri())
                 .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
-        // 關閉 iframe 阻擋
-        http.headers().frameOptions().disable();
-        // 關閉 csrf 功能
-        if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
-            http.csrf().disable();
-        }
         authenticationProvider(http);
     }
 
-    private void authenticationProvider(HttpSecurity http){
+    private void authenticationProvider(HttpSecurity http) throws Exception {
+        // 關閉 iframe 阻擋
+        http.headers().frameOptions().disable();
+        // 關閉 csrf 功能
+        if (!securityPropertyConfig.getCsrfEnabled()) {
+            http.csrf().disable();
+        }
+
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
         log.info("登入模式:{}", verificationTypeEnum.name());
 
         switch (verificationTypeEnum) {
-            case LDAP -> http.authenticationProvider(ldapUserDetailsService());
-            case CUSTOM -> {
+            case LDAP:
+                http.authenticationProvider(ldapUserDetailsService());
+                break;
+            case CUSTOM:
                 if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
                     throw new NullPointerException("Please enter value in custom-bean-name");
                 }
                 http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-            }
-            default -> {
+                break;
+            case BASIC:
+            default:
                 DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
                 authProvider.setUserDetailsService(basicUserServiceImpl());
                 authProvider.setPasswordEncoder(passwordEncoder());
                 http.authenticationProvider(authProvider);
-            }
         }
+    }
+
+    private String[] switchSecurity() {
+        String[] allowUris;
+        if (!securityPropertyConfig.getEnable()) {
+            allowUris = new String[]{PERMIT_ALL};
+        } else {
+            allowUris = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
+        }
+        return allowUris;
     }
 
     @Bean

@@ -5,13 +5,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.0.6</version>
+        <version>3.2.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>com.zipe</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.0.6.1</version>
+    <version>3.2.1.1</version>
     <name>base-spring-boot-starter</name>
     <description>basic spring boot starter</description>
 
@@ -21,18 +21,18 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <commons-lang.version>2.6</commons-lang.version>
-        <commons-lang3.version>3.12.0</commons-lang3.version>
+        <commons-lang3.version>3.13.0</commons-lang3.version>
         <commons-collections4.version>4.4</commons-collections4.version>
-        <commons-io.version>2.11.0</commons-io.version>
+        <commons-io.version>2.14.0</commons-io.version>
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
-        <logback.version>1.4.7</logback.version>
+        <logback.version>1.4.11</logback.version>
         <logback-ext-spring.version>0.1.5</logback-ext-spring.version>
-        <aspectjweaver.version>1.9.19</aspectjweaver.version>
+        <aspectjweaver.version>1.9.20.1</aspectjweaver.version>
         <gson.version>2.10.1</gson.version>
         <velocity.version>1.7</velocity.version>
         <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
-        <poi.version>5.2.3</poi.version>
-        <jasperreports.version>6.20.5</jasperreports.version>
+        <poi.version>5.2.4</poi.version>
+        <jasperreports.version>6.20.6</jasperreports.version>
         <mail.version>1.6.2</mail.version>
         <okhttp3.version>4.11.0</okhttp3.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
@@ -252,7 +252,6 @@
         <finalName>base-spring-boot-starter</finalName>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <version>${maven-deploy-plugin.version}</version>
                 <configuration>

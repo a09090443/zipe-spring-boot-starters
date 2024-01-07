@@ -35,7 +35,7 @@ public class ViewResolverAutoConfiguration {
     private final WebPropertyConfig webPropertyConfig;
 
     WebApplicationContext webApplicationContext;
-    @Autowired
+
     ViewResolverAutoConfiguration(WebPropertyConfig webPropertyConfig, WebApplicationContext webApplicationContext) {
         this.webPropertyConfig = webPropertyConfig;
         this.webApplicationContext = webApplicationContext;

@@ -24,12 +24,10 @@ public abstract class BaseController {
 
     protected Environment env;
 
-    private final MessageSource messageSource;
+    private MessageSource messageSource;
 
     protected HttpServletRequest request;
-
     protected HttpServletResponse response;
-
     protected Locale currentLocale;
 
     @Autowired

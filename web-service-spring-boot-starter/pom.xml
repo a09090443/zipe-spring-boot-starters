@@ -6,13 +6,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.0.6</version>
+        <version>3.2.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>com.zipe</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.0.6.1</version>
+    <version>3.2.1.1</version>
     <name>web-service-spring-boot-starter</name>
     <description>Web Service spring boot project</description>
 
@@ -23,7 +23,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <cxf-spring-boot-starter-jaxws.version>4.0.0</cxf-spring-boot-starter-jaxws.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
-        <base-spring-boot-starter.version>3.0.6.1</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>3.2.1.1</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
