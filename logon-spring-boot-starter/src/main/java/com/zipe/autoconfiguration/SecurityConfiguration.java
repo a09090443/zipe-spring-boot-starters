@@ -16,14 +16,17 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+
+import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * @author Gary Tsai
@@ -32,7 +35,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Slf4j
 @AutoConfiguration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class SecurityConfiguration {
 
@@ -54,59 +57,62 @@ public class SecurityConfiguration {
     }
 
     private void basicLoginConfigure(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests()
-                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
-                .anyRequest()
-                .authenticated()
-                .and().formLogin()
-                .successHandler(loginSuccessHandler())
-                .failureHandler(loginFailureHandler())
-                .and()
-                .logout()
-                .deleteCookies("JSESSIONID")
-                .clearAuthentication(true)
-                .invalidateHttpSession(true)
-                .permitAll()
-                .logoutSuccessHandler(logoutSuccessHandler())
-                .and()
-                .httpBasic()
-                .and().sessionManagement().invalidSessionUrl("/login")
-                .maximumSessions(2).expiredUrl("/login").sessionRegistry(sessionRegistry());
+        http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers(switchSecurity()).permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .formLogin(formLogin -> formLogin.permitAll()
+                        .successHandler(loginSuccessHandler())
+                        .failureHandler(loginFailureHandler()))
+                .logout(logout -> logout.logoutUrl("/login")
+                        .deleteCookies("JSESSIONID")
+                        .clearAuthentication(true)
+                        .invalidateHttpSession(true)
+                        .permitAll()
+                        .logoutSuccessHandler(logoutSuccessHandler()))
+                .httpBasic(withDefaults())
+                .sessionManagement((session) -> session
+                        .invalidSessionUrl("/login")
+                        .maximumSessions(2)
+                        .expiredUrl("/login")
+                        .sessionRegistry(sessionRegistry()));
+
         authenticationProvider(http);
 
     }
 
     private void customLoginConfigure(HttpSecurity http) throws Exception {
-        http
-                .csrf().disable()
-                .authorizeRequests()
-                .requestMatchers(securityPropertyConfig.getAllowUris().split(StringConstant.COMMA)).permitAll()
-                .anyRequest()
-                .authenticated()
-                .and().formLogin()
-                .loginPage(securityPropertyConfig.getLoginUri())
-                .usernameParameter("username")
-                .passwordParameter("password")
-                .successHandler(loginSuccessHandler())
-                .failureHandler(loginFailureHandler())
-                .and()
-                .logout()
-                .deleteCookies("JSESSIONID")
-                .clearAuthentication(true)
-                .invalidateHttpSession(true)
-                .permitAll()
-                .logoutSuccessHandler(logoutSuccessHandler())
-                .and().sessionManagement().invalidSessionUrl(securityPropertyConfig.getLoginUri())
-                .maximumSessions(2).expiredUrl(securityPropertyConfig.getLoginUri()).sessionRegistry(sessionRegistry());
+        http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers(switchSecurity()).permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .formLogin(formLogin -> formLogin.loginPage(securityPropertyConfig.getLoginUri()).permitAll()
+                        .usernameParameter("username")
+                        .passwordParameter("password")
+                        .successHandler(loginSuccessHandler())
+                        .failureHandler(loginFailureHandler()))
+                .logout(logout -> logout
+                        .deleteCookies("JSESSIONID")
+                        .clearAuthentication(true)
+                        .invalidateHttpSession(true)
+                        .permitAll()
+                        .logoutSuccessHandler(logoutSuccessHandler()))
+                .sessionManagement((session) -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .invalidSessionUrl(securityPropertyConfig.getLoginUri())
+                        .maximumSessions(2)
+                        .expiredUrl(securityPropertyConfig.getLoginUri())
+                        .sessionRegistry(sessionRegistry()));
+
         authenticationProvider(http);
     }
 
     private void authenticationProvider(HttpSecurity http) throws Exception {
         // 關閉 iframe 阻擋
-        http.headers().frameOptions().disable();
+        http.headers(header -> header.frameOptions(frameOptionsConfig -> frameOptionsConfig.disable()));
         // 關閉 csrf 功能
-        if (!securityPropertyConfig.getCsrfEnabled()) {
-            http.csrf().disable();
+        if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
+            http.csrf(csrf -> csrf.disable());
         }
 
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
@@ -133,7 +139,7 @@ public class SecurityConfiguration {
 
     private String[] switchSecurity() {
         String[] allowUris;
-        if (!securityPropertyConfig.getEnable()) {
+        if (Boolean.FALSE.equals(securityPropertyConfig.getEnable())) {
             allowUris = new String[]{PERMIT_ALL};
         } else {
             allowUris = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
