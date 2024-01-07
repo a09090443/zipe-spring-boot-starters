@@ -6,13 +6,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.0.6</version>
+        <version>3.2.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>com.zipe</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.0.6.1</version>
+    <version>3.2.1.1</version>
     <name>db-spring-boot-starter</name>
     <description>Dynamic data source starter</description>
 
@@ -21,7 +21,7 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>3.0.6.1</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>3.2.1.1</base-spring-boot-starter.version>
         <p6spy.version>3.9.1</p6spy.version>
         <mssql-jdbc.version>11.2.3.jre17</mssql-jdbc.version>
         <mysql-connector-java.version>8.0.33</mysql-connector-java.version>
@@ -125,7 +125,7 @@
             <plugin>
                 <groupId>com.github.github</groupId>
                 <artifactId>site-maven-plugin</artifactId>
-                <version>0.12</version>
+                <version>${site-maven-plugin.version}</version>
                 <configuration>
                     <message>Creating site for ${project.artifactId} ${project.version}</message>
                     <noJekyll>true</noJekyll>
