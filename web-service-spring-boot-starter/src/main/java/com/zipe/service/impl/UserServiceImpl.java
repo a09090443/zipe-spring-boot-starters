@@ -2,15 +2,13 @@ package com.zipe.service.impl;
 
 import com.zipe.model.User;
 import com.zipe.service.UserService;
-import lombok.extern.slf4j.Slf4j;
-
 import jakarta.jws.WebService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 /**
  * @ClassName:UserServiceImpl

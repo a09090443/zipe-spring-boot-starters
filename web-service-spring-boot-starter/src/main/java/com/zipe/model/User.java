@@ -1,11 +1,9 @@
 package com.zipe.model;
 
-import java.io.Serial;
 import java.io.Serializable;
 
 public class User implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = -3628469724795296287L;
 
     private String userId;
     private String userName;
