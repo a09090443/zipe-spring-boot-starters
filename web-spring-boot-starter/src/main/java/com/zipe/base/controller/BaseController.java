@@ -1,16 +1,14 @@
 package com.zipe.base.controller;
 
 import com.zipe.util.string.StringConstant;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.Locale;
 
 /**
@@ -19,33 +17,22 @@ import java.util.Locale;
  * @author : Gary Tsai
  * @created : @Date 2020/11/20 下午 04:05
  */
-@Component
 public abstract class BaseController {
 
-    protected Environment env;
+    private Environment env;
 
     private MessageSource messageSource;
 
     protected HttpServletRequest request;
     protected HttpServletResponse response;
     protected Locale currentLocale;
-
-    @Autowired
-    protected BaseController(Environment env, MessageSource messageSource,
-        HttpServletRequest request, HttpServletResponse response) {
-        this.env = env;
-        this.messageSource = messageSource;
-        this.request = request;
-        this.response = response;
-        this.currentLocale = LocaleContextHolder.getLocale();
-    }
-
+    protected String defaultMsg;
 
     /**
      * 初始頁面
      *
      */
-    public abstract ModelAndView initPage ();
+    public abstract ModelAndView initPage();
 
     protected String getMessage(String key, String... args) {
         if (StringUtils.isBlank(key)) {
@@ -55,4 +42,23 @@ public abstract class BaseController {
         return messageSource.getMessage(key, args, currentLocale);
     }
 
+    protected Environment getEnv() {
+        return env;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setEnv(Environment env) {
+        this.env = env;
+    }
+
+    protected MessageSource getMessageSource() {
+        return messageSource;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Autowired
+    public final void setMessageSource(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 }

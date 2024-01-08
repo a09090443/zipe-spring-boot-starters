@@ -2,9 +2,6 @@ package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebPropertyConfig;
 import com.zipe.util.string.StringConstant;
-import java.time.Duration;
-import java.util.Locale;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -21,6 +18,9 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.spring6.templateresolver.SpringResourceTemplateResolver;
 import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 import org.thymeleaf.templateresolver.ITemplateResolver;
+
+import java.time.Duration;
+import java.util.Locale;
 
 /**
  * @author : Gary Tsai
