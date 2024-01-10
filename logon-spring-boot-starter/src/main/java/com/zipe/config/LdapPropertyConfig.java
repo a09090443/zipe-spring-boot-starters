@@ -1,15 +1,31 @@
 package com.zipe.config;
 
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/20 下午 21:02
  **/
+@Configuration
+@ConfigurationProperties(prefix = "security.ldap")
 @Data
 public class LdapPropertyConfig {
-    private String ip = "127.0.0.1";
-    private String domain = "ldap.zipe.com";
-    private String port = "389";
+    /**
+     * Ldap server ip
+     */
+    private String ip;
+    /**
+     * Ldap domain
+     */
+    private String domain;
+    /**
+     * Ldap port
+     */
+    private String port;
+    /**
+     * Ldap dn
+     * sample:DC=zipe,DC=local
+     */
     private String dn = "DC=zipe,DC=local";
 }

@@ -16,9 +16,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -30,12 +32,11 @@ import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * @author Gary Tsai
- * @Date 2022/10/6
  */
 @Slf4j
 @AutoConfiguration
 @EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true)
 @EnableConfigurationProperties({SecurityPropertyConfig.class})
 public class SecurityConfiguration {
 
@@ -109,10 +110,10 @@ public class SecurityConfiguration {
 
     private void authenticationProvider(HttpSecurity http) throws Exception {
         // 關閉 iframe 阻擋
-        http.headers(header -> header.frameOptions(frameOptionsConfig -> frameOptionsConfig.disable()));
+        http.headers(header -> header.frameOptions(FrameOptionsConfig::disable));
         // 關閉 csrf 功能
         if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
-            http.csrf(csrf -> csrf.disable());
+            http.csrf(AbstractHttpConfigurer::disable);
         }
 
         VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
