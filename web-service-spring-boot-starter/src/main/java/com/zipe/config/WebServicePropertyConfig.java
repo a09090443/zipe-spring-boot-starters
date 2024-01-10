@@ -13,8 +13,13 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "web.service")
 @Data
 public class WebServicePropertyConfig {
-
+    /**
+     * 設定 Uri
+     * Default=/webservice/*
+     */
     private String uriMapping = "/webservice/*";
-
+    /**
+     * 設定對應的 name 和 class
+     */
     private Map<String, Service> map;
 }
