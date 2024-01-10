@@ -14,7 +14,6 @@ import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/22 下午 05:06
  **/
 @AutoConfiguration
 @ConditionalOnClass(WebPropertyConfig.class)
@@ -37,14 +36,6 @@ public class WebAutoConfiguration implements WebMvcConfigurer {
                 .addResourceLocations(webPropertyConfig.getResource().getLocation());
     }
 
-    /**
-     * an interceptor bean that will switch to a new locale based on the value of the language parameter appended to a request:
-     *
-     * @param registry
-     * @language should be the name of the request param i.e  localhost:8010/api/get-greeting?language=fr
-     * <p>
-     * Note: All requests to the backend needing Internationalization should have the "language" request param
-     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(localeChangeInterceptor());

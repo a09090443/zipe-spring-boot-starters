@@ -14,11 +14,11 @@ public enum ResultStatus implements IResultStatus {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 500, "Internal Server Error"),;
 
     /** 傳回的HTTP狀態碼, 符合http請求 */
-    private HttpStatus httpStatus;
+    private final HttpStatus httpStatus;
     /** 錯誤代碼 */
-    private Integer code;
+    private final Integer code;
     /** 異常訊息說明 */
-    private String message;
+    private final String message;
 
     ResultStatus(HttpStatus httpStatus, Integer code, String message) {
         this.httpStatus = httpStatus;

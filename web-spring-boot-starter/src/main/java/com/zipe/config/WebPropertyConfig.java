@@ -6,14 +6,22 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/22 上午 10:02
  **/
 @Configuration
 @ConfigurationProperties(prefix = "web")
 @Data
 public class WebPropertyConfig {
 
+    /**
+     * 網頁資源設定
+     */
     private WebResourceConfig resource = new WebResourceConfig();
+    /**
+     * Jsp 進階設定
+     */
     private JspConfig jsp = new JspConfig();
+    /**
+     * Thymeleaf 進階設定
+     */
     private ThymeleafConfig thymeleaf = new ThymeleafConfig();
 }

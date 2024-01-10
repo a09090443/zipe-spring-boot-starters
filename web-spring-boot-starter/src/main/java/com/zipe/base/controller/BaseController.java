@@ -15,7 +15,6 @@ import java.util.Locale;
  * 基礎控制類別
  *
  * @author : Gary Tsai
- * @created : @Date 2020/11/20 下午 04:05
  */
 public abstract class BaseController {
 
