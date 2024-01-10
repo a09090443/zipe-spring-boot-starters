@@ -6,12 +6,14 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/3/12 下午 02:01
  **/
 @Configuration
 @ConfigurationProperties(prefix = "velocity")
 @Data
 public class VelocityPropertyConfig {
-
+    /**
+     * Velocity 目錄
+     * Default=template
+     */
     private String dirPath = "template";
 }
