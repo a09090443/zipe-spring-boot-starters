@@ -1,7 +1,6 @@
 package com.zipe.quartz.autoconfiguration;
 
 import com.zaxxer.hikari.HikariDataSource;
-import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -15,6 +14,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.util.StringUtils;
 
+import javax.sql.DataSource;
+
 /**
  * Quartz data source
  *
@@ -25,7 +26,7 @@ import org.springframework.util.StringUtils;
 @ConditionalOnClass(DataSourceProperties.class)
 @EnableConfigurationProperties(DataSourceProperties.class)
 @PropertySource(value = {"classpath:quartz-datasource.properties"})
-@ConditionalOnExpression("${spring.quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")
+@ConditionalOnExpression("'${spring.quartz.enable:true}' && '${spring.quartz.job-store-type}'.equals('jdbc')")
 public class DataSourceAutoConfiguration {
 
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {

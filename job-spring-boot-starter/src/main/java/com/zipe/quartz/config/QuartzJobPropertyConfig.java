@@ -9,7 +9,6 @@ import java.util.Map;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/28 下午 03:42
  **/
 @Configuration
 @ConfigurationProperties(prefix = "quartz")

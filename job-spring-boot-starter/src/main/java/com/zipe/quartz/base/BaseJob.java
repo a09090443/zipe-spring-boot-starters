@@ -24,7 +24,6 @@ import java.util.Set;
  * Quartz job 管理
  *
  * @author : Gary Tsai
- * @created : @Date 2021/4/28 上午 09:43
  **/
 @Slf4j
 public abstract class BaseJob {
@@ -32,7 +31,7 @@ public abstract class BaseJob {
     private final Scheduler scheduler;
 
     @Autowired
-    public BaseJob(Scheduler scheduler) {
+    protected BaseJob(Scheduler scheduler) {
         this.scheduler = scheduler;
     }
 

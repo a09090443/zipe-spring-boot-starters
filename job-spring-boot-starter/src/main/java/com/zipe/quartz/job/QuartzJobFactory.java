@@ -8,7 +8,6 @@ import org.springframework.scheduling.quartz.QuartzJobBean;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/28 上午 09:08
  **/
 @Slf4j
 public abstract class QuartzJobFactory extends QuartzJobBean {
@@ -43,6 +42,12 @@ public abstract class QuartzJobFactory extends QuartzJobBean {
         log.error("排程名稱:{} 發生錯誤，{}", jobName, e.getMessage());
     }
 
+    /**
+     * 執行排程
+     *
+     * @param jobExecutionContext
+     * @throws JobExecutionException
+     */
     @Override
     protected void executeInternal(JobExecutionContext jobExecutionContext) throws JobExecutionException {
         this.beforeExecuteJobLog(jobExecutionContext);

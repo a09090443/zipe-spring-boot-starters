@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @author : Gary Tsai
- * @created : @Date 2021/4/28 上午 09:36
  **/
 @RestController
 @RequestMapping("/quartz")

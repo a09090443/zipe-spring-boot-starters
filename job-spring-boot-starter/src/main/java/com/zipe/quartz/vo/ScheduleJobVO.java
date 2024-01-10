@@ -4,11 +4,13 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import org.quartz.JobDataMap;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
 public class ScheduleJobVO implements Serializable {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**

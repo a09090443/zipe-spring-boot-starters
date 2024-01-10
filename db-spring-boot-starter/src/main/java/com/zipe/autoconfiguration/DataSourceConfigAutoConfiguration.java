@@ -9,14 +9,7 @@ import com.zipe.base.database.DynamicDataSource;
 import com.zipe.base.model.DynamicDataSourceConfig;
 import com.zipe.util.crypto.Base64Util;
 import com.zipe.util.crypto.CryptoUtil;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import javax.sql.DataSource;
 import org.hibernate.cfg.AvailableSettings;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -35,6 +28,13 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
+
 /**
  * @author : Gary Tsai
  * @created : @Date 2021/4/14 下午 05:52
@@ -52,7 +52,6 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
     private final HibernateProperties hibernateProperties;
 
-    @Autowired
     DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource,
         HibernateProperties hibernateProperties) {
         super(env, dynamicDataSource);
