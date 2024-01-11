@@ -86,7 +86,7 @@
     </dependencies>
 
     <build>
-        <finalName>-spring-boot-starter</finalName>
+        <finalName>job-spring-boot-starter</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
