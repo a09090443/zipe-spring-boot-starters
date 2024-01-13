@@ -1,10 +1,10 @@
 package com.zipe.quartz.job;
 
+import com.zipe.util.time.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.springframework.scheduling.quartz.QuartzJobBean;
-import tw.com.webcomm.util.time.DateTimeUtils;
 
 @Slf4j
 public abstract class QuartzJobFactory extends QuartzJobBean {

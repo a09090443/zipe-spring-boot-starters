@@ -42,7 +42,6 @@ public class DataSourceAutoConfiguration {
      * <p>
      * 建立 quartz 資料來源的設定物件
      */
-    @Primary
     @Bean(name = "quartzDataSourceProperties")
     @ConfigurationProperties(prefix = "spring.datasource.quartz")
     public DataSourceProperties quartzDataSourceProperties() {
@@ -52,6 +51,7 @@ public class DataSourceAutoConfiguration {
     /**
      * 建立 quartz 資料來源
      */
+    @Primary
     @Bean(name = "quartzDataSource")
     @ConfigurationProperties(prefix = "spring.datasource.hikari")
     @QuartzDataSource
