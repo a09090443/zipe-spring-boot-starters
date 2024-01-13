@@ -53,7 +53,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     private final HibernateProperties hibernateProperties;
 
     DataSourceConfigAutoConfiguration(Environment env, DataSourcePropertyConfig dynamicDataSource,
-        HibernateProperties hibernateProperties) {
+                                      HibernateProperties hibernateProperties) {
         super(env, dynamicDataSource);
         this.hibernateProperties = hibernateProperties;
     }
@@ -90,7 +90,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     public DataSource dataSource() {
 
         Map<Object, Object> dataSourceMap = new HashMap<>(16);
-        if(Objects.isNull(dynamicDataSource.getDataSourceMap())){
+        if (Objects.isNull(dynamicDataSource.getDataSourceMap())) {
             throw new DataSourceLookupFailureException("請設定 data-source.properties 內容");
         }
 
@@ -126,7 +126,6 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     @Primary
     @Bean(name = "multiTransactionManager")
     public PlatformTransactionManager multiTransactionManager(@Qualifier("multiEntityManager") LocalContainerEntityManagerFactoryBean multiEntityManager) {
-//        LocalContainerEntityManagerFactoryBean multiEntityManager = multiEntityManager(dataSource);
         return new JpaTransactionManager(Objects.requireNonNull(multiEntityManager.getObject()));
     }
 
@@ -144,8 +143,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
     Properties additionalProperties() {
         Properties properties = new Properties();
-        properties.setProperty(AvailableSettings.HBM2DDL_AUTO, hibernateProperties.getDdlAuto());
-
+        properties.setProperty(AvailableSettings.HBM2DDL_AUTO, hibernateProperties.getDdlAuto() == null ? "none" : hibernateProperties.getDdlAuto());
         return properties;
     }
 }
