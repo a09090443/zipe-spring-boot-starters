@@ -5,9 +5,6 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * 記錄Class path下特定目錄的資源檔位址
- *
- * @author adam.yeh
- * @create date: NOV 16, 2017
  */
 public enum ResourceEnum {
 

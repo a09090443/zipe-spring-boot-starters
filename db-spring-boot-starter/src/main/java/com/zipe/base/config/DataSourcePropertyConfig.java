@@ -8,10 +8,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Map;
 
-/**
- * @author : Gary Tsai
- * @created : @Date 2021/3/12 下午 02:01
- **/
 @Configuration
 @ConfigurationProperties(prefix = "dynamic")
 @Data

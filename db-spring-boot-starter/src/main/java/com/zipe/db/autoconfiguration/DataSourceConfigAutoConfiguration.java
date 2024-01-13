@@ -1,4 +1,4 @@
-package com.zipe.autoconfiguration;
+package com.zipe.db.autoconfiguration;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -38,10 +38,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * @author : Gary Tsai
- * @created : @Date 2021/4/14 下午 05:52
- **/
 @Configuration
 @PropertySource({"classpath:data-source.properties"})
 @EnableJpaRepositories(

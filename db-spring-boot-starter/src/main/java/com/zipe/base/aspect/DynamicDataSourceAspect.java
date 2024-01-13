@@ -12,10 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
-/**
- * @author : Gary Tsai
- * @created : @Date 2021/3/18 下午 05:14
- **/
 @Aspect
 @Component
 @Order(-1)// 保證該AOP在@Transactional之前執行
