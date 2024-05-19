@@ -41,11 +41,6 @@ import java.util.Properties;
  **/
 @AutoConfiguration
 @PropertySource({"classpath:data-source.properties"})
-@EnableJpaRepositories(
-        basePackages = "${spring.jpa.base.packages}",
-        entityManagerFactoryRef = "multiEntityManager",
-        transactionManagerRef = "multiTransactionManager"
-)
 @ConditionalOnClass(DataSourcePropertyConfig.class)
 @EnableConfigurationProperties(DataSourcePropertyConfig.class)
 public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
@@ -112,7 +107,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
         return dataSource;
     }
 
-    @Bean(name = "multiEntityManager")
+    @Bean(name = "entityManagerFactory")
     public LocalContainerEntityManagerFactoryBean multiEntityManager(@Qualifier("dataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
@@ -125,7 +120,7 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
     @Primary
     @Bean(name = "multiTransactionManager")
-    public PlatformTransactionManager multiTransactionManager(@Qualifier("multiEntityManager") LocalContainerEntityManagerFactoryBean multiEntityManager) {
+    public PlatformTransactionManager multiTransactionManager(@Qualifier("entityManagerFactory") LocalContainerEntityManagerFactoryBean multiEntityManager) {
         return new JpaTransactionManager(Objects.requireNonNull(multiEntityManager.getObject()));
     }
 
