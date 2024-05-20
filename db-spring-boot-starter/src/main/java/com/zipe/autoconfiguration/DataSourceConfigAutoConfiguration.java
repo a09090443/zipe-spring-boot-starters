@@ -119,8 +119,8 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     }
 
     @Primary
-    @Bean(name = "multiTransactionManager")
-    public PlatformTransactionManager multiTransactionManager(@Qualifier("entityManagerFactory") LocalContainerEntityManagerFactoryBean multiEntityManager) {
+    @Bean(name = "transactionManager")
+    public PlatformTransactionManager transactionManager(@Qualifier("entityManagerFactory") LocalContainerEntityManagerFactoryBean multiEntityManager) {
         return new JpaTransactionManager(Objects.requireNonNull(multiEntityManager.getObject()));
     }
 
