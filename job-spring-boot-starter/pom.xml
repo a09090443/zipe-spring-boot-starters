@@ -60,6 +60,12 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!--使用嵌入式的 h2 数据库，这样就不需要安装数据库了 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
         <!-- Spring boot starters -->
         <dependency>

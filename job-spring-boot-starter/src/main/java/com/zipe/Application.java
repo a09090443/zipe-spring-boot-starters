@@ -10,12 +10,7 @@ public class Application {
 
     public static void main(String[] args) {
         new SpringApplicationBuilder(Application.class)
-                .initializers(new ApplicationContextInitializer<GenericApplicationContext>() {
-                    @Override
-                    public void initialize(GenericApplicationContext applicationContext) {
-                        applicationContext.setAllowBeanDefinitionOverriding(false);
-                    }
-                })
+                .initializers((ApplicationContextInitializer<GenericApplicationContext>) applicationContext -> applicationContext.setAllowBeanDefinitionOverriding(false))
                 .run(args);
     }
 
