@@ -16,21 +16,9 @@
         <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
         <webjars-jquery.version>3.6.4</webjars-jquery.version>
         <webjars-locator.version>0.46</webjars-locator.version>
-        <spring-boot-version>3.2.1</spring-boot-version>
-        <zipe.spring.starter.version>3.2.1.1</zipe.spring.starter.version>
+        <spring-boot-version>3.2.5</spring-boot-version>
+        <zipe.spring.starter.version>3.2.5.1</zipe.spring.starter.version>
     </properties>
-
-    <repositories>
-        <repository>
-            <id>zipe-spring-boot-starters</id>
-            <!-- //raw.github.com/用戶名/倉庫名/分支名 -->
-            <url>https://raw.github.com/a09090443/zipe-spring-boot-starters/mvn-repo</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -94,37 +82,37 @@
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>logon-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>db-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>web-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>job-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>web-service-spring-boot-starter</artifactId>
             <version>${zipe.spring.starter.version}</version>
         </dependency>

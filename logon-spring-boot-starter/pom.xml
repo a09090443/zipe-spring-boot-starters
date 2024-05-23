@@ -6,33 +6,53 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.1</version>
+        <version>3.2.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.2.1.1</version>
+    <version>3.2.5.1</version>
     <name>logon-spring-boot-starter</name>
     <description>Spring boot security starter</description>
+    <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>Gary.Tsai</name>
+            <email>zipe.daden@gmail.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git://github.com/a09090443/zipe-spring-boot-starters.git</connection>
+        <developerConnection>scm:git:ssh://github.com/a09090443/zipe-spring-boot-starters.git</developerConnection>
+        <url>https://github.com/a09090443/zipe-spring-boot-starters/tree/master</url>
+    </scm>
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>central-releases</name>
+            <url>https://s01.oss.sonatype.org/</url>
+        </repository>
+    </distributionManagement>
 
     <properties>
         <github.global.server>github</github.global.server>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>3.2.1.1</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
@@ -68,55 +88,71 @@
 
         <!-- Spring boot starters -->
         <dependency>
-            <groupId>com.zipe</groupId>
+            <groupId>io.github.a09090443</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
             <version>${base-spring-boot-starter.version}</version>
         </dependency>
     </dependencies>
 
     <build>
-        <finalName>logon-spring-boot-starter</finalName>
         <plugins>
             <plugin>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <version>${maven-deploy-plugin.version}</version>
-                <configuration>
-                    <!-- altDeploymentRepository ：指定替代方案應該部署項目工件的存儲庫（除了指定的工件）。 -->
-                    <altDeploymentRepository>
-                        internal.repo::default::file://${project.basedir}/mvn-repo
-                    </altDeploymentRepository>
-                </configuration>
-            </plugin>
-            <!--github上傳插件,用於修改後的發布,執行 mvn clean deploy 自動打包上傳到github-->
-            <plugin>
-                <groupId>com.github.github</groupId>
-                <artifactId>site-maven-plugin</artifactId>
-                <version>${site-maven-plugin.version}</version>
-                <configuration>
-                    <message>Creating site for ${project.artifactId} ${project.version}</message>
-                    <noJekyll>true</noJekyll>
-                    <!--本地jar地址, 對應上面的altDeploymentRepository-->
-                    <outputDirectory>${project.basedir}/mvn-repo</outputDirectory>
-                    <!--分支-->
-                    <branch>refs/heads/mvn-repo</branch>
-                    <merge>true</merge>
-                    <includes>
-                        <include>**/*</include>
-                    </includes>
-                    <!--對應github上創建的倉庫名稱 name-->
-                    <repositoryName>zipe-spring-boot-starters</repositoryName>
-                    <!--github登錄帳號 對應的密碼存在maven的setting.xml文件中-->
-                    <!--由github組織擁有，則該值將是組織名稱，如果由用戶擁有，則該值將是用戶名-->
-                    <repositoryOwner>a09090443</repositoryOwner>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
+                        <id>attach-sources</id>
                         <goals>
-                            <goal>site</goal>
+                            <goal>jar</goal>
                         </goals>
-                        <phase>deploy</phase>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <doclint>none</doclint>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                        <configuration>
+                            <keyname>F15B8450C83032817D560D0C023B9997714356C1</keyname>
+                            <passphraseServerId>F15B8450C83032817D560D0C023B9997714356C1</passphraseServerId>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.4.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <tokenAuth>true</tokenAuth>
+                    <autoPublish>true</autoPublish>
+                </configuration>
             </plugin>
         </plugins>
     </build>
