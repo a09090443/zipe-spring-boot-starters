@@ -26,7 +26,7 @@ public class XmlUtil {
         xmlMapper.registerModule(new JavaTimeModule());
     }
 
-    public static <T> T xmlToBean(String xml, Class<T> clazz) throws Exception {
+    public static <T> T xmlToBean(String xml, Class<T> clazz) {
         try {
             return xmlMapper.readValue(xml, clazz);
         } catch (JsonProcessingException e) {
@@ -34,7 +34,7 @@ public class XmlUtil {
         }
     }
 
-    public static String beanToXml(Object obj) throws Exception {
+    public static String beanToXml(Object obj) {
         try {
             return xmlMapper.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
