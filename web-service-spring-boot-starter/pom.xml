@@ -12,7 +12,7 @@
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.2.5.1</version>
+    <version>3.2.5.2</version>
     <name>web-service-spring-boot-starter</name>
     <description>Web Service spring boot project</description>
     <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
@@ -48,6 +48,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <cxf-spring-boot-starter-jaxws.version>4.0.0</cxf-spring-boot-starter-jaxws.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
+        <httpclient.version>4.5.14</httpclient.version>
         <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
@@ -94,6 +95,11 @@
             <version>${base-spring-boot-starter.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpclient.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
