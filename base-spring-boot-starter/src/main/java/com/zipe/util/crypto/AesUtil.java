@@ -9,6 +9,8 @@ import javax.crypto.CipherOutputStream;
 import javax.crypto.KeyGenerator;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -202,6 +204,23 @@ public class AesUtil implements Crypto {
         }
     }
 
+    public ByteArrayInputStream decryptFile(File source) throws Exception {
+        Cipher cipher = this.initParam(this.secretKey, Cipher.DECRYPT_MODE);
+        FileInputStream fis = new FileInputStream(source);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (CipherOutputStream cos = new CipherOutputStream(baos, cipher)) {
+            byte[] buffer = new byte[512];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                cos.write(buffer, 0, len);
+            }
+        } finally {
+            fis.close();
+        }
+
+        return new ByteArrayInputStream(baos.toByteArray());
+    }
     /**
      * @param source 來源檔案
      * @param target 目標檔案
@@ -224,7 +243,7 @@ public class AesUtil implements Crypto {
 
     public static void main(String[] args) throws Exception {
         long s = System.currentTimeMillis();
-        AesUtil aesUtil = new AesUtil("2022120220221202");
+        AesUtil aesUtil = new AesUtil("testtesttesttest");
         String encryptMsg = aesUtil.getEncrypt("AESTest", StandardCharsets.UTF_8.name());
         System.out.println("加密後：" + encryptMsg);
 
@@ -237,9 +256,9 @@ public class AesUtil implements Crypto {
 
         long d = System.currentTimeMillis();
 
-        File source = new File("D:\\tmp\\InstallCert.java");
-        File encryptedFile = new File("D:\\tmp\\InstallCert.javaen");
-        File decryptedFile = new File("D:\\tmp\\InstallCert.javade");
+        File source = new File("D:\\tmp\\WebServiceHandler.class");
+        File encryptedFile = new File("D:\\tmp\\SecretFile.class");
+        File decryptedFile = new File("D:\\tmp\\HaHa.class");
         aesUtil.encryptFile(source, encryptedFile);
         aesUtil.decryptFile(encryptedFile, decryptedFile);
         System.out.println(d - e);
