@@ -12,7 +12,7 @@
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.2.5.1</version>
+    <version>3.2.5.2</version>
     <name>db-spring-boot-starter</name>
     <description>Dynamic data source starter</description>
     <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
@@ -46,7 +46,7 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>3.2.5.4</base-spring-boot-starter.version>
         <p6spy.version>3.9.1</p6spy.version>
         <mssql-jdbc.version>11.2.3.jre17</mssql-jdbc.version>
         <mysql-connector-j.version>8.4.0</mysql-connector-j.version>
