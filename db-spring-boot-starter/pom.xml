@@ -12,7 +12,7 @@
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.2.5.2</version>
+    <version>3.2.5.3</version>
     <name>db-spring-boot-starter</name>
     <description>Dynamic data source starter</description>
     <url>https://github.com/a09090443/zipe-spring-boot-starters</url>

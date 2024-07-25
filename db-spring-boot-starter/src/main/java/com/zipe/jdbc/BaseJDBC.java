@@ -335,7 +335,7 @@ public abstract class BaseJDBC {
      * @return SQL文本
      */
     private String getSqlText(ResourceEnum resource, Conditions conditions, Paging paging) {
-        String cacheKey = resource.toString() + (conditions != null ? conditions.hashCode() : "") + (paging != null ? paging.hashCode() : "");
+        String cacheKey = resource.toString() + resource.fileName() + (conditions != null ? conditions.hashCode() : "") + (paging != null ? paging.hashCode() : "");
         return SQL_CACHE.computeIfAbsent(cacheKey, k -> {
             try {
                 String sqlPath = resource.dir() + resource.file() + resource.extension();

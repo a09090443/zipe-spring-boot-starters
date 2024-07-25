@@ -15,6 +15,7 @@ public enum ResourceEnum {
 
     private String dir;
     private String file;
+    private String fileName;
     private final String extension;
 
     /**
@@ -28,6 +29,7 @@ public enum ResourceEnum {
 
     public ResourceEnum getResource(String fileName) {
         this.file = StringConstant.SLASH + fileName;
+        this.fileName = fileName;
         return this;
     }
 
@@ -36,11 +38,16 @@ public enum ResourceEnum {
             this.dir = this.dir + StringConstant.SLASH + dir;
         }
         this.file = StringConstant.SLASH + fileName;
+        this.fileName = fileName;
         return this;
     }
 
     public String file() {
         return this.file;
+    }
+
+    public String fileName() {
+        return this.fileName;
     }
 
     public String dir() {
