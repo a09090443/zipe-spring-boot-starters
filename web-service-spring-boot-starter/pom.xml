@@ -47,6 +47,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <cxf-spring-boot-starter-jaxws.version>4.0.0</cxf-spring-boot-starter-jaxws.version>
+        <cxf-rt-databinding-jaxb.version>4.0.0</cxf-rt-databinding-jaxb.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
         <httpclient.version>4.5.14</httpclient.version>
         <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
@@ -79,6 +80,12 @@
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-spring-boot-starter-jaxws</artifactId>
             <version>${cxf-spring-boot-starter-jaxws.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-databinding-jaxb</artifactId>
+            <version>${cxf-rt-databinding-jaxb.version}</version>
         </dependency>
 
         <dependency>
