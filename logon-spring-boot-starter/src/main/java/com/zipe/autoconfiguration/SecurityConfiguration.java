@@ -30,9 +30,6 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
-/**
- * @author Gary Tsai
- */
 @Slf4j
 @AutoConfiguration
 @EnableWebSecurity
