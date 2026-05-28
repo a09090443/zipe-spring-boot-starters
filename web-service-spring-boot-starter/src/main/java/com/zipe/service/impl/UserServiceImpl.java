@@ -4,6 +4,7 @@ import com.zipe.model.User;
 import com.zipe.service.UserService;
 import jakarta.jws.WebService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -29,19 +30,21 @@ public class UserServiceImpl implements UserService {
         user.setUserId(UUID.randomUUID().toString().replace("-", ""));
         user.setUserName("mracale01");
         user.setEmail("mracale01@163.xom");
-        userMap.put(user.getUserId(), user);
+        userMap.put(user.getUserName(), user);
 
         user = new User();
         user.setUserId(UUID.randomUUID().toString().replace("-", ""));
         user.setUserName("mracale02");
         user.setEmail("mracale02@163.xom");
-        userMap.put(user.getUserId(), user);
+        userMap.put(user.getUserName(), user);
 
         user = new User();
         user.setUserId(UUID.randomUUID().toString().replace("-", ""));
         user.setUserName("mracale03");
-        user.setEmail("mracale03@163.xom");
-        userMap.put(user.getUserId(), user);
+        String email = "<email>mracale03@163.xom</email>";
+        String unescaped = StringEscapeUtils.unescapeHtml4(email);
+        user.setEmail(unescaped);
+        userMap.put(user.getUserName(), user);
     }
 
     @Override

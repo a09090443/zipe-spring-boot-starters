@@ -1,6 +1,8 @@
 package com.zipe.autoconfiguration;
 
 import com.zipe.config.WebServicePropertyConfig;
+import com.zipe.interceptor.CdataContentInterceptor;
+import com.zipe.interceptor.ResponseCdataInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cxf.Bus;
 import org.apache.cxf.jaxb.JAXBDataBinding;
@@ -14,6 +16,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,9 +66,9 @@ public class WebServiceRegisterAutoConfiguration implements InitializingBean, Ap
                 Map<String, String> nsMap = new HashMap<>();
                 nsMap.put("", "http://www.w3.org/2001/XMLSchema");
                 jaxbDataBinding.setNamespaceMap(nsMap);
-
                 endpoint.setDataBinding(jaxbDataBinding);
-
+                endpoint.setInInterceptors(Arrays.asList(new CdataContentInterceptor()));
+                endpoint.setOutInterceptors(Arrays.asList(new ResponseCdataInterceptor()));
                 endpoint.publish(v.getUriMapping());
                 log.info("Web Service 註冊服務:{}, 對應 URI:{}", v.getBeanName(), v.getUriMapping());
             } catch (Exception e) {

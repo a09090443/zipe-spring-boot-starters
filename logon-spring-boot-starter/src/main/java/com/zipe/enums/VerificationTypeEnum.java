@@ -1,6 +1,6 @@
 package com.zipe.enums;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * @author : Gary Tsai

@@ -1,7 +1,13 @@
 package com.zipe.model;
 
+import com.zipe.adapt.CdataAdapter;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
 import java.io.Serializable;
 
+@XmlRootElement
 public class User implements Serializable {
     private static final long serialVersionUID = -3628469724795296287L;
 
@@ -26,6 +32,8 @@ public class User implements Serializable {
         this.userName = userName;
     }
 
+    @XmlElement
+    @XmlJavaTypeAdapter(CdataAdapter.class)
     public String getEmail() {
         return email;
     }

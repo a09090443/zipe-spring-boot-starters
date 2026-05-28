@@ -6,13 +6,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.7</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.2.5.1</version>
+    <version>3.5.7.0</version>
     <name>job-spring-boot-starter</name>
     <description>Schedule job spring boot starter</description>
     <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
@@ -46,7 +46,7 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
+        <base-spring-boot-starter.version>3.5.7.0</base-spring-boot-starter.version>
         <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
         <site-maven-plugin.version>0.12</site-maven-plugin.version>
