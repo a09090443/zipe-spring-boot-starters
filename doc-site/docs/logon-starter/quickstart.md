@@ -31,7 +31,7 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>com.zipe</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.7.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

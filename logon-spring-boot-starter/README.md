@@ -16,7 +16,7 @@ Spring Security 認證整合模組，支援一般表單登入、LDAP 驗證與�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.7.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

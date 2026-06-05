@@ -31,7 +31,7 @@ cd job-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.7.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

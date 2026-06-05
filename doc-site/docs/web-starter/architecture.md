@@ -30,7 +30,7 @@ sidebar_position: 5
 
 ```
 web-spring-boot-starter/
-├── pom.xml                                          # 模組建構定義（Spring Boot 3.5.7，Java 17）
+├── pom.xml                                          # 模組建構定義（Spring Boot 3.5.11，Java 17）
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                         # 內建獨立執行入口（開發/測試用）
