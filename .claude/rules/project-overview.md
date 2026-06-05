@@ -26,17 +26,28 @@ description: 專案總覽、技術規格與常用指令，適用於整個 zipe-s
 
 - **Java 版本：** 17+
 - **Spring Boot 版本：** 3.5.x
-- **建構工具：** Maven
-- **套件管理：** 各 Starter 獨立 `pom.xml`，發布至本地 Maven Repository
+- **建構工具：** Maven（多模組 reactor，根 `pom.xml` 為 parent 與聚合）
+- **套件管理：** 6 個主要 Starter（base / db / job / logon / web / web-service）由根 `pom.xml` 統一管理版本與相依，發布至本地或遠端 Maven Repository；keycloak 與各 example 專案維持獨立
+
+## 模組結構
+
+- 根 `pom.xml`（`packaging=pom`）：繼承 `spring-boot-starter-parent`，集中 `groupId`、`version`、`dependencyManagement`、共用外掛與 `release` profile（javadoc / gpg / central-publishing）。
+- 各 Starter 子 `pom.xml`：`<parent>` 指向根 pom，僅保留自身依賴（版本交由根 pom 的 `dependencyManagement` 管理）。
+- 未納入 reactor：`keycloak-spring-boot-starter`、`starters_example`、`example` 系列。
 
 ## 常用指令
 
 ```bash
-# 建構並安裝單一 Starter 至本地 Maven Repository
-cd <starter-directory>
-./mvnw clean install
+# 於專案根目錄一次建構並安裝所有 Starter 至本地 Maven Repository
+mvn clean install
 
-# 執行整合範例
+# 僅建構單一模組（含其相依模組）
+mvn -pl db-spring-boot-starter -am clean install
+
+# 發布（簽章 + 上傳 Maven Central），啟用 release profile
+mvn -Prelease clean deploy
+
+# 執行整合範例（範例專案獨立於 reactor 之外）
 cd starters_example
 ./mvnw spring-boot:run
 ```

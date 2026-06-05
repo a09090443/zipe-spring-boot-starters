@@ -4,58 +4,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.7</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>zipe-spring-boot-starters</artifactId>
+        <version>3.5.7.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.7.0</version>
     <name>db-spring-boot-starter</name>
     <description>Dynamic data source starter</description>
-    <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-    <developers>
-        <developer>
-            <name>Gary.Tsai</name>
-            <email>zipe.daden@gmail.com</email>
-        </developer>
-    </developers>
-    <scm>
-        <connection>scm:git:git://github.com/a09090443/zipe-spring-boot-starters.git</connection>
-        <developerConnection>scm:git:ssh://github.com/a09090443/zipe-spring-boot-starters.git</developerConnection>
-        <url>https://github.com/a09090443/zipe-spring-boot-starters/tree/master</url>
-    </scm>
-    <distributionManagement>
-        <repository>
-            <id>central</id>
-            <name>central-releases</name>
-            <url>https://s01.oss.sonatype.org/</url>
-        </repository>
-    </distributionManagement>
 
-    <properties>
-        <github.global.server>github</github.global.server>
-        <java.version>17</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <base-spring-boot-starter.version>3.5.7.0</base-spring-boot-starter.version>
-        <p6spy.version>3.9.1</p6spy.version>
-        <mssql-jdbc.version>12.6.1.jre11</mssql-jdbc.version>
-        <mysql-connector-j.version>8.4.0</mysql-connector-j.version>
-        <mariadb-java-client.version>3.3.3</mariadb-java-client.version>
-        <jt400.version>20.0.6</jt400.version>
-        <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
-        <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
-        <site-maven-plugin.version>0.12</site-maven-plugin.version>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -93,119 +51,37 @@
         <dependency>
             <groupId>io.github.a09090443</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
-            <version>${base-spring-boot-starter.version}</version>
         </dependency>
 
         <!-- P6SPY -->
         <dependency>
             <groupId>p6spy</groupId>
             <artifactId>p6spy</artifactId>
-            <version>${p6spy.version}</version>
         </dependency>
 
         <!-- Mssql JDBC -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
-            <version>${mssql-jdbc.version}</version>
         </dependency>
 
         <!-- Mysql JDBC -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>${mysql-connector-j.version}</version>
         </dependency>
 
         <!-- Maria JDBC -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>${mariadb-java-client.version}</version>
         </dependency>
 
         <!-- AS400 JDBC -->
         <dependency>
             <groupId>net.sf.jt400</groupId>
             <artifactId>jt400</artifactId>
-            <version>${jt400.version}</version>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <!-- Javadoc Plugin -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.6.3</version>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                                <configuration>
-                                    <doclint>none</doclint>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <!-- GPG Plugin -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.1.0</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                                <configuration>
-                                    <keyname>F15B8450C83032817D560D0C023B9997714356C1</keyname>
-                                    <passphraseServerId>F15B8450C83032817D560D0C023B9997714356C1</passphraseServerId>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <!-- Central Publishing Plugin -->
-                    <plugin>
-                        <groupId>org.sonatype.central</groupId>
-                        <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.4.0</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <publishingServerId>central</publishingServerId>
-                            <tokenAuth>true</tokenAuth>
-                            <autoPublish>true</autoPublish>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 
 </project>
