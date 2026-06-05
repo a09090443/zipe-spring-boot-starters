@@ -11,23 +11,24 @@ description: 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體
 
 ## 功能概述
 
-開發者只需繼承 `BaseJob` 並實作業務邏輯，即可由 `QuartzJobUtil` 動態註冊為排程任務。`QuartzJobFactory` 負責將 Job 實例交由 Spring 容器管理，使排程任務可注入其他 Spring Bean。
+業務 Job 只需繼承 `QuartzJobFactory` 並覆寫 `executeJob()` 方法，即可利用 Template Method 框架獲得標準化的 before/after/error 日誌。透過 `QuartzController` 的 REST API 或 `quartz-jobs.properties` 的靜態定義，均可將 Job 動態或批次註冊至 Scheduler。
 
 ## 主要特性
 
-- **完整生命週期管理**：透過 `QuartzJobUtil` 進行新增、暫停、恢復、刪除排程。
-- **雙儲存模式**：支援 JDBC 持久化與記憶體儲存，由設定切換。
-- **REST API**：`QuartzController` 提供排程管理的 HTTP 端點。
-- **可繼承基礎類別**：繼承 `BaseJob` 即可快速撰寫排程業務邏輯。
-- **Spring 整合**：排程任務可注入 Spring Bean，與業務服務無縫協作。
+- **完整生命週期管理**：透過 `BaseJob` 提供 upsert / 暫停 / 恢復 / 刪除 / 立即執行等五種操作，`QuartzController` 繼承 `BaseJob` 直接對外暴露為 REST API。
+- **雙儲存模式**：支援 JDBC 持久化與記憶體儲存，由 `spring.quartz.job-store-type` 設定切換。
+- **REST API**：`QuartzController` 提供 `POST /quartz/register|delete|pause|resume|run` 五個端點。
+- **Template Method 執行框架**：`QuartzJobFactory` 封裝 before/after/error 日誌，業務 Job 只需實作 `executeJob()`。
+- **屬性驅動批次初始化**：`InitialJobAutoConfiguration` 讀取 `quartz-jobs.properties`，應用啟動時自動批次建立 Cron 排程。
+- **Spring 整合**：配合 `SpringBeanJobFactory` 設定後，排程任務可透過 `@Autowired` 注入 Spring Bean。
 
 ## Maven 依賴引入
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>3.5.7.0</version>
 </dependency>
 ```
 
@@ -37,24 +38,27 @@ description: 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體
 
 ## 主要類別
 
-| 類別 | 職責 |
-|---|---|
-| `InitialJobAutoConfiguration` | 初始化排程自動配置入口 |
-| `DataSourceAutoConfiguration` | Quartz 資料來源自動配置 |
-| `BaseJob` | 排程任務基礎類別，供繼承實作業務邏輯 |
-| `QuartzJobUtil` | 排程生命週期管理工具 |
-| `QuartzJobFactory` | 將 Job 交由 Spring 管理的工廠 |
-| `QuartzController` | 排程管理 REST API |
-| `Job` | 排程資料模型 |
-| `ScheduleJobVO` | 排程 View Object |
-| `ScheduleEnum` | 排程類型列舉 |
-| `ScheduleJobStatusEnum` | 排程狀態列舉 |
+| 類別 | 套件 | 職責 |
+|---|---|---|
+| `InitialJobAutoConfiguration` | `autoconfiguration` | 讀取 `quartz-jobs.properties`，啟動時批次建立排程；自動 Import `QuartzController` |
+| `DataSourceAutoConfiguration` | `autoconfiguration` | JDBC 模式下建立 Quartz 專屬 HikariCP DataSource |
+| `BaseJob` | `base` | 排程生命週期管理抽象類別（mergeJobProcess / deleteJobProcess / pauseJobProcess / resumeJobProcess / runJobProcess） |
+| `QuartzJobFactory` | `job` | 排程執行框架（Template Method）；業務 Job 繼承此類並覆寫 `executeJob()` |
+| `QuartzJobUtil` | `util` | 純工具類別，建構 `JobDetail` 與 `Trigger`，不持有 Scheduler 參照 |
+| `QuartzController` | `controller` | 繼承 `BaseJob`，提供 `POST /quartz/register|delete|pause|resume|run` |
+| `ScheduleEnum` | `enums` | 時間單位列舉（NOW/SECOND/MINUTE/HOUR/DAY/WEEK/MONTH/YEAR/CRON），封裝 ScheduleBuilder 建立邏輯 |
+| `ScheduleJobStatusEnum` | `enums` | 操作意圖列舉（MERGE/DELETE/PAUSE/RESUME/ONCE 等） |
+| `ScheduleJobVO` | `vo` | REST API 請求/回應傳輸物件（含 jobName、jobClass、cronExpression、jobDataMap 等欄位） |
+| `Job` | `model` | 排程領域模型；欄位名稱與 ScheduleJobVO 不同，由 `BaseJob.convertToJob()` 映射 |
+| `QuartzDataSourceProperties` | `config` | 綁定 `spring.datasource.quartz.*` 屬性 |
+| `QuartzJobPropertyConfig` | `config` | 綁定 `quartz.job-map.*` 批次排程定義 |
 
 ## 快速導航
 
 - [快速開始](./quickstart.md)：撰寫第一個排程任務並啟用。
 - [配置參考](./configuration.md)：Quartz 屬性與儲存模式設定。
 - [使用範例](./examples.md)：動態註冊與 REST API 操作範例。
+- [架構與開發指南](./architecture.md)：套件結構、核心類別協作、擴充情境與維護陷阱。
 
 :::tip JDBC 模式需求
 若選用 JDBC 儲存模式，需事先在資料庫建立 Quartz 的標準資料表（`QRTZ_*`）。詳見配置參考頁。

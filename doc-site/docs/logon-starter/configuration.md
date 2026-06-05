@@ -6,70 +6,155 @@ sidebar_position: 3
 
 # 配置參考
 
-本頁列出 `logon-spring-boot-starter` 的可設定屬性，分為 Security 設定（`zipe.security.*`）與 LDAP 設定（`zipe.ldap.*`）兩大類。
+本頁列出 `logon-spring-boot-starter` 所有可設定屬性，分為 Security 主屬性（`security.*`）與 LDAP 子屬性（`security.ldap.*`）兩大類。
 
-## Security 屬性
+:::note 屬性 Prefix
+所有屬性以 `security` 為根 prefix，**不含** `zipe`、`spring.security` 或其他前綴。
+:::
 
-| 屬性名 | 型別 | 預設值 | 說明 | 必填 |
-|---|---|---|---|---|
-| `zipe.security.verification-type` | String | `DB` | 驗證類型：`DB` / `LDAP` / `CUSTOM` | 否 |
-| `zipe.security.login-page` | String | `/login` | 登入頁路徑 | 否 |
-| `zipe.security.login-process-url` | String | `/doLogin` | 表單送出的驗證端點 | 否 |
-| `zipe.security.default-success-url` | String | `/` | 登入成功預設導向頁 | 否 |
-| `zipe.security.logout-url` | String | `/logout` | 登出端點 | 否 |
-| `zipe.security.username-parameter` | String | `username` | 帳號欄位名稱 | 否 |
-| `zipe.security.password-parameter` | String | `password` | 密碼欄位名稱 | 否 |
-| `zipe.security.permit-all` | List | `[]` | 免驗證放行的路徑清單 | 否 |
+## Security 主屬性（`security.*`）
 
-## LDAP 屬性
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行 |
+| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom`（大小寫不敏感） |
+| `security.login-uri` | String | `/login` | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
+| `security.login-success-uri` | String | `/dashboard` | 登入成功後的導向路徑 |
+| `security.login-failure-uri` | String | `/login` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
+| `security.allow-uris` | String | 無 | 免驗證放行的路徑，逗號分隔，支援 Ant 樣式，如 `/static/**,/public/**` |
+| `security.csrf-enabled` | Boolean | `false` | CSRF 保護開關；傳統表單應設為 `true`，REST API 可設為 `false` |
+| `security.record-log-enable` | Boolean | `false` | 是否啟用登入稽核回呼；設為 `true` 時必須同時設定 `custom-record-log-bean` |
+| `security.custom-record-log-bean` | String | 無 | `record-log-enable=true` 時必填；業務端 `CustomLogonLogRecord` Bean 的名稱 |
+| `security.custom-bean-name` | String | 無 | `verification-type=custom` 時必填；業務端 `AuthenticationProvider` Bean 的名稱 |
 
-當 `verification-type` 為 `LDAP` 時需提供：
+## LDAP 子屬性（`security.ldap.*`）
 
-| 屬性名 | 型別 | 預設值 | 說明 | 必填 |
-|---|---|---|---|---|
-| `zipe.ldap.url` | String | 無 | LDAP 伺服器位址（如 `ldap://host:389`） | 是（LDAP 模式） |
-| `zipe.ldap.base-dn` | String | 無 | 搜尋的基礎 DN | 是（LDAP 模式） |
-| `zipe.ldap.user-dn-pattern` | String | 無 | 使用者 DN 樣式 | 否 |
-| `zipe.ldap.manager-dn` | String | 無 | 管理者繫結 DN | 否 |
-| `zipe.ldap.manager-password` | String | 無 | 管理者密碼 | 否 |
-| `zipe.ldap.user-search-filter` | String | `(uid={0})` | 使用者搜尋過濾條件 | 否 |
+僅在 `security.verification-type: ldap` 時需要設定。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.ldap.ip` | String | 無 | LDAP / AD 伺服器 IP 或主機名稱 |
+| `security.ldap.domain` | String | 無 | 網域名稱；登入帳號若不含 `@` 則自動補全為 `userId@domain` |
+| `security.ldap.port` | String | 無 | LDAP 埠號（標準 LDAP：389；LDAPS：636） |
+| `security.ldap.dn` | String | `DC=zipe,DC=local` | 搜尋起始 DN，如 `DC=corp,DC=example,DC=com` |
 
 ## 完整 application.yml 範例
 
-以下範例同時展示 Security 與 LDAP 設定：
+### BASIC 模式（開發測試用）
+
+帳號固定為 `admin`，密碼固定為 `admin`，僅適合快速驗證功能。
 
 ```yaml
-zipe:
-  security:
-    verification-type: LDAP
-    login-page: /login
-    login-process-url: /doLogin
-    default-success-url: /home
-    logout-url: /logout
-    username-parameter: username
-    password-parameter: password
-    permit-all:
-      - /login
-      - /css/**
-      - /js/**
-      - /images/**
-  ldap:
-    url: ldap://ldap.example.com:389
-    base-dn: dc=example,dc=com
-    user-dn-pattern: uid={0},ou=people
-    manager-dn: cn=admin,dc=example,dc=com
-    manager-password: ${LDAP_MANAGER_PASSWORD}
-    user-search-filter: (uid={0})
+security:
+  enable: true
+  verification-type: basic
+  login-uri: /login
+  login-success-uri: /dashboard
+  login-failure-uri: /login
+  allow-uris: /static/**,/public/**,/resources/**
+  csrf-enabled: false
 ```
 
-:::warning 驗證類型必須與設定一致
-若 `verification-type` 設為 `LDAP` 卻未提供 `zipe.ldap.url` 等必填屬性，應用啟動時將因無法建立 LDAP 連線而失敗。請確保所選驗證類型的相依設定齊備。
+### LDAP 模式
+
+```yaml
+security:
+  enable: true
+  verification-type: ldap
+  login-uri: /login
+  login-success-uri: /dashboard
+  login-failure-uri: /login
+  allow-uris: /static/**,/public/**,/resources/**
+  csrf-enabled: false
+  ldap:
+    ip: 192.168.1.100
+    domain: corp.example.com       # 帳號自動補全：john → john@corp.example.com
+    port: 389
+    dn: DC=corp,DC=example,DC=com  # 搜尋起始 DN
+```
+
+### CUSTOM 模式（業務資料庫帳號）
+
+```yaml
+security:
+  enable: true
+  verification-type: custom
+  custom-bean-name: dbAuthProvider   # 對應業務專案的 @Component("dbAuthProvider")
+  login-uri: /login
+  login-success-uri: /dashboard
+  login-failure-uri: /login
+  allow-uris: /static/**,/public/**,/resources/**
+  csrf-enabled: false
+```
+
+### 含稽核日誌的完整範例
+
+```yaml
+security:
+  enable: true
+  verification-type: custom
+  custom-bean-name: dbAuthProvider
+  login-uri: /login
+  login-success-uri: /dashboard
+  login-failure-uri: /login
+  allow-uris: /static/**,/public/**,/resources/**
+  csrf-enabled: false
+  record-log-enable: true
+  custom-record-log-bean: auditLogRecord  # 對應業務專案的 @Component("auditLogRecord")
+  ldap:
+    ip: 192.168.1.100
+    domain: corp.example.com
+    port: 389
+    dn: DC=corp,DC=example,DC=com
+```
+
+## 屬性說明補充
+
+### security.enable
+
+設為 `false` 時，`SecurityConfiguration` 仍會建立所有 Bean 並啟動 Spring Security，但 `filterChain` 會對所有路徑（`/**`）呼叫 `.permitAll()`，效果等同於關閉驗證。適合在開發環境暫時停用安全管控。
+
+```yaml
+security:
+  enable: false  # 全路徑免驗證，上線前務必移除
+```
+
+### security.login-uri 與 Session 策略的關係
+
+| 設定值 | 採用設定方法 | Session 策略 |
+|---|---|---|
+| 有填值（如 `/login`） | `customLoginConfigure()` | `STATELESS` |
+| 空白或未設定 | `basicLoginConfigure()` | `Stateful`（Spring Security 預設） |
+
+:::warning STATELESS 模式的注意事項
+採用 `customLoginConfigure()` 時 Session 策略為 `STATELESS`，Spring Security 不主動建立 `HttpSession`。若業務邏輯依賴 Session 儲存資料（例如透過 `SecurityBaseService.fetchLoginUser()` 取回 `SysUserVO`），需確保應用層面有另行管理 Session，或改用 `basicLoginConfigure()`（不填 `login-uri`）。
 :::
 
-:::note 自訂驗證（CUSTOM）
-選用 `CUSTOM` 時，模組不會提供預設的驗證實作，您需自行提供 `UserDetailsService` 或 `AuthenticationProvider` Bean，並交由 `CommonLoginProcess` 整合。
+### security.login-failure-uri 的 forward 行為
+
+`LoginFailureHandler` 設定 `useForward=true`，登入失敗後採**伺服器端 forward** 至 `login-failure-uri`，而非客戶端 redirect。這代表：
+
+- 瀏覽器 URL 不會改變（仍顯示登入表單送出的 URL）
+- 可在 `login-failure-uri` 對應的 Controller / View 中存取 `AuthenticationException`，用來顯示錯誤訊息
+
+### ADMIN 帳號動態密碼
+
+帳號名稱（不分大小寫）等於 `admin` 時，由 `CommonLoginProcess.verifySpecialUser()` 處理。動態密碼為**當天日期**，格式 `yyyyMMdd`，例如今天為 2026-06-04，密碼即為 `20260604`。
+
+此機制適用於維護期間系統管理員緊急登入，**業務正常帳號請勿使用 `admin` 作為帳號名稱**。
+
+:::warning CUSTOM 模式必填屬性
+設定 `verification-type: custom` 時，**必須同時設定 `custom-bean-name`**，否則 Spring Context 啟動時會因 `NullPointerException` 而失敗，應用無法啟動。
 :::
 
-:::info 密碼編碼
-資料庫驗證的密碼比對依賴 Spring Security 的 `PasswordEncoder`。請確認資料庫中儲存的密碼為編碼後（如 BCrypt）的雜湊值，而非明文。
+:::note 密碼編碼
+模組內建 `BCryptPasswordEncoder`（Bean 名稱 `passwordEncoder`），BASIC 模式的密碼比對使用 BCrypt。CUSTOM 模式的業務 `AuthenticationProvider` 可直接注入此 Bean 進行密碼比對：
+
+```java
+@Autowired
+private PasswordEncoder passwordEncoder;
+
+// 比對使用者輸入密碼與資料庫儲存的 BCrypt hash
+boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+```
 :::

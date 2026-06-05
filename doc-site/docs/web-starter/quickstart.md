@@ -13,8 +13,8 @@ sidebar_position: 2
 - JDK 17 以上、Spring Boot 3.5.x。
 - 已將 `web-spring-boot-starter` 安裝至本地 Maven Repository。
 
-:::note
-JSP 與 Thymeleaf 不建議同時啟用，請於設定中明確指定其中一種視圖引擎，以免解析器衝突。
+:::note JSP 與 Thymeleaf 共存注意事項
+JSP 與 Thymeleaf 可同時啟用，但必須確保兩者的 `viewNames` glob 模式不重疊（JSP 預設 `jsp/*`、Thymeleaf 預設 `html/*,vue/*,templates/*,th/*`），否則 order 較小的 JSP 解析器會優先命中 Thymeleaf 視圖名稱，導致渲染失敗。
 :::
 
 ## Step 1：安裝模組
@@ -36,20 +36,51 @@ cd web-spring-boot-starter
 
 ## Step 3：設定 application.yml
 
-以 Thymeleaf 為例：
+以 Thymeleaf 為例（使用正確的屬性鍵 `web.thymeleaf.enable`）：
 
 ```yaml
-zipe:
-  web:
-    view-type: thymeleaf
-    prefix: /WEB-INF/th/
-    suffix: .html
-    static-path-pattern: /static/**
+web:
+  resource:
+    pathPattern: /static/**
+    location: /WEB-INF/static/
+  thymeleaf:
+    enable: true
+    viewNames: "html/*,vue/*,templates/*,th/*"
+    stuff: .html
+    templateMode: HTML
+  jsp:
+    enable: false
 ```
 
-## Step 4：程式碼範例
+:::info 屬性前綴為 `web`，不是 `zipe.web`
+正確的屬性前綴是 `web.*`，例如 `web.thymeleaf.enable`、`web.resource.pathPattern`。請勿使用 `zipe.web.*` 或 `web.view-type` 等不存在的屬性名稱。
+:::
 
-撰寫頁面 Controller（回傳視圖名稱）：
+## Step 4：建立視圖模板
+
+Thymeleaf 模板必須放在 `src/main/webapp/WEB-INF/` 目錄下。以 `th/` 子目錄為例：
+
+```
+src/main/webapp/WEB-INF/
+└── th/
+    └── message.html
+```
+
+`src/main/webapp/WEB-INF/th/message.html` 內容範例：
+
+```html
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><title>Message</title></head>
+<body>
+    <p th:text="${msg}">預設訊息</p>
+</body>
+</html>
+```
+
+## Step 5：程式碼範例
+
+撰寫視圖 Controller（回傳視圖名稱）：
 
 ```java
 import org.springframework.stereotype.Controller;
@@ -62,7 +93,9 @@ public class PageController {
     @GetMapping("/message")
     public String message(Model model) {
         model.addAttribute("msg", "Hello Thymeleaf");
-        return "message"; // 對應 /WEB-INF/th/message.html
+        // 視圖名稱 "th/message" 對應到 /WEB-INF/th/message.html
+        // （prefix=/WEB-INF/ + viewName + suffix=.html）
+        return "th/message";
     }
 }
 ```
@@ -71,7 +104,9 @@ public class PageController {
 
 ```java
 import com.zipe.annotation.ResponseResultBody;
-import com.zipe.dto.User;
+import com.zipe.dto.Result;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -80,15 +115,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserApiController {
 
     @GetMapping("/api/user")
-    public User getUser() {
-        User user = new User();
-        user.setName("Alice");
+    public Map<String, Object> getUser() {
+        Map<String, Object> user = new HashMap<>();
+        user.put("name", "Alice");
+        user.put("age", 30);
         return user;
     }
 }
 ```
 
-## Step 5：執行驗證
+## Step 6：執行驗證
 
 啟動應用程式：
 
@@ -96,20 +132,28 @@ public class UserApiController {
 ./mvnw spring-boot:run
 ```
 
-開啟 `http://localhost:8080/message` 應看到渲染後的頁面；呼叫 `/api/user` 應得到統一包裝的 JSON：
+開啟 `http://localhost:8080/message` 應看到渲染後的 Thymeleaf 頁面；呼叫 `/api/user` 應得到統一包裝的 JSON：
 
 ```json
 {
-  "status": 200,
-  "message": "success",
-  "data": { "name": "Alice" }
+  "code": 200,
+  "message": "OK",
+  "data": { "name": "Alice", "age": 30 }
 }
 ```
 
 :::tip 自動包裝
-只要在 Controller 或方法上標註 `@ResponseResultBody`，回傳值就會被 `ResponseResultBodyAdvice` 自動包裝為 `Result` 結構，無須手動建立回應物件。
+只要在 Controller 或方法上標注 `@ResponseResultBody`，回傳值就會被 `ResponseResultBodyAdvice` 自動包裝為 `Result<T>` 結構，無須手動建立回應物件。
 :::
 
-:::warning 視圖路徑對應
-`prefix` 與 `suffix` 決定視圖名稱如何對應到實體檔案。範例中回傳 `"message"` 會解析為 `/WEB-INF/th/message.html`，請確認檔案實際存在於該路徑。
+:::warning 視圖路徑對應規則
+視圖名稱的實體路徑由三部分組成：**固定 prefix**（`/WEB-INF/`）+ **視圖名稱**（你在 Controller 回傳的字串）+ **suffix**（`web.thymeleaf.stuff`，預設 `.html`）。
+
+範例：回傳 `"th/message"` → 實體路徑為 `/WEB-INF/th/message.html`。
+
+請確認模板檔案實際存在於 `src/main/webapp/WEB-INF/` 下對應的路徑。
+:::
+
+:::note 視圖名稱需符合 viewNames 模式
+Thymeleaf ViewResolver 只處理符合 `web.thymeleaf.viewNames` 設定（預設 `html/*,vue/*,templates/*,th/*`）的視圖名稱。若你的視圖名稱不在這些模式中，需更新 `viewNames` 設定，或改用符合模式的目錄結構。
 :::

@@ -12,6 +12,7 @@ const sidebars = {
         'base-starter/quickstart',
         'base-starter/configuration',
         'base-starter/examples',
+        'base-starter/architecture',
       ],
     },
     {
@@ -22,6 +23,7 @@ const sidebars = {
         'db-starter/quickstart',
         'db-starter/configuration',
         'db-starter/examples',
+        'db-starter/architecture',
       ],
     },
     {
@@ -32,6 +34,7 @@ const sidebars = {
         'job-starter/quickstart',
         'job-starter/configuration',
         'job-starter/examples',
+        'job-starter/architecture',
       ],
     },
     {
@@ -42,6 +45,7 @@ const sidebars = {
         'logon-starter/quickstart',
         'logon-starter/configuration',
         'logon-starter/examples',
+        'logon-starter/architecture',
       ],
     },
     {
@@ -52,6 +56,7 @@ const sidebars = {
         'web-service-starter/quickstart',
         'web-service-starter/configuration',
         'web-service-starter/examples',
+        'web-service-starter/architecture',
       ],
     },
     {
@@ -62,6 +67,7 @@ const sidebars = {
         'web-starter/quickstart',
         'web-starter/configuration',
         'web-starter/examples',
+        'web-starter/architecture',
       ],
     },
     {
