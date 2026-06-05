@@ -39,3 +39,13 @@ web-service-spring-boot-starter/
 ## 主要功能
 
 CXF SOAP WebService 服務端自動註冊、WebService 客戶端呼叫工具、CDATA 內容攔截器、客戶端認證攔截器、XML 工具
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/web-service-starter/index.md)
+- [快速開始](../../doc-site/docs/web-service-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/web-service-starter/configuration.md)
+- [使用範例](../../doc-site/docs/web-service-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/web-service-starter/architecture.md)

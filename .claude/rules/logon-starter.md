@@ -47,3 +47,13 @@ logon-spring-boot-starter/
 ## 主要功能
 
 Spring Security 表單登入、LDAP 目錄服務驗證、自訂驗證類型切換 (`VerificationTypeEnum`)、登入成功/失敗處理器、自訂登入日誌記錄介面
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/logon-starter/index.md)
+- [快速開始](../../doc-site/docs/logon-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/logon-starter/configuration.md)
+- [使用範例](../../doc-site/docs/logon-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/logon-starter/architecture.md)

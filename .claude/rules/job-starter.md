@@ -41,4 +41,14 @@ job-spring-boot-starter/
 
 ## 主要功能
 
-Quartz 排程管理 (新增/修改/刪除/暫停/恢復)、支援 JDBC 或記憶體 JobStore、排程 REST API、可繼承 `BaseJob` 自訂業務邏輯
+Quartz 排程管理 (新增/修改/刪除/暫停/恢復)、支援 JDBC 或記憶體 JobStore、排程 REST API、可繼承 `QuartzJobFactory` 自訂業務邏輯
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/job-starter/index.md)
+- [快速開始](../../doc-site/docs/job-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/job-starter/configuration.md)
+- [使用範例](../../doc-site/docs/job-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/job-starter/architecture.md)

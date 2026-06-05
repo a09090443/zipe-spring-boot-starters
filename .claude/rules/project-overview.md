@@ -40,3 +40,9 @@ cd <starter-directory>
 cd starters_example
 ./mvnw spring-boot:run
 ```
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [專案總覽](../../doc-site/docs/intro.md)

@@ -37,3 +37,7 @@ keycloak-spring-boot-starter/
 ## 主要功能
 
 嵌入式 Keycloak 服務啟動、Spring Boot 整合配置、Infinispan 快取支援、Undertow 請求過濾
+
+## 對應文件
+
+本模組尚未建立 doc-site 技術文件頁面，後續若新增功能請同步補上文件。

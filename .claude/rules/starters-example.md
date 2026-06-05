@@ -63,3 +63,14 @@ starters_example/
 ## 主要功能
 
 整合所有 Starter 的完整範例、H2 記憶體資料庫快速啟動、各功能模組測試案例、Postman 測試集合
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [整合範例總覽](../../doc-site/docs/integration/index.md)
+- [Web 與登入認證情境](../../doc-site/docs/integration/scenario-web-auth.md)
+- [資料庫情境](../../doc-site/docs/integration/scenario-db.md)
+- [排程情境](../../doc-site/docs/integration/scenario-job.md)
+- [WebService 情境](../../doc-site/docs/integration/scenario-webservice.md)
+- [完整整合情境](../../doc-site/docs/integration/scenario-full.md)

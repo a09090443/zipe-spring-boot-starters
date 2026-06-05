@@ -55,3 +55,13 @@ web-spring-boot-starter/
 ## 主要功能
 
 JSP / Thymeleaf 視圖引擎切換、統一 REST 回應格式 (`@ResponseResultBody`)、基礎 Controller、靜態資源配置、Tomcat 嵌入式伺服器設定
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/web-starter/index.md)
+- [快速開始](../../doc-site/docs/web-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/web-starter/configuration.md)
+- [使用範例](../../doc-site/docs/web-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/web-starter/architecture.md)

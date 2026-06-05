@@ -13,4 +13,5 @@
 - [web-spring-boot-starter](.claude/rules/web-starter.md)
 - [keycloak-spring-boot-starter](.claude/rules/keycloak-starter.md)
 - [starters_example](.claude/rules/starters-example.md)
+- [文件同步規則（改程式後確認文件）](.claude/rules/doc-sync.md)
 - [Git Commit 訊息規範](.claude/rules/git-commit.md)

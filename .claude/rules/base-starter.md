@@ -56,6 +56,7 @@ base-spring-boot-starter/
         ├── http/
         │   └── OkHttpUtil.java                  # HTTP 請求工具 (OkHttp)
         ├── print/
+        │   ├── PrintContent.java                # 列印內容 VO（文字、座標、字體）
         │   └── PrintUtils.java                  # 列印工具
         ├── string/
         │   ├── CommonStringUtil.java            # 字串工具
@@ -71,3 +72,13 @@ base-spring-boot-starter/
 ## 主要功能
 
 郵件發送、加解密工具 (AES/3DES/MD5/Base64)、Excel/JasperReport 文件處理、HTTP 請求、字串/日期工具、Bean 轉換、類別動態載入
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/base-starter/index.md)
+- [快速開始](../../doc-site/docs/base-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/base-starter/configuration.md)
+- [使用範例](../../doc-site/docs/base-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/base-starter/architecture.md)

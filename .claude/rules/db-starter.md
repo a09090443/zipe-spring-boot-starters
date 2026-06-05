@@ -48,3 +48,13 @@ db-spring-boot-starter/
 ## 主要功能
 
 多資料來源動態切換 (`@DS` Annotation)、基礎 JDBC 封裝、SQL 查詢條件建構、P6Spy SQL 監控日誌
+
+## 對應文件
+
+本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
+
+- [模組簡介](../../doc-site/docs/db-starter/index.md)
+- [快速開始](../../doc-site/docs/db-starter/quickstart.md)
+- [配置參考](../../doc-site/docs/db-starter/configuration.md)
+- [使用範例](../../doc-site/docs/db-starter/examples.md)
+- [架構與開發指南](../../doc-site/docs/db-starter/architecture.md)
