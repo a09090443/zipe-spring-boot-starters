@@ -29,7 +29,7 @@ cd logon-spring-boot-starter
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
     <version>3.5.11.0</version>
 </dependency>

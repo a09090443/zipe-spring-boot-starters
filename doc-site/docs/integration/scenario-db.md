@@ -28,12 +28,12 @@ description: 使用 base + db Starter 建構動態切換資料來源的應用
     </dependency>
 
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>db-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>

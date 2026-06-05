@@ -28,9 +28,9 @@ description: 提供 JSP / Thymeleaf 視圖切換與統一 REST 回應格式的�
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

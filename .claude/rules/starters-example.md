@@ -24,10 +24,9 @@ starters_example/
     │   │   ├── jdbc/
     │   │   │   └── ExampleJdbc.java                 # JDBC 查詢範例 (db-starter)
     │   │   ├── job/
-    │   │   │   ├── ExampleAnnotationJob.java        # Annotation 方式排程
-    │   │   │   ├── ExampleDbJob.java                # DB 模式排程
-    │   │   │   ├── ExampleJob.java                  # 基本排程範例
-    │   │   │   └── ExampleXmlJob.java               # XML 設定排程
+    │   │   │   ├── ExampleAnnotationJob.java        # Annotation (@Scheduled) 方式排程
+    │   │   │   ├── ExampleDbJob.java                # DB 模式排程（REST API 動態註冊）
+    │   │   │   └── ExampleXmlJob.java               # Properties (quartz-jobs.properties) 設定排程
     │   │   ├── model/
     │   │   │   ├── UserDetail.java                  # 使用者詳細資料模型
     │   │   │   └── UserMain.java                    # 使用者主要資料模型
@@ -47,10 +46,14 @@ starters_example/
     │       ├── data-source.properties               # 資料來源設定
     │       ├── quartz-datasource.properties         # Quartz 資料來源設定
     │       ├── quartz-jobs.properties               # Quartz 排程設定
-    │       ├── init/h2/
-    │       │   ├── schema.sql                       # H2 建表 SQL
-    │       │   └── data.sql                         # H2 初始資料
-    │       ├── jasperreport/                        # JasperReport 報表模板
+    │       ├── resources.properties                 # Logback 外部化參數
+    │       ├── init/
+    │       │   ├── schema.sql                       # 建表 SQL（user_main / user_detail，application.yml 實際引用）
+    │       │   ├── data.sql                         # 初始資料（application.yml 實際引用）
+    │       │   └── h2/
+    │       │       ├── schema.sql                   # H2 建表 SQL（TBL_EMPLOYEES，備用）
+    │       │       └── data.sql                     # H2 初始資料（備用）
+    │       ├── jasperreport/                        # JasperReport 報表模板 (*.jrxml)
     │       └── logback-spring.xml                   # Logback 日誌設定
     ├── postman/
     │   └── Example.postman_collection.json          # Postman 測試集合

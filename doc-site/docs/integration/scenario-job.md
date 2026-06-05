@@ -30,12 +30,12 @@ description: 使用 base + job Starter 建構 Quartz 排程系統
     </dependency>
 
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>job-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
@@ -116,7 +116,7 @@ spring.datasource.quartz.driver-class-name=com.mysql.cj.jdbc.Driver
 @Component
 public class ExampleAnnotationJob {
 
-    @Scheduled(cron = "0/15 * * * * ? *")
+    @Scheduled(cron = "0/20 * * * * ?")
     public void example() {
         log.info("執行 ExampleAnnotationJob");
     }

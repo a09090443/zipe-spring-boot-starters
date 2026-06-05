@@ -56,7 +56,9 @@ starters_example/
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
-│   │   └── impl/ExampleServiceImpl.java    # sayHello 實作
+│   │   ├── ExampleServiceImpl.java         # sayHello 實作
+│   │   ├── DBExampleService.java           # 多資料來源服務介面
+│   │   └── DBExampleServiceImpl.java       # @DS / DataSourceHolder 切換示範
 │   ├── job/
 │   │   ├── ExampleAnnotationJob.java       # @Scheduled 模式
 │   │   ├── ExampleDbJob.java               # 資料庫模式
@@ -71,14 +73,21 @@ starters_example/
 │   └── webservice/
 │       ├── ExampleWebService.java          # SOAP 介面（SEI）
 │       └── impl/ExampleWebServiceImpl.java # SOAP 實作（@Component）
-└── src/main/resources/
-    ├── application.yml                     # 主設定
-    ├── resources.properties                # Logback 外部化參數
-    ├── data-source.properties              # 多資料來源定義
-    ├── quartz-jobs.properties              # Quartz 靜態排程定義
-    ├── quartz-datasource.properties        # Quartz JDBC 模式資料來源（備用）
-    ├── init/h2/schema.sql                  # H2 建表
-    └── init/h2/data.sql                    # H2 初始資料
+├── src/main/resources/
+│   ├── application.yml                     # 主設定
+│   ├── resources.properties                # Logback 外部化參數
+│   ├── data-source.properties              # 多資料來源定義
+│   ├── quartz-jobs.properties              # Quartz 靜態排程定義
+│   ├── quartz-datasource.properties        # Quartz JDBC 模式資料來源（備用）
+│   ├── init/schema.sql                     # 建表（user_main / user_detail，application.yml 實際引用）
+│   ├── init/data.sql                       # 初始資料（application.yml 實際引用）
+│   ├── init/h2/schema.sql                  # H2 建表（TBL_EMPLOYEES，備用）
+│   ├── init/h2/data.sql                    # H2 初始資料（備用）
+│   ├── jasperreport/*.jrxml                # JasperReport 報表模板
+│   └── logback-spring.xml                  # Logback 日誌設定
+├── src/main/webapp/WEB-INF/                # JSP / Thymeleaf 視圖（hello.jsp、hello.html、demo.html、index.html）
+└── src/postman/
+    └── Example.postman_collection.json     # Postman / SOAP 測試集合
 ```
 
 ## 如何取得並執行範例專案
@@ -92,14 +101,14 @@ git clone https://github.com/a09090443/zipe-spring-boot-starters.git
 cd zipe-spring-boot-starters
 ```
 
-### 步驟二：安裝各 Starter 至本地 Maven Repository
+### 步驟二：取得 Starter 依賴
 
-範例專案引用的是本地安裝的 Starter，因此需要先安裝：
+範例引用的 Starter（`io.github.a09090443:*:3.5.11.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+
+若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
 ```bash
-for module in base db job logon web web-service; do
-  (cd ${module}-spring-boot-starter && ./mvnw clean install -DskipTests)
-done
+mvn clean install
 ```
 
 ### 步驟三：啟動範例專案
@@ -119,8 +128,12 @@ cd starters_example
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
 | H2 Console | `http://localhost:8080/example/h2-console` |
 
-:::tip 無需外部資料庫即可體驗
-範例專案內建 **H2 記憶體資料庫**（`spring.h2.console.enabled: true`），並透過 `init/h2/schema.sql` 與 `data.sql` 預先建立 `TBL_EMPLOYEES` 表與測試資料。這代表你不必先安裝 MySQL 就能啟動並體驗大部分功能。若要完整驗證多資料來源（`example1` / `example2`），才需要準備對應的 MySQL 環境。
+:::tip 內建 H2 與 SQL 初始化說明
+範例專案內建 **H2 記憶體資料庫**並開啟 H2 Console（`spring.h2.console.enabled: true`）。需注意 `application.yml` 的 `spring.sql.init.mode` 設為 **`never`**，因此 `init/schema.sql`（`user_main` / `user_detail`）與 `init/data.sql` **不會在啟動時自動執行**，需要時請自行於 H2 Console 手動載入。`init/h2/` 下另附 `TBL_EMPLOYEES` 的建表/資料腳本作為備用範例。若要完整驗證多資料來源（`example1` / `example2`），才需要準備對應的 MySQL 環境。
+:::
+
+:::note 範例專案的版本獨立於主專案
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `3.5.11`、`zipe.spring.starter.version` 為 `3.5.11.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案

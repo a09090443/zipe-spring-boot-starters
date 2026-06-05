@@ -15,38 +15,38 @@ description: 整合所有 Starter 建構完整的企業應用系統
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>3.0.6.1</zipe.spring.starter.version>
+    <zipe.spring.starter.version>3.5.11.0</zipe.spring.starter.version>
 </properties>
 
 <dependencies>
     <!-- 六個自製 Starter -->
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>web-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>web-service-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>job-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>db-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
@@ -207,7 +207,7 @@ security:
 application.yml
   ├── spring.config.import → resources.properties → logback-spring.xml
   ├── spring.quartz.*       → job-starter ← quartz-jobs.properties / quartz-datasource.properties
-  ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/h2/*.sql
+  ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
   └── security.*            → logon-starter ← LogonLogRecord.java
 ```

@@ -59,9 +59,9 @@ cd base-spring-boot-starter
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

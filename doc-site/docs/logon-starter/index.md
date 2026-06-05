@@ -28,7 +28,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
     <version>3.5.11.0</version>
 </dependency>

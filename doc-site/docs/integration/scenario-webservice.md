@@ -25,7 +25,7 @@ description: 使用 base + web-service Starter 發布 CXF SOAP 服務
 ```xml
 <dependencies>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>web-service-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>

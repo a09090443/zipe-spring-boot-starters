@@ -28,9 +28,9 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 
 ```xml
 <dependency>
-    <groupId>com.zipe</groupId>
+    <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>3.5.11.0</version>
 </dependency>
 ```
 

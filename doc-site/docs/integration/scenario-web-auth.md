@@ -26,17 +26,17 @@ description: 使用 base + web + logon Starter 建構具登入認證的 Web 應�
 ```xml
 <dependencies>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>web-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
     <dependency>
-        <groupId>com.zipe</groupId>
+        <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
@@ -99,31 +99,36 @@ security:
 @RequestMapping("/")
 public class WebController extends BaseController {
 
-    @GetMapping("/thymeleaf")
+    @GetMapping({"/thymeleaf"})
     public String thymeleaf() {
         // 對應 /WEB-INF/html/hello.html
         return "html/hello";
     }
 
-    @GetMapping("/jsp")
+    @GetMapping({"/jsp"})
     public String jsp() {
         // 對應 /WEB-INF/jsp/hello.jsp（前綴 jsp/ 走 JSP Resolver）
         return "jsp/hello";
     }
 
-    @GetMapping("/demo")
+    @GetMapping({"/demo"})
     public String demo() {
         return "html/demo";
     }
 
-    @GetMapping("/")
-    public ModelAndView index() {
-        ModelAndView mav = new ModelAndView("index");
-        mav.addObject("name", "John");
-        return mav;
+    @Override
+    @GetMapping({"/"})
+    public ModelAndView initPage() {
+        ModelAndView view = new ModelAndView("index");
+        view.addObject("name", "John");
+        return view;
     }
 }
 ```
+
+:::note BaseController 採 setter 注入，子類別免寫建構子
+`BaseController` 為抽象類別，`Environment` 與 `MessageSource` 由其內部以 `@Autowired` setter 注入，因此子類別**不需要撰寫建構子**，只要覆寫抽象方法 `initPage()` 作為首頁進入點即可（不是自行新增 `index()`）。
+:::
 
 視圖名稱前綴決定由哪個 ViewResolver 解析：以 `jsp/` 開頭的交給 `InternalResourceViewResolver`（JSP，Order = 1），其餘由 `ThymeleafViewResolver`（Order = 2）處理。
 
