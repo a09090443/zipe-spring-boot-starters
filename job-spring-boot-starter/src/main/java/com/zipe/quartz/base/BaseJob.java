@@ -1,5 +1,6 @@
 package com.zipe.quartz.base;
 
+import com.zipe.quartz.config.QuartzJobPropertyConfig;
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.enums.ScheduleJobStatusEnum;
 import com.zipe.quartz.model.Job;
@@ -30,9 +31,12 @@ public abstract class BaseJob {
 
     private final Scheduler scheduler;
 
+    private final QuartzJobPropertyConfig propertyConfig;
+
     @Autowired
-    protected BaseJob(Scheduler scheduler) {
+    protected BaseJob(Scheduler scheduler, QuartzJobPropertyConfig propertyConfig) {
         this.scheduler = scheduler;
+        this.propertyConfig = propertyConfig;
     }
 
     /**
@@ -150,7 +154,7 @@ public abstract class BaseJob {
             }
         }
 
-        QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job);
+        QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job, propertyConfig.effectiveAllowedClasses());
         JobDetail jobDetail = null;
         Trigger newTrigger = null;
         try {

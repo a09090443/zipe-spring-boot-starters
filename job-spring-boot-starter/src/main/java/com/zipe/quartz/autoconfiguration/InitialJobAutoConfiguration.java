@@ -69,7 +69,7 @@ public class InitialJobAutoConfiguration {
             // 由 quartz-jobs.properties 所產生的 job 統一的 group name 為 "file"
             job.setGroup(JOB_GROUP_NAME);
             job.setCronExpression(value.getCronExpression());
-            QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job);
+            QuartzJobUtil quartzManageUtil = new QuartzJobUtil(job, quartzJobPropertyConfig.effectiveAllowedClasses());
             try {
                 JobDetail detail = quartzManageUtil.buildJobDetail();
                 Trigger trigger = quartzManageUtil.buildJobTrigger(ScheduleEnum.CRON.setExpression(job.getCronExpression()));

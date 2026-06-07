@@ -47,6 +47,13 @@
             <groupId>io.github.a09090443</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
         </dependency>
+
+        <!-- 測試 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

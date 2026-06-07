@@ -1,8 +1,10 @@
 package com.zipe.quartz.controller;
 
 import com.zipe.quartz.base.BaseJob;
+import com.zipe.quartz.config.QuartzJobPropertyConfig;
 import com.zipe.quartz.vo.ScheduleJobVO;
 import org.quartz.Scheduler;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,14 +13,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * 排程管理 REST API。
+ *
+ * <p><b>資安提醒：</b>此控制器可動態建立 / 刪除排程，預設為關閉狀態，需明確設定
+ * {@code quartz.controller.enabled=true} 才會註冊。啟用後務必納入 Spring Security
+ * 等存取控制保護，且僅能載入白名單（{@code quartz.allowed-job-classes}）內的 Job 類別。</p>
+ *
  * @author : Gary Tsai
  **/
 @RestController
 @RequestMapping("/quartz")
+@ConditionalOnProperty(name = "quartz.controller.enabled", havingValue = "true")
 public class QuartzController extends BaseJob {
 
-    public QuartzController(Scheduler scheduler) {
-        super(scheduler);
+    public QuartzController(Scheduler scheduler, QuartzJobPropertyConfig propertyConfig) {
+        super(scheduler, propertyConfig);
     }
 
     /**
