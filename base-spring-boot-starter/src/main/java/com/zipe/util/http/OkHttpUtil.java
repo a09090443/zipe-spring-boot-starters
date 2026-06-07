@@ -10,13 +10,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,9 +26,6 @@ public class OkHttpUtil {
     private static OkHttpUtil mInstance = new OkHttpUtil();
     private OkHttpClient mOkHttpClient;
 
-    private static final String KEY_STORE_TYPE_P12 = "PKCS12";//證書類型
-    private static final String KEY_STORE_PASSWORD = "csrysd200628";//ca.p12證書密碼（客戶端證書密碼）
-
     /**
      * 自定义网络回调接口
      */
@@ -47,23 +38,10 @@ public class OkHttpUtil {
     private OkHttpUtil() {
     }
 
-    private OkHttpClient getOkHttpClient() throws Exception {
+    synchronized OkHttpClient getOkHttpClient() {
         if (mOkHttpClient != null) {
             return mOkHttpClient;
         }
-        // 啟用https, 客戶端證書(雙向認證，需銀行提供客戶端證書)
-        // KeyStore keyStore = KeyStore.getInstance(KEY_STORE_TYPE_P12);
-        // keyStore.load(new FileInputStream("ca.p12"), KEY_STORE_PASSWORD.toCharArray());
-
-        // KeyManagerFactory證書管理類
-        // KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        // keyManagerFactory.init(keyStore, KEY_STORE_PASSWORD.toCharArray());
-
-        TrustManager[] trustManagers = new TrustManager[]{new TrustAllCerts()};
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(null, trustManagers, new SecureRandom());
-
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
         //讀取超時
         clientBuilder.readTimeout(READ_TIMEOUT, TimeUnit.SECONDS);
@@ -71,9 +49,9 @@ public class OkHttpUtil {
         clientBuilder.connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS);
         //寫入超時
         clientBuilder.writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS);
-        //支持HTTPS請求，跳過證書驗證
-        clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0]);
-        clientBuilder.hostnameVerifier((hostname, session) -> true);
+        // 採用 JDK / 平台預設的 TLS 信任鏈與主機名稱驗證，確保 HTTPS 連線可抵禦中間人攻擊。
+        // 若特定情境需使用自簽憑證，請以載入指定 CA / 憑證綁定（pinning）的方式處理，
+        // 切勿停用憑證或主機名稱驗證。
         return mOkHttpClient = clientBuilder.build();
     }
 
@@ -258,27 +236,4 @@ public class OkHttpUtil {
         });
     }
 
-    /**
-     * 用於信任所有證書
-     */
-    class TrustAllCerts implements X509TrustManager {
-        @Override
-        public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-        }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-
-        }
-
-        @Override
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[0];
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-        Response response = OkHttpUtil.getInstance().getData("http://www.baidu.com");
-        System.out.println(response.body().string());
-    }
 }
