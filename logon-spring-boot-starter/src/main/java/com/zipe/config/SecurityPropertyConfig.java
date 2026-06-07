@@ -1,5 +1,6 @@
 package com.zipe.config;
 
+import com.zipe.enums.FrameOptionsMode;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -23,5 +24,9 @@ public class SecurityPropertyConfig {
     private String loginFailureUri = "/error";
     private String customBeanName;
     private Boolean csrfEnabled = Boolean.TRUE;
+    /**
+     * X-Frame-Options 模式，預設 SAMEORIGIN 以保留點擊劫持防護。
+     */
+    private FrameOptionsMode frameOptionsMode = FrameOptionsMode.SAMEORIGIN;
     private LdapPropertyConfig ldap = new LdapPropertyConfig();
 }

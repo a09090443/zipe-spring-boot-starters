@@ -15,6 +15,7 @@ import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.ldap.LdapContext;
+import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Objects;
 
@@ -74,7 +75,20 @@ public class LdapUserDetailsService extends CommonLoginProcess {
 
         // 如使用 AD 帳號登入時需要域名需將域名移除
         String[] userNameSplit = fullLoginId.split(StringConstant.AT);
-        return new UsernamePasswordAuthenticationToken(userNameSplit[0], password, null);
+        return buildAuthenticatedToken(userNameSplit[0]);
+    }
+
+    /**
+     * 建立認證成功的 Authentication token。
+     *
+     * <p>使用非 null 的權限集合使 token 成為已認證狀態，且不在 token 內保留
+     * 明文密碼（credentials 設為 null），避免敏感資訊殘留於安全內容中。</p>
+     *
+     * @param principal 使用者主體（已移除域名的帳號）
+     * @return 已認證的 token
+     */
+    static UsernamePasswordAuthenticationToken buildAuthenticatedToken(String principal) {
+        return new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
     }
 
     private LdapUser convertLdapUser(String userId, Attributes attrs, DirContext context) throws Exception {

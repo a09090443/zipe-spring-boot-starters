@@ -106,8 +106,8 @@ public class SecurityConfiguration {
     }
 
     private void authenticationProvider(HttpSecurity http) throws Exception {
-        // 關閉 iframe 阻擋
-        http.headers(header -> header.frameOptions(FrameOptionsConfig::disable));
+        // 依設定套用 X-Frame-Options（預設 SAMEORIGIN，保留點擊劫持防護）
+        configureFrameOptions(http);
         // 關閉 csrf 功能
         if (Boolean.FALSE.equals(securityPropertyConfig.getCsrfEnabled())) {
             http.csrf(AbstractHttpConfigurer::disable);
@@ -135,9 +135,29 @@ public class SecurityConfiguration {
         }
     }
 
+    /**
+     * 依 {@code security.frame-options-mode} 設定套用 X-Frame-Options。
+     * 預設 SAMEORIGIN；僅在明確設為 DISABLE 時才停用此防護。
+     */
+    private void configureFrameOptions(HttpSecurity http) throws Exception {
+        switch (securityPropertyConfig.getFrameOptionsMode()) {
+            case DISABLE:
+                log.warn("X-Frame-Options 已停用 (frame-options-mode=DISABLE)，頁面可被任意站台以 iframe 內嵌，存在點擊劫持風險。");
+                http.headers(header -> header.frameOptions(FrameOptionsConfig::disable));
+                break;
+            case DENY:
+                http.headers(header -> header.frameOptions(FrameOptionsConfig::deny));
+                break;
+            case SAMEORIGIN:
+            default:
+                http.headers(header -> header.frameOptions(FrameOptionsConfig::sameOrigin));
+        }
+    }
+
     private String[] switchSecurity() {
         String[] allowUris;
         if (Boolean.FALSE.equals(securityPropertyConfig.getEnable())) {
+            log.warn("安全性已停用 (security.enable=false)，所有路徑 {} 將開放未經認證存取，請勿用於正式環境。", PERMIT_ALL);
             allowUris = new String[]{PERMIT_ALL};
         } else {
             allowUris = securityPropertyConfig.getAllowUris().split(StringConstant.COMMA);
