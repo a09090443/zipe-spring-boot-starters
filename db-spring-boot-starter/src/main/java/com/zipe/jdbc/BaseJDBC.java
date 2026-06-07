@@ -120,7 +120,7 @@ public abstract class BaseJDBC {
      */
     public <T> T queryForBean(ResourceEnum resource, Map<String, Object> params, Conditions conditions, Class<T> clazz) {
         String sql = getSqlText(resource, conditions);
-        List<T> results = support.getNamedParameterJdbcTemplate().query(sql, params, new BeanPropertyRowMapper<>(clazz));
+        List<T> results = support.getNamedParameterJdbcTemplate().query(sql, mergeParams(params, conditions), new BeanPropertyRowMapper<>(clazz));
         return CollectionUtils.isEmpty(results) ? null : results.get(0);
     }
 
@@ -179,7 +179,7 @@ public abstract class BaseJDBC {
      */
     public Map<String, Object> queryForMap(ResourceEnum resource, Map<String, Object> params, Conditions conditions) {
         String sql = getSqlText(resource, conditions);
-        List<Map<String, Object>> results = support.getNamedParameterJdbcTemplate().queryForList(sql, params);
+        List<Map<String, Object>> results = support.getNamedParameterJdbcTemplate().queryForList(sql, mergeParams(params, conditions));
         return CollectionUtils.isEmpty(results) ? null : results.get(0);
     }
 
@@ -238,7 +238,7 @@ public abstract class BaseJDBC {
      */
     public List<Map<String, Object>> queryForList(ResourceEnum resource, Map<String, Object> params, Conditions conditions, Paging paging) {
         String sql = getSqlText(resource, conditions, paging);
-        List<Map<String, Object>> results = support.getNamedParameterJdbcTemplate().queryForList(sql, params);
+        List<Map<String, Object>> results = support.getNamedParameterJdbcTemplate().queryForList(sql, mergeParams(params, conditions));
         return CollectionUtils.isEmpty(results) ? Collections.emptyList() : results;
     }
 
@@ -301,8 +301,28 @@ public abstract class BaseJDBC {
      */
     public <T> List<T> queryForList(ResourceEnum resource, Map<String, Object> params, Conditions conditions, Paging paging, Class<T> clazz) {
         String sql = getSqlText(resource, conditions, paging);
-        List<T> results = support.getNamedParameterJdbcTemplate().query(sql, params, new BeanPropertyRowMapper<>(clazz));
+        List<T> results = support.getNamedParameterJdbcTemplate().query(sql, mergeParams(params, conditions), new BeanPropertyRowMapper<>(clazz));
         return CollectionUtils.isEmpty(results) ? Collections.emptyList() : results;
+    }
+
+    /**
+     * 合併呼叫端參數與 Conditions 收集到的具名參數。
+     *
+     * <p>Conditions 內的條件值以具名參數佔位符（:c0、:c1...）組裝，實際值存放於
+     * {@link Conditions#getParameters()}，必須在執行查詢前併入參數來源，
+     * 由 NamedParameterJdbcTemplate 綁定以避免 SQL Injection。</p>
+     *
+     * @param params     呼叫端傳入的參數
+     * @param conditions 查詢條件（可為 null）
+     * @return 合併後的參數 Map
+     */
+    private Map<String, Object> mergeParams(Map<String, Object> params, Conditions conditions) {
+        if (conditions == null || conditions.getParameters().isEmpty()) {
+            return params;
+        }
+        Map<String, Object> merged = new HashMap<>(params);
+        merged.putAll(conditions.getParameters());
+        return merged;
     }
 
     /**

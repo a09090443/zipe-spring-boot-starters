@@ -2,20 +2,66 @@ package com.zipe.jdbc.criteria;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
- * JDBC DAO的查詢條件物件化類別
+ * JDBC DAO的查詢條件物件化類別。
+ *
+ * <p>所有條件值均以具名參數（named parameter）方式組裝，實際值收集於 {@link #getParameters()}，
+ * 由 NamedParameterJdbcTemplate 進行綁定，避免 SQL Injection。欄位名稱無法參數化，
+ * 因此一律以白名單規則驗證。</p>
  *
  * @author adam.yeh
  * @create date: NOV 19, 2017
  */
 public class Conditions {
 
+    /** 合法欄位名稱規則（僅允許英數、底線與點，用於 schema.table.column）。 */
+    private static final Pattern SAFE_IDENTIFIER = Pattern.compile("^[A-Za-z0-9_.]+$");
+
     private StringBuilder condition;
+
+    /** 收集條件中所有具名參數的實際值。 */
+    private final Map<String, Object> parameters = new LinkedHashMap<>();
+
+    /** 具名參數流水號，確保同一物件內參數名稱唯一且可預期。 */
+    private int paramIndex = 0;
 
     public Conditions () {
         condition = new StringBuilder();
+    }
+
+    /**
+     * 取得本條件物件收集到的具名參數值。
+     *
+     * @return 參數名稱對應實際值的 Map
+     */
+    public Map<String, Object> getParameters () {
+        return parameters;
+    }
+
+    private String nextParamName () {
+        return "c" + (paramIndex++);
+    }
+
+    private String bindValue (Object value) {
+        String name = nextParamName();
+        parameters.put(name, value);
+        return name;
+    }
+
+    /**
+     * 驗證欄位名稱是否合法（欄位名無法參數化，只能以白名單防護）。
+     *
+     * @param column 欄位名稱
+     */
+    private static void validateColumn (String column) {
+        if (column == null || !SAFE_IDENTIFIER.matcher(column).matches()) {
+            throw new IllegalArgumentException("Illegal column name: " + column);
+        }
     }
 
     public Conditions equal (String column, String value) {
@@ -157,12 +203,16 @@ public class Conditions {
      * @return
      */
     public Conditions orderBy (String column, SQL order) {
+        validateColumn(column);
         condition.append(" ORDER BY " + column + " " + order.operator() + " ");
         return this;
     }
 
     /**
-     * SQL語法
+     * 直接附加原生 SQL 片段。
+     *
+     * <p><b>資安警告：</b>此方法不做任何跳脫或參數化，傳入內容會原樣拼進 SQL。
+     * 嚴禁傳入任何使用者可控的輸入，僅可用於程式內固定字串。</p>
      *
      * @param sql SQL語法
      * @return
@@ -193,44 +243,40 @@ public class Conditions {
 
         switch (type) {
             case IN:
-                StringBuilder sqlText = new StringBuilder();
-                sqlText.append("( '");
-                sqlText.append(StringUtils.join(values, "', '"));
-                sqlText.append("' )");
-                condition.append(column + " " + operator + " " + sqlText.toString());
-                sqlText = null;
-
-                break;
-
             case NOTIN:
-                StringBuilder sqlTextNotIn = new StringBuilder();
-                sqlTextNotIn.append("( '");
-                sqlTextNotIn.append(StringUtils.join(values, "', '"));
-                sqlTextNotIn.append("' )");
-                condition.append(column + " " + operator + " " + sqlTextNotIn.toString());
-                sqlText = null;
-
+                validateColumn(column);
+                StringBuilder placeholders = new StringBuilder("( ");
+                for (int i = 0; i < values.size(); i++) {
+                    placeholders.append(":").append(bindValue(values.get(i)));
+                    if (i < values.size() - 1) {
+                        placeholders.append(", ");
+                    }
+                }
+                placeholders.append(" )");
+                condition.append(column + " " + operator + " " + placeholders);
                 break;
 
             case LIKE:
-                condition.append(column + " " + operator + " '%" + value + "%'");
+                validateColumn(column);
+                condition.append(column + " " + operator + " :" + bindValue("%" + value + "%"));
                 break;
 
             case NOTEXISTS:
+                // value 為子查詢 SQL，無法參數化；保留原樣，呼叫端不得傳入使用者輸入。
                 condition.append(" " + operator + " ( " + value + " ) ");
                 break;
 
             case ISNULL:
             case NOTNULL:
+                validateColumn(column);
                 condition.append(column + " " + operator);
                 break;
 
             default:
-                condition.append(column + " " + operator + " '" + value + "'");
+                validateColumn(column);
+                condition.append(column + " " + operator + " :" + bindValue(value));
                 break;
         }
-
-        pair = null;
     }
 
 }
