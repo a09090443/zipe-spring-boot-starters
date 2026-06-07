@@ -4,14 +4,34 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.dataformat.xml.XmlFactory;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import javax.xml.stream.XMLInputFactory;
 import java.text.SimpleDateFormat;
 
 public class XmlUtil {
 
-    private static final XmlMapper xmlMapper = new XmlMapper();
+    private static final XmlMapper xmlMapper = new XmlMapper(buildSecureXmlFactory());
+
+    /**
+     * 建立已停用 DTD 與外部實體的安全 XmlFactory，避免 XXE（XML 外部實體）攻擊。
+     *
+     * <p>反序列化不可信 XML 時，若允許 DTD 或外部實體，攻擊者可藉由 DOCTYPE/ENTITY
+     * 讀取本機檔案或發動 SSRF/DoS。此處對底層 XMLInputFactory 關閉
+     * SUPPORT_DTD 與 IS_SUPPORTING_EXTERNAL_ENTITIES，從源頭杜絕風險。</p>
+     */
+    private static XmlFactory buildSecureXmlFactory() {
+        XMLInputFactory inputFactory = XMLInputFactory.newFactory();
+        // 停用 DTD 處理：DOCTYPE 內宣告的實體不會被處理，杜絕內部子集的實體展開攻擊
+        inputFactory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+        // 停用外部實體解析，避免讀取本機檔案或外部資源（SSRF）
+        inputFactory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+        return XmlFactory.builder()
+                .inputFactory(inputFactory)
+                .build();
+    }
 
     static {
         // 對象為空時不列入
