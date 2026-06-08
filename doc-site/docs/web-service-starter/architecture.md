@@ -260,8 +260,14 @@ web-service-spring-boot-starter/
 | 方法 | 說明 |
 |---|---|
 | `doPostWithXml(String url, String xml)` | 以 `CloseableHttpClient` 做 HTTP POST，`Content-Type: application/xml`，回傳 UTF-8 字串。 |
-| `getResponseXml(String soapXml, String tagName)` | 解析 SOAP 回應，從 `SOAPBody` 取 `getElementsByTagName(tagName)` 的所有節點，序列化為 XML 字串。例外以 `RuntimeException` 包裹。 |
-| `getFromSoapXml(String soapXml, String tagName)` | 功能與 `getResponseXml` 相同，但宣告 `throws SOAPException, IOException, TransformerException`。兩個方法邏輯幾乎重複，維護時需同步修改。 |
+| `getResponseXml(String soapXml, String tagName)` | 以**停用 DTD/外部實體**的 `DocumentBuilderFactory` 解析 SOAP 回應，取 `getElementsByTagName(tagName)` 節點，再以安全的 `TransformerFactory` 序列化為 XML 字串。例外以 `RuntimeException` 包裹。 |
+| `getFromSoapXml(String soapXml, String tagName)` | 功能與 `getResponseXml` 相同。**簽章已變更**為 `throws IOException, TransformerException, ParserConfigurationException, SAXException`（移除 `SOAPException`）。兩方法共用內部的安全解析輔助方法。 |
+
+:::warning XXE 防護與簽章變更
+為防止 XXE，SOAP 解析已改用設定 `disallow-doctype-decl=true`、停用內外部實體與外部 DTD 的 `DocumentBuilderFactory`，並以 `FEATURE_SECURE_PROCESSING`、`ACCESS_EXTERNAL_DTD=""`、`ACCESS_EXTERNAL_STYLESHEET=""` 的 `TransformerFactory` 序列化。任何含 `DOCTYPE` 的輸入會被拒絕（拋出根因含 `DOCTYPE` 的 `SAXParseException`）。
+
+`getFromSoapXml` 的 checked 例外清單已變更：移除 `SOAPException`、新增 `ParserConfigurationException` 與 `SAXException`。原本針對性 `catch (SOAPException)` 的呼叫端需改為 `catch (Exception)` 或補上新例外的處理。
+:::
 
 ---
 
@@ -269,7 +275,7 @@ web-service-spring-boot-starter/
 
 **全名：** `com.zipe.util.XmlUtil`
 
-**職責：** 以 Jackson `XmlMapper` 提供 Java 物件 ↔ XML 字串的序列化便利方法，為靜態 Singleton 模式。
+**職責：** 以 Jackson `XmlMapper` 提供 Java 物件 ↔ XML 字串的序列化便利方法，為靜態 Singleton 模式。`XmlMapper` 以**停用 DTD（`SUPPORT_DTD=false`）與外部實體（`IS_SUPPORTING_EXTERNAL_ENTITIES=false`）**的 `XMLInputFactory` 建構，以防護 XXE。
 
 | 設定項目 | 說明 |
 |---|---|
@@ -710,9 +716,9 @@ try (CloseableHttpClient httpClient = HttpClients.createDefault();
 
 ---
 
-### 7.6 `getResponseXml` 與 `getFromSoapXml` 方法重複
+### 7.6 `getResponseXml` 與 `getFromSoapXml` 的差異
 
-`SoapUtil` 中的兩個方法邏輯完全相同，差別只在例外處理方式（一個用 `RuntimeException` 包裹，一個宣告 checked exceptions）。維護時修改邏輯**須同步兩處**，容易遺漏。
+兩個方法的差別僅在例外處理方式（一個用 `RuntimeException` 包裹，一個宣告 checked exceptions）。XXE 防護重構後，兩者已抽取共用的安全解析輔助方法（建立停用 DTD/外部實體的 `DocumentBuilderFactory`、安全的 `TransformerFactory` 與標籤序列化），核心邏輯集中於同一處，修改時不再需要同步兩份程式碼。
 
 ---
 
