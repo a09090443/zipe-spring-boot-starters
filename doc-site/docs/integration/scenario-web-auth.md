@@ -73,7 +73,7 @@ security:
   allow-uris: /static/**            # 白名單路徑（不需登入）
   login-success-uri: /home          # 登入成功跳轉
   login-failure-uri: /login         # 登入失敗跳轉
-  csrf-enabled: false
+  csrf-enabled: false               # 預設為 true；此範例為簡化測試而關閉，正式環境建議維持開啟
   record-log-enable: true           # 啟用登出入事件記錄
   custom-record-log-bean: myLogonLogRecord  # 指向自訂日誌 Bean 名稱
 ```

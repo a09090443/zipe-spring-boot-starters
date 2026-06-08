@@ -107,6 +107,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+
 @Component("dbAuthProvider")  // Bean 名稱需與 security.custom-bean-name 一致
 public class DbAuthProvider extends CommonLoginProcess {
 
@@ -133,11 +135,16 @@ public class DbAuthProvider extends CommonLoginProcess {
         //     throw new DisabledException("帳號尚未啟用");
         // }
 
-        // 4. 回傳已認證的 Token
-        return new UsernamePasswordAuthenticationToken(loginId, password, null);
+        // 4. 回傳已認證的 Token：authorities 須為非 null（使 token 成為已認證狀態），
+        //    且不要保留明文密碼（credentials 傳 null），避免敏感資訊殘留於安全內容
+        return new UsernamePasswordAuthenticationToken(loginId, null, Collections.emptyList());
     }
 }
 ```
+
+:::tip 認證 Token 最佳實踐
+回傳的 `UsernamePasswordAuthenticationToken` 應傳入**非 null** 的權限集合（如 `Collections.emptyList()` 或實際角色），此建構子會將 token 標記為已認證；同時將 credentials 設為 `null` 以免在 SecurityContext 中保留明文密碼。本模組的 `LdapUserDetailsService` 亦採此作法。
+:::
 
 **application.yml（業務專案）：**
 

@@ -182,7 +182,7 @@ logon-spring-boot-starter/
 4. 呼叫 `convertLdapUser()` 組裝 `LdapUser` VO
 5. 例外映射：`AuthenticationException` → `BadCredentialsException`；`NamingException` → `LdapException`；其他 → `BadCredentialsException`
 6. `finally` 必定呼叫 `ldapUtil.closeConnection()` 釋放連線
-7. 成功後去除帳號中的網域部分，回傳 `UsernamePasswordAuthenticationToken(userName, password, null)`
+7. 成功後去除帳號中的網域部分，透過 `buildAuthenticatedToken(userName)` 回傳 token（authorities 為非 null 的空集合使其成為已認證狀態，且 credentials 設為 null 不保留明文密碼）
 
 ---
 
@@ -463,7 +463,8 @@ public class OtpUserDetailsService extends CommonLoginProcess {
         if (!valid) {
             throw new BadCredentialsException("OTP 驗證失敗：" + loginId);
         }
-        return new UsernamePasswordAuthenticationToken(loginId, password, null);
+        // authorities 須為非 null（標記為已認證）；credentials 傳 null 不保留明文密碼
+        return new UsernamePasswordAuthenticationToken(loginId, null, java.util.Collections.emptyList());
     }
 }
 ```
@@ -551,8 +552,8 @@ public class DbAuthProvider extends CommonLoginProcess {
             throw new BadCredentialsException("帳號或密碼錯誤");
         }
 
-        // 回傳已認證的 Token；authorities 可視需求填入角色清單
-        return new UsernamePasswordAuthenticationToken(loginId, password, null);
+        // 回傳已認證的 Token；authorities 須為非 null（可視需求填入角色清單），credentials 傳 null 不保留明文密碼
+        return new UsernamePasswordAuthenticationToken(loginId, null, java.util.Collections.emptyList());
     }
 }
 ```
