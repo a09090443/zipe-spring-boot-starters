@@ -1,3 +1,5 @@
 /.idea/
 /logon-spring-boot-starter/snapshot/
 /base-spring-boot-starter/mvn-repo/
+/.cache/
+/build.log
