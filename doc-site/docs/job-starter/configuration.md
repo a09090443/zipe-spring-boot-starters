@@ -42,6 +42,32 @@ spring:
 
 ---
 
+## 排程管理 REST API 與安全性屬性
+
+控制 `QuartzController`（`/quartz/**`）是否註冊，以及允許透過 API 動態載入的 Job 類別白名單。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `quartz.controller.enabled` | Boolean | `false` | 是否註冊 `/quartz/**` REST 端點。預設關閉以避免未受保護的排程管理介面；啟用後請務必納入存取控制 |
+| `quartz.allowed-job-classes` | List`<String>` | （空） | 允許透過 API（register/run）載入的 Job 類別全名白名單。靜態 `quartz.job-map` 中的類別會自動納入白名單 |
+
+範例：
+
+```yaml
+quartz:
+  controller:
+    enabled: true
+  allowed-job-classes:
+    - com.example.job.CleanupJob
+    - com.example.job.DataSyncJob
+```
+
+:::warning 安全性
+未列入白名單（且不在 `quartz.job-map`）或未實作 `org.quartz.Job` 的類別，呼叫 API 載入時會被拒絕（拋出 `SecurityException`），藉此防止任意類別載入造成的 RCE。
+:::
+
+---
+
 ## 批次排程定義屬性（`quartz-jobs.properties`）
 
 `InitialJobAutoConfiguration` 在應用啟動時讀取以下格式的 properties，自動批次建立 Cron 排程。消費方需在 `src/main/resources/` 提供 `quartz-jobs.properties` 檔案。

@@ -17,7 +17,7 @@ description: 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體
 
 - **完整生命週期管理**：透過 `BaseJob` 提供 upsert / 暫停 / 恢復 / 刪除 / 立即執行等五種操作，`QuartzController` 繼承 `BaseJob` 直接對外暴露為 REST API。
 - **雙儲存模式**：支援 JDBC 持久化與記憶體儲存，由 `spring.quartz.job-store-type` 設定切換。
-- **REST API**：`QuartzController` 提供 `POST /quartz/register|delete|pause|resume|run` 五個端點。
+- **REST API**：`QuartzController` 提供 `POST /quartz/register|delete|pause|resume|run` 五個端點；**預設關閉**，需 `quartz.controller.enabled=true` 才註冊，且僅能載入白名單（`quartz.allowed-job-classes` 或靜態 `quartz.job-map`）內的 Job 類別。
 - **Template Method 執行框架**：`QuartzJobFactory` 封裝 before/after/error 日誌，業務 Job 只需實作 `executeJob()`。
 - **屬性驅動批次初始化**：`InitialJobAutoConfiguration` 讀取 `quartz-jobs.properties`，應用啟動時自動批次建立 Cron 排程。
 - **Spring 整合**：配合 `SpringBeanJobFactory` 設定後，排程任務可透過 `@Autowired` 注入 Spring Bean。
@@ -45,13 +45,13 @@ description: 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體
 | `BaseJob` | `base` | 排程生命週期管理抽象類別（mergeJobProcess / deleteJobProcess / pauseJobProcess / resumeJobProcess / runJobProcess） |
 | `QuartzJobFactory` | `job` | 排程執行框架（Template Method）；業務 Job 繼承此類並覆寫 `executeJob()` |
 | `QuartzJobUtil` | `util` | 純工具類別，建構 `JobDetail` 與 `Trigger`，不持有 Scheduler 參照 |
-| `QuartzController` | `controller` | 繼承 `BaseJob`，提供 `POST /quartz/register|delete|pause|resume|run` |
+| `QuartzController` | `controller` | 繼承 `BaseJob`，提供 `POST /quartz/register|delete|pause|resume|run`；以 `@ConditionalOnProperty("quartz.controller.enabled")` 控制，預設不註冊 |
 | `ScheduleEnum` | `enums` | 時間單位列舉（NOW/SECOND/MINUTE/HOUR/DAY/WEEK/MONTH/YEAR/CRON），封裝 ScheduleBuilder 建立邏輯 |
 | `ScheduleJobStatusEnum` | `enums` | 操作意圖列舉（MERGE/DELETE/PAUSE/RESUME/ONCE 等） |
 | `ScheduleJobVO` | `vo` | REST API 請求/回應傳輸物件（含 jobName、jobClass、cronExpression、jobDataMap 等欄位） |
 | `Job` | `model` | 排程領域模型；欄位名稱與 ScheduleJobVO 不同，由 `BaseJob.convertToJob()` 映射 |
 | `QuartzDataSourceProperties` | `config` | 綁定 `spring.datasource.quartz.*` 屬性 |
-| `QuartzJobPropertyConfig` | `config` | 綁定 `quartz.job-map.*` 批次排程定義 |
+| `QuartzJobPropertyConfig` | `config` | 綁定 `quartz.job-map.*` 批次排程定義與 `quartz.allowed-job-classes` 白名單；`effectiveAllowedClasses()` 回傳有效白名單 |
 
 ## 快速導航
 

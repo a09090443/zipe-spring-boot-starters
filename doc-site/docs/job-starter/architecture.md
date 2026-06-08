@@ -145,15 +145,16 @@ job-spring-boot-starter/
 
 | 方法 | 說明 |
 |---|---|
-| `QuartzJobUtil()` | 無參建構子 |
-| `QuartzJobUtil(Job job)` | 帶 Job 的建構子（儲存為 field） |
+| `QuartzJobUtil()` | 無參建構子（白名單為空） |
+| `QuartzJobUtil(Job job)` | 帶 Job 的建構子（白名單為空） |
+| `QuartzJobUtil(Job job, Set<String> allowedClasses)` | 帶 Job 與白名單的建構子 |
 | `buildJobDetail()` | 使用 field job 呼叫下方多載 |
-| `buildJobDetail(Job job)` | 以 `Class.forName(job.getClazz())` 動態載入，建構帶 identity/description/dataMap 的 JobDetail（`storeDurably()`） |
+| `buildJobDetail(Job job)` | 先驗證 `job.getClazz()` 在白名單內且實作 `org.quartz.Job`，再以 `Class.forName` 載入並建構 JobDetail（`storeDurably()`） |
 | `buildJobTrigger(ScheduleBuilder builder)` | 便捷多載，自動建構 JobDetail 後呼叫三參版 |
 | `buildJobTrigger(JobDetail, Job, ScheduleBuilder)` | 核心方法：依 Job.startTime/endTime 建構帶 startAt/endAt 的 Trigger |
 
-:::warning `Class.forName()` 的要求
-`buildJobDetail` 使用 `Class.forName()`，需要 Job class 在 classpath 且完整類別名稱正確，否則拋 `ClassNotFoundException`。請確保 `ScheduleJobVO.jobClass` 填入完整的套件路徑名稱。
+:::warning 類別載入的白名單限制
+`buildJobDetail` 載入前會驗證類別：若 `job.getClazz()` 不在白名單（`quartz.allowed-job-classes` 聯集靜態 `quartz.job-map`）內，或載入後發現未實作 `org.quartz.Job`，會丟出 `SecurityException`，藉此防止任意類別載入造成的 RCE。類別名稱錯誤或不在 classpath 則仍拋 `ClassNotFoundException`。請確保 `ScheduleJobVO.jobClass` 填入完整套件路徑名稱並已列入白名單。
 :::
 
 ---
@@ -213,7 +214,7 @@ job-spring-boot-starter/
 
 **完整路徑：** `com.zipe.quartz.controller.QuartzController`
 
-繼承 `BaseJob`，將五個排程操作暴露為 HTTP POST 端點，接受/回傳 `ScheduleJobVO` JSON。
+繼承 `BaseJob`，將五個排程操作暴露為 HTTP POST 端點，接受/回傳 `ScheduleJobVO` JSON。類別標註 `@ConditionalOnProperty(name = "quartz.controller.enabled", havingValue = "true")`，**預設不註冊**；建構子注入 `QuartzJobPropertyConfig` 以取得 Job 類別白名單。
 
 | HTTP 端點 | 說明 |
 |---|---|

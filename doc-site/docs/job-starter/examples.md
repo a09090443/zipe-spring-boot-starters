@@ -106,6 +106,21 @@ public class CleanupJob extends QuartzJobFactory {
 
 `QuartzController` 提供五個 POST 端點，均以 JSON body 傳入 `ScheduleJobVO`。以下為各操作的完整 curl 範例：
 
+:::warning 端點預設關閉且僅允許白名單 Job 類別
+為避免任意類別載入造成 RCE，此 REST 端點**預設不註冊**，需明確設定 `quartz.controller.enabled=true` 才會啟用（未啟用時呼叫 `/quartz/**` 會回 404）。啟用後務必以 Spring Security 等存取控制保護這些端點。
+
+此外，`register` / `run` 能載入的 Job 類別**僅限白名單**：須將類別全名列於 `quartz.allowed-job-classes`，或已存在於靜態的 `quartz.job-map`（會自動納入白名單）。非白名單或未實作 `org.quartz.Job` 的類別會被拒絕。
+
+```yaml
+quartz:
+  controller:
+    enabled: true                 # 啟用 /quartz REST 端點（預設 false）
+  allowed-job-classes:            # 允許透過 API 載入的 Job 類別白名單
+    - com.example.job.CleanupJob
+    - com.example.job.DataSyncJob
+```
+:::
+
 **新增/覆蓋排程（register）**
 
 以 Cron 表示式建立每天凌晨 2 點執行的排程：
@@ -378,7 +393,8 @@ curl -X POST http://localhost:8080/quartz/register \
 - **JDBC 模式啟動失敗**：通常是未提供 `quartz-datasource.properties` 或未建立 `QRTZ_*` 資料表，請確認兩者都已到位。
 - **Job 中無法注入 Bean**：需配置 `SpringBeanJobFactory`，詳見上方「讓 Job 能注入 Spring Bean」範例。
 - **REST API 回應 200 但操作無效**：檢查回應 body 的 `message` 欄位，所有操作失敗均以 message 回報，而非 HTTP 錯誤碼。
-- **`jobClass` 找不到**：確認填入的是完整類別名稱（含套件路徑），且該類別存在於 classpath 中。
+- **`/quartz/**` 回應 404**：端點預設關閉，請設定 `quartz.controller.enabled=true` 才會註冊。
+- **`jobClass` 找不到或被拒絕**：確認填入的是完整類別名稱（含套件路徑）且存在於 classpath；同時該類別須列於 `quartz.allowed-job-classes`（或靜態 `quartz.job-map`）白名單並實作 `org.quartz.Job`，否則會被拒絕（`SecurityException`）。
 
 :::tip 最佳實踐
 排程業務邏輯務必加入例外處理與冪等設計：即使同一任務被重複觸發或失敗重試，也不應造成資料重複或不一致。`QuartzJobFactory` 已攔截例外並記錄 log，但業務層仍應妥善處理可預期的錯誤。對於耗時任務，建議記錄開始與結束時間以利監控。

@@ -170,12 +170,16 @@ quartz.job-map[ExampleJob].cronExpression=0/15 * * * * ? *
 ```
 
 - `[ExampleJob]` 只是 Map 的 key（設定識別碼）；`.name` 才是真正的 JobDetail name（用於 `JobKey`）。
-- `.clazz` 指向實際執行的 Java class 全名，啟動時以 `Class.forName()` 動態載入。
+- `.clazz` 指向實際執行的 Java class 全名，啟動時以 `Class.forName()` 動態載入；**載入前會比對白名單**（`jobMap` 內定義的類別自動列入，額外類別需設定 `quartz.allowed-job-classes`），且必須實作 `org.quartz.Job`，否則拋出 `SecurityException`。
 - `InitialJobAutoConfiguration` 啟動時會先刪除所有 group=`schedule` 的 Job，再重建（重建時 group 強制設為 `"file"`）。
 
 ## 動態管理排程的 API
 
 `job-starter` 提供 `QuartzController`（路徑 `/quartz`），所有操作以 POST JSON 呼叫，請求體為 `ScheduleJobVO`：
+
+:::warning 端點預設關閉（opt-in）且 jobClass 受白名單限制
+`QuartzController` 自此版本起改為 **opt-in**，需明確設定 `quartz.controller.enabled=true` 才會註冊，否則所有 `/quartz/*` 端點回應 **404**。此外 `register` 帶入的 `jobClass` 必須位於白名單內（`jobMap` 類別自動列入，其餘請加入 `quartz.allowed-job-classes`），否則回應錯誤——藉此防止透過開放端點載入任意類別造成 RCE。
+:::
 
 ```bash
 # 新增或更新排程
