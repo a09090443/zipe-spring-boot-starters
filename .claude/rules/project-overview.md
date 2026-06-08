@@ -18,7 +18,6 @@ description: 專案總覽、技術規格與常用指令，適用於整個 zipe-s
 | `web-spring-boot-starter/` | 前端顯示 (JSP / Thymeleaf) |
 | `keycloak-spring-boot-starter/` | Keycloak 嵌入式服務 |
 | `starters_example/` | 整合測試範例專案 |
-| `example/` | 測試工具範例 |
 | `example-keycloak/` | Keycloak 範例 |
 | `example-kotlin/` | Kotlin 範例 |
 
