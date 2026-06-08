@@ -96,6 +96,10 @@ public List<Map<String, Object>> search(String keyword) {
 }
 ```
 
+:::info 條件值已參數化（防 SQL Injection）
+`Conditions` 的條件**值**（`equal` / `like` / `in` 等傳入的 value）會被組裝為具名參數佔位符（`:c0`、`:c1`…），並由 `NamedParameterJdbcTemplate` 綁定，因此可安全傳入使用者輸入。但**欄位名稱**（column）與 `orderBy` 欄位無法參數化，會以白名單規則（僅允許英數、底線與點 `^[A-Za-z0-9_.]+$`）驗證，**傳入非法欄位名會丟出 `IllegalArgumentException`**——欄位名請勿來自未經驗證的使用者輸入。`rawSql()` 與 `notExists()` 不做跳脫，嚴禁傳入使用者輸入。
+:::
+
 :::caution Conditions 與 SQL 快取
 `SQL_CACHE` 以 `resource + conditions.hashCode() + paging.hashCode()` 為鍵。`Conditions` 未覆寫 `hashCode()`，因此**帶 `Conditions` 的查詢幾乎不會命中快取**；只有純靜態 SQL（不帶 `Conditions`）能有效快取。詳見 [架構與開發指南](./architecture.md)。
 :::

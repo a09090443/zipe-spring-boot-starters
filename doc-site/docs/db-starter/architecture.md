@@ -278,29 +278,30 @@ ResourceEnum resource = ResourceEnum.SQL.getResource("report", "MONTHLY_SUMMARY"
 
 #### `Conditions`（`com.zipe.jdbc.criteria`）
 
-鏈式建構 SQL WHERE 條件片段，以 `done(sqlText)` 將 SQL 檔案中的 `${CONDITIONS}` 佔位符替換為組裝好的條件串。
+鏈式建構 SQL WHERE 條件片段，以 `done(sqlText)` 將 SQL 檔案中的 `${CONDITIONS}` 佔位符替換為組裝好的條件串。條件**值**改以具名參數佔位符組裝並收集於 `getParameters()`（由 `BaseJDBC.mergeParams()` 併入綁定），**欄位名**則以白名單 `^[A-Za-z0-9_.]+$` 驗證。
 
 | 方法 | 對應 SQL 片段 | 備注 |
 |---|---|---|
-| `equal(col, val)` | `col = 'val'` | |
-| `unEqual(col, val)` | `col <> 'val'` | |
-| `like(col, val)` | `col LIKE '%val%'` | |
-| `gt(col, val)` | `col > 'val'` | |
-| `lt(col, val)` | `col < 'val'` | |
-| `gtEqual(col, val)` | `col >= 'val'` | |
-| `ltEqual(col, val)` | `col <= 'val'` | |
-| `in(col, List)` | `col IN ('a', 'b')` | 直接拼接字串，非 Bind |
-| `notIn(col, List)` | `col NOT IN ('a', 'b')` | 直接拼接字串，非 Bind |
+| `equal(col, val)` | `col = :cN` | 值參數化；col 經白名單驗證 |
+| `unEqual(col, val)` | `col <> :cN` | 同上 |
+| `like(col, val)` | `col LIKE :cN` | 參數值為 `%val%` |
+| `gt(col, val)` | `col > :cN` | |
+| `lt(col, val)` | `col < :cN` | |
+| `gtEqual(col, val)` | `col >= :cN` | |
+| `ltEqual(col, val)` | `col <= :cN` | |
+| `in(col, List)` | `col IN (:cN, :cM)` | 每個值各一具名參數 |
+| `notIn(col, List)` | `col NOT IN (:cN, :cM)` | 每個值各一具名參數 |
 | `isNull(col)` | `col IS NULL` | |
 | `notNull(col)` | `col IS NOT NULL` | |
-| `notExists(subquery)` | `NOT EXISTS ( subquery )` | |
+| `notExists(subquery)` | `NOT EXISTS ( subquery )` | 原生片段，勿傳使用者輸入 |
 | `and()` | `AND` | |
 | `or()` | `OR` | |
 | `leftPT()` / `leftPT(SQL)` | `(` / `AND (` 等 | 括號分組 |
 | `rightPT()` / `rightPT(SQL)` | `)` / `) AND` 等 | |
-| `orderBy(col)` | `ORDER BY col ASC` | |
-| `orderBy(col, SQL)` | `ORDER BY col DESC` 等 | |
-| `rawSql(sql)` | 任意字串 | 逸出路徑 |
+| `orderBy(col)` | `ORDER BY col ASC` | col 經白名單驗證 |
+| `orderBy(col, SQL)` | `ORDER BY col DESC` 等 | col 經白名單驗證 |
+| `rawSql(sql)` | 任意字串 | 原生片段，不跳脫，勿傳使用者輸入 |
+| `getParameters()` | — | 回傳收集到的具名參數值 |
 | `done(sqlText)` | 替換 `${CONDITIONS}` | 終結呼叫 |
 
 #### `Paging`（`com.zipe.jdbc.criteria`）
@@ -748,17 +749,16 @@ public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
 
 ---
 
-### 7.3 `IN` / `NOT IN` 條件存在 SQL Injection 風險
+### 7.3 條件值已參數化（SQL Injection 已修復）
 
-**位置：** `Conditions.appendPairTypes()` 的 IN / NOTIN case
+**位置：** `Conditions.appendPairTypes()`
 
-`IN` 條件的值直接以字串拼接，未經 escape 或 Bind 處理：
+`Conditions` 的所有條件**值**（含 `IN` / `NOT IN` 的每個元素）已改為產生具名參數佔位符（`:c0`、`:c1`…）並收集於 `getParameters()`，由 `BaseJDBC.mergeParams()` 併入後交 `NamedParameterJdbcTemplate` 綁定，**不再字串拼接**，因此條件值可安全接受使用者輸入。
 
-```java
-sqlText.append(StringUtils.join(values, "', '"));  // 直接拼接，未 escape
-```
+仍需注意：
 
-若 `values` 來自使用者輸入，存在 SQL Injection 風險。建議僅對白名單值（如狀態代碼、ID 等）使用 `IN`，或在加入前對值進行驗證。
+- **欄位名稱**無法參數化，會以白名單規則 `^[A-Za-z0-9_.]+$` 驗證，非法時丟 `IllegalArgumentException`；欄位名請勿來自未驗證的使用者輸入。
+- `rawSql()` 與 `notExists()` 為原生 SQL 片段，不做跳脫或參數化，嚴禁傳入使用者輸入。
 
 ---
 
