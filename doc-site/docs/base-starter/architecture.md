@@ -63,11 +63,11 @@ base-spring-boot-starter/
     │       ├── crypto/
     │       │   ├── Crypto.java                      # 加解密介面（getEncrypt / getDecode）
     │       │   ├── CryptoUtil.java                  # 策略模式門面，委派給 Crypto 實作
-    │       │   ├── AesUtil.java                     # AES-128/CBC/PKCS5Padding，支援文字與檔案
+    │       │   ├── AesUtil.java                     # AES-128/CBC/PKCS5Padding，隨機 IV，支援文字與檔案
     │       │   ├── Base64Util.java                  # Base64 編解碼
-    │       │   ├── DESedeUtil.java                  # 3DES/ECB/PKCS5Padding
+    │       │   ├── DESedeUtil.java                  # 3DES/CBC/PKCS5Padding，隨機 IV（淘汰演算法）
     │       │   ├── HexUtil.java                     # byte[] ↔ Hex 字串互轉
-    │       │   └── Md5Util.java                     # MD5 雜湊（16/32 位、大小寫四種格式）
+    │       │   └── Md5Util.java                     # MD5 雜湊（已棄用，禁用於密碼/簽章）
     │       ├── doc/
     │       │   ├── ExcelCell.java                   # 欄位 Annotation（排序、預設值、驗證）
     │       │   ├── ExcelLog.java                    # 匯入單行錯誤記錄
@@ -195,16 +195,15 @@ base-spring-boot-starter/
 
 | 方法 | 說明 |
 |---|---|
-| `initParam(secretKey, mode)` | 使用 SHA1PRNG SecureRandom + 16 bytes key 初始化 Cipher；**secretKey 同時作為 IV** |
-| `getEncrypt(content, charset)` | 加密後以 Base64 字串回傳；**secretKey 必須恰好 16 bytes** |
-| `getDecode(content, charset)` | 先 Base64 decode 再 AES decrypt |
-| `encryptFile(source, target)` | `CipherInputStream` 串流加密，512 bytes 緩衝 |
-| `decryptFile(source, target)` | `CipherOutputStream` 串流解密，寫入目標檔案 |
+| `getEncrypt(content, charset)` | 產生隨機 16-byte IV 加密，回傳 `Base64(IV ‖ ciphertext)`；**secretKey 必須恰好 16 bytes** |
+| `getDecode(content, charset)` | 先 Base64 decode，取前 16 bytes 還原 IV 再 AES decrypt |
+| `encryptFile(source, target)` | `CipherInputStream` 串流加密，輸出檔開頭寫入 16-byte IV |
+| `decryptFile(source, target)` | 讀取檔首 16-byte IV 後以 `CipherOutputStream` 串流解密 |
 | `decryptFile(source)` | 解密後回傳 `ByteArrayInputStream`，適合記憶體中繼續使用 |
 | `checkPath(source, target)` | 校驗來源存在、目標與來源不同、自動建立目標父目錄 |
 
-:::warning secretKey 限制
-`AesUtil` 使用 AES-128，**secretKey 必須恰好 16 bytes（16 個 ASCII 字元）**。若長度不符會立即拋出 `RuntimeException`。此外 secretKey 同時作為 IV，意味 key 洩漏等同 IV 洩漏，安全需求較高的場景應評估是否改用隨機 IV。
+:::warning secretKey 限制與密文相容性
+`AesUtil` 使用 AES-128，**secretKey 必須恰好 16 bytes（16 個 ASCII 字元）**，長度不符會立即拋出 `RuntimeException`。加密改為**每次隨機 IV**並將 IV 前綴於密文，因此相同明文每次密文不同；**舊版（固定 IV、無前綴）加密的資料與本版不相容**，需重新加密。
 :::
 
 ---
@@ -267,7 +266,7 @@ base-spring-boot-starter/
 
 ### 3.7 `OkHttpUtil`
 
-**職責：** OkHttp 3 的單例門面，信任所有 TLS 憑證（適合內部系統或開發環境）。
+**職責：** OkHttp 3 的單例門面，使用 JDK 平台預設的 TLS 信任鏈與主機名稱驗證。
 
 | 方法 | 類型 | 說明 |
 |---|---|---|
@@ -280,8 +279,8 @@ base-spring-boot-starter/
 | `postDataAsyn(url, bodyParams, netCall)` | 非同步 POST | Form 表單編碼 |
 | `postJsonAsyn(url, json, netCall)` | 非同步 POST | JSON body |
 
-:::warning TrustAllCerts 安全警告
-`OkHttpUtil` 預設信任所有 TLS 憑證（`TrustAllCerts`），**請勿用於對外部正式環境的 HTTPS 呼叫**。如需正式環境使用，應自行建立配置正常憑證驗證的 `OkHttpClient` 實例。
+:::info TLS 憑證驗證
+自此版本起，`OkHttpUtil` 已**移除**先前停用 TLS 驗證的 `TrustAllCerts` 與恆為 true 的 hostnameVerifier，改用 JDK 平台預設信任鏈，可正常抵禦中間人攻擊。若連線目標為自簽憑證，請改以載入指定 CA 或憑證綁定（pinning）方式處理，**切勿**停用憑證或主機名稱驗證。
 :::
 
 ---
@@ -431,7 +430,7 @@ sequenceDiagram
         onFailed(call, e)          → 記錄錯誤
     })
     OkHttpUtil (singleton)
-      → getOkHttpClient()   // 懶初始化：TrustAllCerts，read=100s, connect=60s
+      → getOkHttpClient()   // 懶初始化（synchronized）：平台預設 TLS，read=100s, connect=60s
       → RequestBody.create(json, JSON MediaType)
       → new Request.Builder().url(...).post(body).build()
       → client.newCall(request).enqueue(callback)  // OkHttp 內部執行緒執行
@@ -783,7 +782,7 @@ thread-pool:
 | 類別 / 欄位 | 問題描述 | 建議處置 |
 |---|---|---|
 | `ApplicationContextHelper.applicationContext` 靜態欄位 | 多個 ApplicationContext（如整合測試）時後建立的會覆蓋前者 | 測試環境注意 Context 隔離 |
-| `OkHttpUtil` 單例初始化 | `getOkHttpClient()` 使用 double-check 但缺少 `volatile`，高並發下可能建立多個 client | 加上 `volatile` 或改用 Holder 模式 |
+| `OkHttpUtil` 單例初始化 | `getOkHttpClient()` 已加上 `synchronized`，避免高並發下重複建立 client | 已處理 |
 | `FileClassLoader.findClass()` | 無 `synchronized`，多執行緒並發可能造成 `defineClass()` race condition | 需要並發載入時改用 `JarClassLoader` |
 | `Validation.StrisNull()` | 有不必要的 `synchronized`，純讀取操作同步造成效能瓶頸 | 可移除 `synchronized` |
 
@@ -799,8 +798,10 @@ thread-pool:
 
 | 設計 | 說明 |
 |---|---|
-| AES secretKey 同時作為 IV | 安全規範不建議此做法，key 洩漏等同 IV 洩漏；高安全場景改用隨機 IV 並附加於密文前 |
-| OkHttp TrustAllCerts | 僅適用於開發 / 測試或內網；對外部正式環境呼叫必須換用正常憑證驗證 |
+| AES 隨機 IV | 已改為每次產生隨機 IV 並前綴於密文（`Base64(IV‖cipher)`）；舊版固定 IV 密文不相容，需重新加密 |
+| OkHttp TLS 驗證 | 已移除 `TrustAllCerts`，改用平台預設信任鏈；自簽憑證請改用載入 CA 或 pinning，勿停用驗證 |
+| 3DES 改用 CBC | `DESedeUtil` 由 ECB 改為 CBC＋隨機 IV；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
+| `Md5Util` 已棄用 | MD5 不可用於密碼或簽章；已標註 `@Deprecated` |
 | `MailServiceImpl` 非 `@Service` | 由 `BaseAutoConfiguration` 以 `new` 建立後以 `@Bean` 加入 Context，不支援 `@Transactional` 等 Spring AOP 代理特性 |
 | `DateTimeUtils` 硬編碼 UTC+8 | 非台灣時區部署需特別注意，或改為讀取 `ZoneId.systemDefault()` |
 | `BeanUtil.copyProperties` 跳過 null | 適合合併更新；需要強制清空欄位時改用 Spring 原版 `BeanUtils.copyProperties` |

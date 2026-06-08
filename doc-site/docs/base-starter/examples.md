@@ -18,25 +18,23 @@ sidebar_position: 4
 
 ### 加解密與雜湊
 
-`AesUtil` 採 **AES-128/CBC/PKCS5Padding**，建構時傳入金鑰，再以 `getEncrypt` / `getDecode` 進行加解密：
+`AesUtil` 採 **AES-128/CBC/PKCS5Padding**，建構時傳入金鑰，再以 `getEncrypt` / `getDecode` 進行加解密。每次加密會產生**隨機 IV**，密文格式為 `Base64(IV ‖ ciphertext)`（前 16 bytes 為 IV）：
+
+:::warning 密文格式變更（不相容舊版）
+自此版本起，`AesUtil` 改為每次使用隨機 IV，密文開頭多出 16-byte IV。**舊版（以金鑰當固定 IV、無 IV 前綴）所加密的字串與檔案無法用新版解密**，需先以舊版程式解密後再用新版重新加密。相同明文每次加密也會產生不同密文（這是正確的安全特性）。
+:::
 
 ```java
 import com.zipe.util.crypto.AesUtil;
 import com.zipe.util.crypto.Base64Util;
-import com.zipe.util.crypto.Md5Util;
 
 public class CryptoExample {
 
     public void demo() throws Exception {
         // AES-128 加解密（實例方法，建構子傳入金鑰）
         AesUtil aes = new AesUtil("0123456789abcdef"); // 金鑰長度 16 位元組
-        String cipher = aes.getEncrypt("敏感資料");
+        String cipher = aes.getEncrypt("敏感資料");      // 每次結果不同（隨機 IV）
         String plain = aes.getDecode(cipher);
-
-        // MD5 雜湊：提供大小寫、16/32 位共四種格式
-        String md5Lower32 = Md5Util.parseStrToMd5L32("password123"); // 小寫 32 位
-        String md5Upper32 = Md5Util.parseStrToMd5U32("password123"); // 大寫 32 位
-        String md5Lower16 = Md5Util.parseStrToMd5L16("password123"); // 小寫 16 位
 
         // Base64 編解碼（實例方法，以字串為單位）
         Base64Util base64 = new Base64Util();
@@ -45,6 +43,10 @@ public class CryptoExample {
     }
 }
 ```
+
+:::danger Md5Util 已棄用
+`Md5Util` 已標註 `@Deprecated`。MD5 不具抗碰撞性，**禁止用於密碼雜湊或資料完整性／簽章**。密碼請改用 BCrypt／Argon2，完整性驗證請用 SHA-256 以上。僅可用於非安全用途（如產生快取鍵）。
+:::
 
 :::tip 策略模式：CryptoUtil
 `CryptoUtil` 以建構子注入任一 `Crypto` 實作（`AesUtil`、`Base64Util`、`DESedeUtil` 皆實作 `Crypto` 介面），呼叫端不需關心底層演算法：
