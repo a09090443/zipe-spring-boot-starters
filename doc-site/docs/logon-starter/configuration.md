@@ -18,9 +18,9 @@ sidebar_position: 3
 |---|---|---|---|
 | `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行（會輸出 WARN 日誌，請勿用於正式環境） |
 | `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom`（大小寫不敏感） |
-| `security.login-uri` | String | `/login` | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
-| `security.login-success-uri` | String | `/dashboard` | 登入成功後的導向路徑 |
-| `security.login-failure-uri` | String | `/login` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
+| `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
+| `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
+| `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
 | `security.allow-uris` | String | 無 | 免驗證放行的路徑，逗號分隔，支援 Ant 樣式，如 `/static/**,/public/**` |
 | `security.csrf-enabled` | Boolean | `true` | CSRF 保護開關；傳統表單應維持 `true`，純 REST API 視情況可設為 `false` |
 | `security.frame-options-mode` | Enum | `SAMEORIGIN` | X-Frame-Options（點擊劫持防護）模式：`SAMEORIGIN`（僅同源可內嵌）/ `DENY`（禁止內嵌）/ `DISABLE`（停用，不建議） |

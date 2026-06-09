@@ -350,7 +350,7 @@ sequenceDiagram
 
 **流程步驟：**
 
-1. `GET /web/jsp` → `WebController.jsp()` 回傳視圖名稱 `"jsp/hello"`
+1. `GET /jsp` → `WebController.jsp()` 回傳視圖名稱 `"jsp/hello"`
 2. `DispatcherServlet` 依 order 查詢 ViewResolver
 3. `InternalResourceViewResolver`（order=1）檢查 viewNames `"jsp/*"` → 匹配
 4. 實體路徑：`/WEB-INF/` + `"jsp/hello"` + `.jsp` = `/WEB-INF/jsp/hello.jsp`
@@ -364,7 +364,7 @@ sequenceDiagram
 
 **流程步驟：**
 
-1. `GET /web/thymeleaf` → `WebController.thymeleaf()` 回傳視圖名稱 `"html/hello"`
+1. `GET /thymeleaf` → `WebController.thymeleaf()` 回傳視圖名稱 `"html/hello"`
 2. `InternalResourceViewResolver`（order=1）viewNames `"jsp/*"` → 不匹配
 3. `ThymeleafViewResolver`（order=2）viewNames `"html/*,vue/*,templates/*,th/*"` → 匹配
 4. 實體路徑：`/WEB-INF/` + `"html/hello"` + `.html` = `/WEB-INF/html/hello.html`
@@ -376,7 +376,7 @@ sequenceDiagram
 
 **流程步驟：**
 
-1. `GET /web/thymeleaf?language=en_US`
+1. `GET /thymeleaf?language=en_US`
 2. `LocaleChangeInterceptor` 偵測到 URL 含 `language` 參數
 3. 呼叫 `CookieLocaleResolver.setLocale()`，將 `en_US` 寫入 Cookie（`localeCookie`，有效期 4800 秒）
 4. 後續請求讀取 Cookie → `BaseController.currentLocale` 使用新語系 → `MessageSource` 查找對應語系訊息
@@ -789,8 +789,8 @@ public class ResultException extends Exception {
 |---|---|
 | `/rest/**` | `RestfulController` 示範端點 |
 | `/` | `WebController` 首頁（若繼承 `BaseController`） |
-| `/web/thymeleaf` | Thymeleaf 示範頁 |
-| `/web/jsp` | JSP 示範頁 |
+| `/thymeleaf` | Thymeleaf 示範頁 |
+| `/jsp` | JSP 示範頁 |
 
 **建議：** 在 `RestfulController` 和 `WebController` 上加入 `@ConditionalOnProperty` 開關，或將其移至 `test` scope。
 

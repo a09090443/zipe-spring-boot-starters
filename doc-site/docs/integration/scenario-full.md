@@ -243,7 +243,8 @@ cd starters_example
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` | `Hello,  John!` |
 | SSE 串流 | `http://localhost:8080/example/rest/flux` | 每秒一個 `<letter:x>` 事件 |
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` | WSDL 定義 |
-| 排程 | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
+| 排程（XmlJob） | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
+| 排程（AnnotationJob） | 觀察日誌 | 每 20 秒一筆 `ExampleAnnotationJob` log |
 
 登入頁預設帳密為 `admin/admin`，登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:admin`。
 

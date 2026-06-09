@@ -20,7 +20,7 @@ sidebar_position: 3
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
 | `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example` |
-| `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64+AES 加密；設為 `true` 時模組自動解密 |
+| `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
 
 ## 單一資料來源屬性
@@ -119,7 +119,7 @@ dynamic.data-source-map[mssql_db].driverClassName=com.p6spy.engine.spy.P6SpyDriv
 
 ### 啟用密碼加密
 
-當 `dynamic.is-encrypt=true` 時，模組會以 `CryptoUtil(Base64Util)` 解密 `pa55word` 的值：
+當 `dynamic.is-encrypt=true` 時，模組會以 `CryptoUtil(Base64Util)` 對 `pa55word` 進行 Base64 解碼：
 
 ```properties
 dynamic.primary=master
@@ -128,8 +128,8 @@ dynamic.is-encrypt=true
 
 dynamic.data-source-map[master].url=jdbc:p6spy:mysql://localhost:3306/mydb?serverTimezone=Asia/Taipei
 dynamic.data-source-map[master].username=root
-# pa55word 填入 Base64+AES 加密後的密文
-dynamic.data-source-map[master].pa55word=EncryptedBase64StringHere==
+# pa55word 填入 Base64 編碼後的密文
+dynamic.data-source-map[master].pa55word=Base64EncodedPasswordHere==
 dynamic.data-source-map[master].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
 

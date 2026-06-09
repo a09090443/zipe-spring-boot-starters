@@ -137,11 +137,11 @@ logon-spring-boot-starter/
 | `record-log-enable` | Boolean | `false` | 是否回呼 `CustomLogonLogRecord` |
 | `custom-record-log-bean` | String | 無 | `record-log-enable=true` 時必填，指定稽核 Bean 名稱 |
 | `allow-uris` | String | 無 | 逗號分隔的免驗證路徑，如 `/static/**,/public/**` |
-| `login-uri` | String | `/login` | 自訂登入頁路徑；設定此值則採用 `customLoginConfigure` |
-| `login-success-uri` | String | `/dashboard` | 登入成功後的導向路徑 |
-| `login-failure-uri` | String | `/login` | 登入失敗後的轉送路徑（伺服器端 forward，非 redirect） |
+| `login-uri` | String | 無 | 自訂登入頁路徑；設定此值則採用 `customLoginConfigure` |
+| `login-success-uri` | String | `/` | 登入成功後的導向路徑 |
+| `login-failure-uri` | String | `/error` | 登入失敗後的轉送路徑（伺服器端 forward，非 redirect） |
 | `custom-bean-name` | String | 無 | `verification-type=custom` 時必填，指定 AuthenticationProvider Bean 名稱 |
-| `csrf-enabled` | Boolean | `false` | CSRF 保護開關 |
+| `csrf-enabled` | Boolean | `true` | CSRF 保護開關 |
 | `ldap` | LdapPropertyConfig | 巢狀物件 | LDAP 子設定群組 |
 
 **LdapPropertyConfig（prefix: `security.ldap`）：**
@@ -634,6 +634,7 @@ security:
 // 業務專案：config/SecurityBeanConfig.java
 package com.example.config;
 
+import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.handler.LoginSuccessHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -649,7 +650,7 @@ public class SecurityBeanConfig {
 
     @Bean
     public LoginSuccessHandler loginSuccessHandler() {
-        return new LoginSuccessHandler(null, null) {
+        return new LoginSuccessHandler(new SecurityPropertyConfig()) {
             @Override
             public void onAuthenticationSuccess(HttpServletRequest request,
                                                 HttpServletResponse response,

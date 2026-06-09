@@ -358,9 +358,10 @@ SoapUtil.doPostWithXml(url, rawSoapXml)
   → 回傳原始 XML 字串
   ↓（選用）
 SoapUtil.getResponseXml(xmlStr, tagName)
-  → SAAJ MessageFactory.createMessage()
-  → SOAPBody.getElementsByTagName(tagName)
-  → Transformer → String
+  → DocumentBuilderFactory（停用 DTD/外部實體）
+  → DocumentBuilder.parse() → Document
+  → document.getElementsByTagName(tagName)
+  → TransformerFactory（安全設定）→ StringWriter → String
   ↓
 業務程式碼處理結果字串（或透過 XmlUtil.xmlToBean() 轉為物件）
 ```

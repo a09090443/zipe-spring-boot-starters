@@ -56,8 +56,8 @@ import com.zipe.util.crypto.CryptoUtil;
 import com.zipe.util.crypto.Base64Util;
 
 CryptoUtil cryptoUtil = new CryptoUtil(new Base64Util());
-String enc = cryptoUtil.getEncrypt("text");
-String dec = cryptoUtil.getDecode(enc);
+String enc = cryptoUtil.encrypt("text");
+String dec = cryptoUtil.decode(enc);
 ```
 :::
 
@@ -67,11 +67,17 @@ String dec = cryptoUtil.getDecode(enc);
 
 ```java
 import com.zipe.util.crypto.AesUtil;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 
 AesUtil aes = new AesUtil("0123456789abcdef");
 aes.encryptFile(new File("plain.txt"), new File("cipher.dat"));
+
+// 解密至檔案
 aes.decryptFile(new File("cipher.dat"), new File("decrypted.txt"));
+
+// 解密至記憶體（不寫回磁碟，適合直接串流處理）
+ByteArrayInputStream decryptedStream = aes.decryptFile(new File("cipher.dat"));
 ```
 
 ### 字串工具

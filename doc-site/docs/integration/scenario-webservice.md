@@ -105,10 +105,10 @@ public interface ExampleWebService {
 @Component
 public class ExampleWebServiceImpl implements ExampleWebService {
 
-    private static final Map<String, User> userMap = new HashMap<>();
+    private final Map<String, User> userMap = new HashMap<>();
 
     public ExampleWebServiceImpl() {
-        // 在建構子中寫入靜態測試資料，不依賴資料庫
+        // 在建構子中寫入測試資料，不依賴資料庫
         userMap.put("01", new User("01", "Gary"));
         userMap.put("02", new User("02", "John"));
         userMap.put("03", new User("03", "Mary"));

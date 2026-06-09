@@ -221,6 +221,7 @@ curl -X POST http://localhost:8080/quartz/run \
 package com.example.service;
 
 import com.zipe.quartz.base.BaseJob;
+import com.zipe.quartz.config.QuartzJobPropertyConfig;
 import com.zipe.quartz.vo.ScheduleJobVO;
 import org.quartz.Scheduler;
 import org.springframework.stereotype.Service;
@@ -232,8 +233,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ScheduleManagementService extends BaseJob {
 
-    public ScheduleManagementService(Scheduler scheduler) {
-        super(scheduler);
+    public ScheduleManagementService(Scheduler scheduler, QuartzJobPropertyConfig propertyConfig) {
+        super(scheduler, propertyConfig);
     }
 
     public void registerCleanupJob(String cronExpression) {

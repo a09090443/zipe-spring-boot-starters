@@ -199,7 +199,7 @@ public class ReportRepository { ... }
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
 | `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑 |
-| `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64+AES 加密 |
+| `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 
 #### `DynamicDataSourceConfig`（`com.zipe.base.model`）
@@ -629,14 +629,16 @@ Optional.of(dynamicDataSource.getDataSourceMap()).ifPresent(ds -> ds.forEach((k,
 BETWEEN("BETWEEN");
 
 // 2. Conditions.java：新增方法
-// 因 BETWEEN 需要兩個值，直接操作 condition 字串較為簡潔
-public Conditions between(String column, String start, String end) {
+// BETWEEN 需要兩個值，依照現有慣例各以 bindValue() 產生具名參數，避免 SQL Injection
+public Conditions between(String column, Object start, Object end) {
+    validateColumn(column);
+    String startParam = bindValue(start);
+    String endParam = bindValue(end);
     condition.append(column)
-             .append(" BETWEEN '")
-             .append(start)
-             .append("' AND '")
-             .append(end)
-             .append("'");
+             .append(" BETWEEN :")
+             .append(startParam)
+             .append(" AND :")
+             .append(endParam);
     return this;
 }
 ```

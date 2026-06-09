@@ -91,7 +91,7 @@ job-spring-boot-starter/
 
 | 方法 | 存取層級 | 說明 |
 |---|---|---|
-| `BaseJob(Scheduler scheduler)` | `@Autowired protected` | 透過建構子注入 Scheduler，子類無需再宣告 |
+| `BaseJob(Scheduler scheduler, QuartzJobPropertyConfig propertyConfig)` | `@Autowired protected` | 透過建構子注入 Scheduler 與排程屬性設定，子類無需再宣告 |
 | `mergeJobProcess(ScheduleJobVO)` | `protected` | 新增或覆蓋更新排程（upsert 語義） |
 | `deleteJobProcess(ScheduleJobVO)` | `protected` | 刪除排程（JobKey = jobName + jobGroup） |
 | `pauseJobProcess(ScheduleJobVO)` | `protected` | 暫停排程 |

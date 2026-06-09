@@ -225,6 +225,7 @@ security:
 
 ```java
 // 業務專案：config/SecurityBeanConfig.java
+import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.handler.LoginSuccessHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -243,7 +244,7 @@ public class SecurityBeanConfig {
      */
     @Bean
     public LoginSuccessHandler loginSuccessHandler() {
-        return new LoginSuccessHandler(null, null) {
+        return new LoginSuccessHandler(new SecurityPropertyConfig()) {
             @Override
             public void onAuthenticationSuccess(HttpServletRequest request,
                                                 HttpServletResponse response,

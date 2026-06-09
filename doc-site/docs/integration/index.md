@@ -17,7 +17,7 @@ description: 了解如何組合不同 Starter 建構實際應用系統
 - 以 RESTful API 與 WebFlux SSE 串流提供資料介面
 - 以 Spring Security 提供登入認證，並透過策略模式注入自訂登入日誌
 - 以動態多資料來源連接多個資料庫，支援 `@DS` 與程式化兩種切換方式
-- 以 Quartz 提供四種不同模式的排程任務
+- 以 Quartz 提供三種不同模式的排程任務
 - 以 Apache CXF 發布 SOAP WebService 端點
 
 ## 專案使用的 Starters 清單與用途
