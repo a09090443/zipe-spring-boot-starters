@@ -25,44 +25,81 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
+ * 日期時間工具類別，提供常用的日期時間格式化、轉換、計算與民國年處理等靜態方法。
+ * <p>
+ * 所有取得「當前時間」的方法預設以 UTC+8（台灣時區）為基準。
+ * 本類別為純靜態工具類別，不需實例化。
+ * </p>
+ *
  * @author : Gary Tsai
  * @created : @Date 2020/11/9 上午 10:23
  **/
 public class DateTimeUtils {
+    /** UTC+8 時區偏移字串，對應台灣標準時間（CST） */
     public static final String UTC_ADD_8 = "+8";
 
+    /** 格式：yyyy-MM-dd HH:mm:ss（例：2024-01-15 10:30:00） */
     public static DateTimeFormatter dateTimeFormate1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    /** 格式：yyyy-MM-dd（例：2024-01-15） */
     public static DateTimeFormatter dateTimeFormate2 = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    /** 格式：HH:mm:ss（例：10:30:00） */
     public static DateTimeFormatter dateTimeFormate3 = DateTimeFormatter.ofPattern("HH:mm:ss");
+    /** 格式：yyyy/MM/dd HH:mm:ss（例：2024/01/15 10:30:00） */
     public static DateTimeFormatter dateTimeFormate4 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+    /** 格式：yyyyMMdd HH:mm:ss（例：20240115 10:30:00） */
     public static DateTimeFormatter dateTimeFormate5 = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
+    /** 格式：yyyy/MM/dd（例：2024/01/15） */
     public static DateTimeFormatter dateTimeFormate6 = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+    /** 格式：yyyyMMdd（西元年，例：20240115） */
     public static DateTimeFormatter dateTimeFormate7 = DateTimeFormatter.ofPattern("yyyyMMdd");
+    /** 格式：yyyMMdd（民國年，例：1130115） */
     public static DateTimeFormatter dateTimeFormate8 = DateTimeFormatter.ofPattern("yyyMMdd");
+    /** 格式：yyyy（西元年份，例：2024） */
     public static DateTimeFormatter dateTimeFormate9 = DateTimeFormatter.ofPattern("yyyy");
+    /** 格式：MM（月份，例：01） */
     public static DateTimeFormatter dateTimeFormate10 = DateTimeFormatter.ofPattern("MM");
+    /** 格式：dd（日期，例：15） */
     public static DateTimeFormatter dateTimeFormate11 = DateTimeFormatter.ofPattern("dd");
+    /** 格式：yyyyMM（西元年月，例：202401） */
     public static DateTimeFormatter dateTimeFormate12 = DateTimeFormatter.ofPattern("yyyyMM");
+    /** 格式：yyyMM（民國年月，例：11301） */
     public static DateTimeFormatter dateTimeFormate13 = DateTimeFormatter.ofPattern("yyyMM");
+    /** 格式：yyy/MM（民國年/月，例：113/01） */
     public static DateTimeFormatter dateTimeFormate14 = DateTimeFormatter.ofPattern("yyy/MM");
+    /** 格式：dd/MM/yy（例：15/01/24） */
     public static DateTimeFormatter dateTimeFormate15 = DateTimeFormatter.ofPattern("dd/MM/yy");
+    /** 格式：HHmmss（時間無分隔符，例：103000） */
     public static DateTimeFormatter dateTimeFormate16 = DateTimeFormatter.ofPattern("HHmmss");
+    /** 格式：yyy（民國年份，例：113） */
     public static DateTimeFormatter dateTimeFormate17 = DateTimeFormatter.ofPattern("yyy");
+    /** 格式：yyyyMMddHHmmss（完整日期時間無分隔符，例：20240115103000） */
     public static DateTimeFormatter dateTimeFormate18 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
+    /**
+     * 取得 UTC+8 時區的當前日期時間，並以指定格式回傳字串。
+     *
+     * @param formatter 日期時間格式器
+     * @return 格式化後的當前日期時間字串
+     */
     public static String getDateNow(DateTimeFormatter formatter) {
         return getDateNow().format(formatter);
     }
 
+    /**
+     * 取得 UTC+8 時區的當前日期時間。
+     *
+     * @return 當前的 {@link LocalDateTime}（UTC+8）
+     */
     public static LocalDateTime getDateNow() {
         return LocalDateTime.now(ZoneOffset.of(UTC_ADD_8));
     }
 
     /**
-     * 獲取當前年的前幾年/後幾年的日期
+     * 取得當前年份加減指定年數後的日期字串。
      *
      * @param yearsToAddOrSubtract 後幾年傳正整數，前幾年傳負數
-     * @param formatter
+     * @param formatter            日期格式器；為 {@code null} 時以 {@link LocalDate#toString()} 格式回傳
+     * @return 計算後的日期字串
      */
     public static String getMinusOrPlusYears(long yearsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusYears(yearsToAddOrSubtract).format(formatter) :
@@ -71,10 +108,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前月的前幾月/後幾月的日期
+     * 取得當前月份加減指定月數後的日期字串。
      *
      * @param monthsToAddOrSubtract 後幾月傳正整數，前幾月傳負數
-     * @param formatter
+     * @param formatter             日期格式器；為 {@code null} 時以 {@link LocalDate#toString()} 格式回傳
+     * @return 計算後的日期字串
      */
     public static String getMinusOrPlusMonths(long monthsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusMonths(monthsToAddOrSubtract).format(formatter) :
@@ -83,11 +121,12 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前月的前幾月/後幾月的日期
+     * 以指定起始日期為基準，取得加減指定月數後的日期字串。
      *
      * @param monthsToAddOrSubtract 後幾月傳正整數，前幾月傳負數
-     * @param formatter
-     * @param startDate 需計算的起始日期
+     * @param formatter             日期格式器；為 {@code null} 時以 {@link LocalDate#toString()} 格式回傳
+     * @param startDate             需計算的起始日期
+     * @return 計算後的日期字串
      */
     public static String getMinusOrPlusMonthsByStartDate(long monthsToAddOrSubtract, DateTimeFormatter formatter, LocalDateTime startDate) {
         String date = !Objects.isNull(formatter) ? startDate.plusMonths(monthsToAddOrSubtract).format(formatter) :
@@ -96,10 +135,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取目前日的前幾日/後幾日的日期
+     * 取得當前日期加減指定天數後的日期字串。
      *
      * @param daysToAddOrSubtract 後幾日傳正整數，前幾日傳負數
-     * @param formatter
+     * @param formatter           日期格式器；為 {@code null} 時以 {@link LocalDate#toString()} 格式回傳
+     * @return 計算後的日期字串
      */
     public static String getMinusOrPlusDays(long daysToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusDays(daysToAddOrSubtract).format(formatter) :
@@ -108,10 +148,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取目前星期的前幾星期/後幾星期的日期
+     * 取得當前日期加減指定週數後的日期字串。
      *
      * @param weeksToAddOrSubtract 後幾星期傳正整數，前幾星期傳負數
-     * @param formatter
+     * @param formatter            日期格式器；為 {@code null} 時以 {@link LocalDate#toString()} 格式回傳
+     * @return 計算後的日期字串
      */
     public static String getMinusOrPlusWeeks(long weeksToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusWeeks(weeksToAddOrSubtract).format(formatter) :
@@ -120,10 +161,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前小時的前幾小時/後幾小時的日期
+     * 取得當前時間加減指定小時數後的時間字串。
      *
      * @param hoursToAddOrSubtract 後幾小時傳正整數，前幾小時傳負數
-     * @param formatter
+     * @param formatter            日期時間格式器；不得為 {@code null}
+     * @return 計算後的時間字串
      */
     public static String getMinusOrPlusHours(long hoursToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusHours(hoursToAddOrSubtract).format(formatter) :
@@ -132,10 +174,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前分鐘的前幾分鐘/後幾分鐘的日期
+     * 取得當前分鐘加減指定分鐘數後的時間字串。
      *
      * @param minutesToAddOrSubtract 後幾分鐘傳正整數，前幾分鐘傳負數
-     * @param formatter
+     * @param formatter              日期時間格式器；不得為 {@code null}
+     * @return 計算後的時間字串
      */
     public static String getMinusOrPlusMinutes(long minutesToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusMinutes(minutesToAddOrSubtract).format(formatter) :
@@ -144,10 +187,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前秒的前幾秒/後幾秒的日期
+     * 取得當前秒加減指定秒數後的時間字串。
      *
      * @param secondsToAddOrSubtract 後幾秒傳正整數，前幾秒傳負數
-     * @param formatter
+     * @param formatter              日期時間格式器；不得為 {@code null}
+     * @return 計算後的時間字串
      */
     public static String getMinusOrPlusSeconds(long secondsToAddOrSubtract, DateTimeFormatter formatter) {
         String date = !Objects.isNull(formatter) ? getDateNow().plusSeconds(secondsToAddOrSubtract).format(formatter) :
@@ -156,10 +200,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * Date類型轉 LocalDateTime、LocalDate、LocalTime
+     * 將 {@link Date} 轉換為 Java 8 日期時間型別。
      *
-     * @param date
-     * @param type 1:LocalDateTime; 2:LocalDate; 3: LocalTime
+     * @param date 要轉換的 {@link Date} 物件
+     * @param type 目標型別代碼：1 為 {@link LocalDateTime}；2 為 {@link LocalDate}；3 為 {@link LocalTime}
+     * @return 對應的 Java 8 日期時間物件；若 {@code type} 不符合任何 case 則回傳 {@code null}
      */
     public static Object DateToJava8Date(Date date, Integer type) {
         Instant instant = date.toInstant();
@@ -181,9 +226,13 @@ public class DateTimeUtils {
     }
 
     /**
-     * LocalDateTime、LocalDate、LocalTime類型轉Date
+     * 將 Java 8 日期時間型別（{@link LocalDateTime}、{@link LocalDate}、{@link LocalTime}）轉換為 {@link Date}。
+     * <p>
+     * 若傳入 {@link LocalTime}，日期部分以 UTC+8 當日為準。
+     * </p>
      *
-     * @param java8Date LocalDateTime、LocalDate、LocalTime
+     * @param java8Date {@link LocalDateTime}、{@link LocalDate} 或 {@link LocalTime} 物件
+     * @return 對應的 {@link Date}；若無法解析型別則回傳 {@code null}
      */
     public static Date Java8DateToDate(Object java8Date) {
         ZoneId zone = ZoneId.of(UTC_ADD_8);
@@ -203,32 +252,32 @@ public class DateTimeUtils {
     }
 
     /**
-     * 將指定字串格式轉為日期時間
+     * 將日期時間字串依指定格式解析為 {@link LocalDateTime}。
      *
-     * @param date
-     * @param dateTimeFormatter
-     * @return
+     * @param date              日期時間字串
+     * @param dateTimeFormatter 對應的格式器
+     * @return 解析後的 {@link LocalDateTime}
      */
     public static LocalDateTime getDateTime(String date, DateTimeFormatter dateTimeFormatter) {
         return LocalDateTime.parse(date, dateTimeFormatter);
     }
 
     /**
-     * 將指定字串格式轉為日期
+     * 將日期字串依指定格式解析為 {@link LocalDate}。
      *
-     * @param date
-     * @param dateTimeFormatter
-     * @return
+     * @param date              日期字串
+     * @param dateTimeFormatter 對應的格式器
+     * @return 解析後的 {@link LocalDate}
      */
     public static LocalDate getDate(String date, DateTimeFormatter dateTimeFormatter) {
         return LocalDate.parse(date, dateTimeFormatter);
     }
 
     /**
-     * Date 和 LocalDateTime 互轉
+     * 將 {@link Date} 轉換為 UTC+8 時區的 {@link LocalDateTime}。
      *
-     * @param date
-     * @return
+     * @param date 要轉換的 {@link Date} 物件
+     * @return 對應的 {@link LocalDateTime}（UTC+8）
      */
     public static LocalDateTime dateToDateTime(Date date) {
         Instant instant = date.toInstant();
@@ -236,10 +285,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * date 轉為 LocalDate
+     * 將 {@link Date} 轉換為 UTC+8 時區的 {@link LocalDate}。
      *
-     * @param date
-     * @return
+     * @param date 要轉換的 {@link Date} 物件
+     * @return 對應的 {@link LocalDate}（UTC+8）
      */
     public static LocalDate dateToLocalDate(Date date) {
         Instant instant = date.toInstant();
@@ -247,20 +296,20 @@ public class DateTimeUtils {
     }
 
     /**
-     * LocalDate 轉為 Date
+     * 將 {@link LocalDate} 轉換為 {@link Date}，時間部分為該日 00:00:00（UTC+8）。
      *
-     * @param localDate
-     * @return
+     * @param localDate 要轉換的 {@link LocalDate} 物件
+     * @return 對應的 {@link Date}
      */
     public static Date localDateToDate(LocalDate localDate) {
         return Date.from(localDate.atStartOfDay(ZoneId.of(UTC_ADD_8)).toInstant());
     }
 
     /**
-     * Date 轉為 DateTime
+     * 將 {@link Date} 轉換為 UTC+8 時區的 {@link LocalTime}（僅保留時間部分）。
      *
-     * @param date
-     * @return
+     * @param date 要轉換的 {@link Date} 物件
+     * @return 對應的 {@link LocalTime}（UTC+8）
      */
     public static LocalTime dateToLocalTime(Date date) {
         Instant instant = date.toInstant();
@@ -268,10 +317,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前時間之後的指定日期的最小時間
+     * 取得指定日期加上若干天後，該日的最小時間（00:00:00）。
      *
-     * @param date
-     * @return
+     * @param date  基準日期
+     * @param after 要往後加的天數
+     * @return 計算後日期的 00:00:00 {@link LocalDateTime}
      */
     public static LocalDateTime afterXDateTimeMIN(Date date, int after) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -281,10 +331,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前時間之後的指定日期的最大時間
+     * 取得指定日期加上若干天後，該日的最大時間（23:59:59.999999999）。
      *
-     * @param date
-     * @return
+     * @param date  基準日期
+     * @param after 要往後加的天數
+     * @return 計算後日期的 23:59:59.999... {@link LocalDateTime}
      */
     public static LocalDateTime afterXDateTimeMAX(Date date, int after) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -294,10 +345,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前時間之前的指定日期的最小時間
+     * 取得指定日期減去若干天後，該日的最小時間（00:00:00），並回傳 {@link Date}。
      *
-     * @param date
-     * @return
+     * @param date   基準日期
+     * @param before 要往前減的天數
+     * @return 計算後日期的 00:00:00 {@link Date}（UTC+8）
      */
     public static Date beforeXDateTimeMIN(Date date, int before) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -307,10 +359,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取當前時間之前的指定日期的最大時間
+     * 取得指定日期減去若干天後，該日的最大時間（23:59:59.999...），並回傳 {@link Date}。
      *
-     * @param date
-     * @return
+     * @param date   基準日期
+     * @param before 要往前減的天數
+     * @return 計算後日期的 23:59:59.999... {@link Date}（UTC+8）
      */
     public static Date beforeXDateTimeMAX(Date date, int before) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -320,9 +373,9 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取本月的第一天 00:00:00
+     * 取得本月第一天的最小時間（00:00:00）。
      *
-     * @return
+     * @return 本月 1 日 00:00:00 的 {@link LocalDateTime}
      */
     public static LocalDateTime currentFirstDayOfMonth() {
         LocalDateTime localDateTime = LocalDateTime.now();
@@ -331,9 +384,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取指定時間月份的最後一天
+     * 取得指定日期所在月份的最後一天最大時間（23:59:59.999...）。
      *
-     * @return
+     * @param date 基準日期
+     * @return 該月最後一日 23:59:59.999... 的 {@link LocalDateTime}
      */
     public static LocalDateTime currentXDayOfMonth(Date date) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -342,9 +396,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * 指定 date 的月份的第一天
+     * 取得指定日期所在月份的第一天最小時間（00:00:00）。
      *
-     * @return
+     * @param date 基準日期
+     * @return 該月 1 日 00:00:00 的 {@link LocalDateTime}
      */
     public static LocalDateTime beforeXFirstDayOfMonth(Date date) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -353,11 +408,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取前幾個月的1號0點 00:00:00
+     * 以 {@link LocalDateTime} 為基準，往前推指定月數後取得該月第一天 00:00:00。
      *
-     * @param localDateTime
-     * @param month
-     * @return
+     * @param localDateTime 基準日期時間
+     * @param month         要往前推的月數
+     * @return 計算後月份 1 日 00:00:00 的 {@link LocalDateTime}
      */
     public static LocalDateTime preXDayOfMonthMIN(LocalDateTime localDateTime, int month) {
         localDateTime = localDateTime.minusMonths(month);
@@ -366,11 +421,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取前幾個月的1號0點 00:00:00
+     * 以 {@link Date} 為基準，往前推指定月數後取得該月第一天 00:00:00。
      *
-     * @param date
-     * @param month
-     * @return
+     * @param date  基準日期
+     * @param month 要往前推的月數
+     * @return 計算後月份 1 日 00:00:00 的 {@link LocalDateTime}
      */
     public static LocalDateTime preXDayOfMonthMIN(Date date, int month) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -380,9 +435,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取前幾個月的最後一天 23：59：59
+     * 以當前時間為基準，往前推指定月數後取得該月最後一天 23:59:59.999...。
      *
-     * @return
+     * @param month 要往前推的月數
+     * @return 計算後月份最後一日 23:59:59.999... 的 {@link LocalDateTime}
      */
     public static LocalDateTime preXDayOfMonthMAX(int month) {
         LocalDateTime localDateTime = LocalDateTime.now();
@@ -392,9 +448,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 獲取指定時間幾個月的最後一天 23：59：59
+     * 以指定日期為基準，往前推指定月數後取得該月最後一天 23:59:59.999...。
      *
-     * @return
+     * @param date  基準日期
+     * @param month 要往前推的月數
+     * @return 計算後月份最後一日 23:59:59.999... 的 {@link LocalDateTime}
      */
     public static LocalDateTime preXDayOfMonthMAX(Date date, int month) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -404,11 +462,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 兩個日期相差多少個月
+     * 計算兩個日期之間相差的完整月數（date2 - date1）。
      *
-     * @param date1
-     * @param date2
-     * @return
+     * @param date1 起始日期
+     * @param date2 結束日期
+     * @return 相差的月數；date2 早於 date1 時回傳負數
      */
     public static Long getUntilMonth(Date date1, Date date2) {
         LocalDate localDate1 = dateToLocalDate(date1);
@@ -417,11 +475,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 兩個日期相差多少天
+     * 計算兩個日期之間相差的完整天數（date2 - date1）。
      *
-     * @param date1
-     * @param date2
-     * @return
+     * @param date1 起始日期
+     * @param date2 結束日期
+     * @return 相差的天數；date2 早於 date1 時回傳負數
      */
     public static Long getUntilDay(Date date1, Date date2) {
         LocalDate localDate1 = dateToLocalDate(date1);
@@ -430,11 +488,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 兩個日期相差多少小時
+     * 計算兩個日期之間相差的完整小時數（date2 - date1），捨去不足一小時的部分。
      *
-     * @param date1
-     * @param date2
-     * @return
+     * @param date1 起始日期時間
+     * @param date2 結束日期時間
+     * @return 相差的小時數（無條件捨去）；date2 早於 date1 時回傳負數
      */
     public static Long getUntilHours(Date date1, Date date2) {
         LocalDateTime localDate1 = dateToDateTime(date1);
@@ -444,11 +502,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 兩個日期相差多少小時 double 約等於
+     * 計算兩個日期之間相差的小時數，以 {@code double} 回傳（四捨五入至小數點後兩位）。
      *
-     * @param date1
-     * @param date2
-     * @return
+     * @param date1 起始日期時間
+     * @param date2 結束日期時間
+     * @return 相差的小時數（含小數，四捨五入至 2 位）；date2 早於 date1 時回傳負數
      */
     public static double getUntilHoursByDouble(Date date1, Date date2) {
         LocalDateTime localDate1 = dateToDateTime(date1);
@@ -460,11 +518,11 @@ public class DateTimeUtils {
     }
 
     /**
-     * 兩個日期相差多少秒
+     * 計算兩個日期之間相差的完整秒數（date2 - date1）。
      *
-     * @param date1
-     * @param date2
-     * @return
+     * @param date1 起始日期時間
+     * @param date2 結束日期時間
+     * @return 相差的秒數；date2 早於 date1 時回傳負數
      */
     public static Long getUntilSecond(Date date1, Date date2) {
         LocalDateTime localDate1 = dateToDateTime(date1);
@@ -473,10 +531,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * 取得最大時間 23：59：59
+     * 取得指定日期當天的最大時間（23:59:59.999...），並回傳 {@link Date}。
      *
-     * @param date
-     * @return
+     * @param date 基準日期
+     * @return 該日 23:59:59.999... 的 {@link Date}（UTC+8）
      */
     public static Date currentMax(Date date) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -485,10 +543,10 @@ public class DateTimeUtils {
     }
 
     /**
-     * 取得最小時間 00:00:00
+     * 取得指定日期當天的最小時間（00:00:00），並回傳 {@link Date}。
      *
-     * @param date
-     * @return
+     * @param date 基準日期
+     * @return 該日 00:00:00 的 {@link Date}（UTC+8）
      */
     public static Date currentMin(Date date) {
         LocalDateTime localDateTime = dateToDateTime(date);
@@ -496,6 +554,11 @@ public class DateTimeUtils {
         return Date.from(localDateTime.atZone(ZoneId.of(UTC_ADD_8)).toInstant());
     }
 
+    /**
+     * 取得目前年份的民國年字串（3 位數字，例：113）。
+     *
+     * @return 目前西元年對應的民國年字串
+     */
     public static String getMinguoYear(){
         return MinguoDate.from(LocalDate.now(ZoneOffset.of(UTC_ADD_8))).format(dateTimeFormate17);
     }
@@ -512,9 +575,9 @@ public class DateTimeUtils {
     }
 
     /**
-     * 每年一月會取上一年的民國年份
+     * 取得民國年份字串；若目前為一月，自動回傳上一年的民國年，避免報表產生跨年錯誤。
      *
-     * @return
+     * @return 民國年字串（3 位數字）；若當前月份為一月則回傳上一年度
      */
     public static String getMinguoYearIfJanuary(){
         if (getDateNow().getMonthValue() == 1) {
@@ -543,9 +606,9 @@ public class DateTimeUtils {
     }
 
     /**
-     * 當月份為一月時，系統自動會給予前一年份
+     * 取得西元年份字串；若目前為一月，自動回傳上一年的西元年，避免跨年統計誤差。
      *
-     * @return
+     * @return 西元年份字串（4 位數字）；若當前月份為一月則回傳上一年度
      */
     public static String getLastYearOnJanuary() {
         if (getDateNow().getMonthValue() == 1) {
@@ -556,10 +619,15 @@ public class DateTimeUtils {
     }
 
     /**
-     * 取得單月最小日期時間，如傳入為雙月，自動回傳前一個月最小日期時間
+     * 取得單月（奇數月）的第一天最小時間（00:00:00）。
+     * <p>
+     * 若傳入為偶數月，自動往前推一個月取得前一個奇數月的第一天 00:00:00；
+     * 若傳入為奇數月，直接取得該月第一天 00:00:00。
+     * 適用於依單月為單位進行統計的情境。
+     * </p>
      *
-     * @param localDateTime
-     * @return
+     * @param localDateTime 基準日期時間
+     * @return 對應奇數月 1 日 00:00:00 的 {@link LocalDateTime}
      */
     public static LocalDateTime firstMinDateOfSingleMonth(LocalDateTime localDateTime) {
         int month = localDateTime.getMonthValue();
@@ -571,6 +639,15 @@ public class DateTimeUtils {
         return localDateTime;
     }
 
+    /**
+     * 將 {@link LocalTime} 轉換為 {@link Date}，日期部分設為西元元年 1 月 1 日（僅保留時間資訊）。
+     * <p>
+     * 注意：日期部分不具實際意義，適用於僅需比較時間部分的情境。
+     * </p>
+     *
+     * @param localTime 要轉換的 {@link LocalTime} 物件
+     * @return 日期部分為西元元年、僅時間有意義的 {@link Date}
+     */
     public static Date localTimeToDate(LocalTime localTime) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();
@@ -579,6 +656,12 @@ public class DateTimeUtils {
         return calendar.getTime();
     }
 
+    /**
+     * 將 {@link LocalDateTime} 轉換為 {@link Date}，使用系統預設時區。
+     *
+     * @param localDateTime 要轉換的 {@link LocalDateTime} 物件
+     * @return 對應的 {@link Date}
+     */
     public static Date localDateTimeToDate(LocalDateTime localDateTime) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();
@@ -587,13 +670,18 @@ public class DateTimeUtils {
         return calendar.getTime();
     }
     /**
-     * 傳入日期取得前期雙月份
-     * 如:傳入 202105 取得 03,04
-     *    傳入 202106 取得 03,04
-     *    傳入 202112 取得 09,10
+     * 依傳入日期取得前期雙月份的月份字串清單（共兩個月）。
+     * <p>
+     * 規則：
+     * <ul>
+     *   <li>傳入偶數月（如 202106）→ 回傳該月前 2、3 個月（如 [03, 04]）</li>
+     *   <li>傳入奇數月（如 202105）→ 回傳該月前 1、2 個月（如 [03, 04]）</li>
+     * </ul>
+     * 例如：傳入 202112 回傳 [09, 10]。
+     * </p>
      *
-     * @param dateTime
-     * @return
+     * @param dateTime 基準日期時間
+     * @return 包含兩個月份字串（MM 格式）的清單，索引 0 為較早的月份
      */
     public static ArrayList<String> getPreviousMonths(LocalDateTime dateTime) {
         ArrayList<String> values = new ArrayList<>();

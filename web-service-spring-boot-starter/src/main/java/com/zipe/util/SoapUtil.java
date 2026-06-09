@@ -26,6 +26,18 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * SOAP 訊息工具類別。
+ *
+ * <p>提供以下功能：
+ * <ul>
+ *   <li>以 HTTP POST 傳送 XML/SOAP 請求並取得回應字串</li>
+ *   <li>從 SOAP 回應 XML 中擷取指定 tagName 的節點內容</li>
+ * </ul>
+ *
+ * <p>所有 XML 解析與轉換均採用安全設定（停用 DTD 與外部實體），
+ * 以防範 XXE（XML External Entity）注入攻擊。
+ */
 public class SoapUtil {
 
     /**
@@ -99,6 +111,17 @@ public class SoapUtil {
         return writer.toString();
     }
 
+    /**
+     * 從 SOAP 回應 XML 中擷取指定 tagName 的節點，並以 XML 字串回傳。
+     *
+     * <p>內部使用安全的 DocumentBuilder 與 TransformerFactory，避免 XXE 攻擊。
+     * 若解析過程發生例外，將包裝為 {@link RuntimeException} 拋出。
+     *
+     * @param soapXml  完整的 SOAP XML 回應字串
+     * @param tagName  欲擷取的 XML 標籤名稱
+     * @return 符合 tagName 的所有節點序列化後的 XML 字串
+     * @throws RuntimeException 當 XML 解析或轉換失敗時
+     */
     // 取得 soap response 的 xml,並可指定 tagName
     public static String getResponseXml(String soapXml, String tagName) {
         try {
@@ -108,6 +131,17 @@ public class SoapUtil {
         }
     }
 
+    /**
+     * 以 HTTP POST 方式傳送 XML 內容至指定 URL，並回傳回應字串。
+     *
+     * <p>使用 Apache HttpClient 傳送請求，Content-Type 設為 {@code application/xml}，
+     * 回應內容以 UTF-8 編碼解析。無論成功或失敗，HTTP 連線與回應資源均會在 finally 區塊關閉。
+     *
+     * @param url 目標服務的 URL 字串
+     * @param xml 欲傳送的 XML 請求主體（通常為 SOAP Envelope）
+     * @return 伺服器回應的字串內容
+     * @throws IOException 當 HTTP 連線、傳送或關閉資源失敗時
+     */
     public static String doPostWithXml(String url, String xml) throws IOException {
         // Create Httpclient object
         CloseableHttpClient httpClient = HttpClients.createDefault();

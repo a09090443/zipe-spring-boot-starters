@@ -30,6 +30,9 @@ public class Conditions {
     /** 具名參數流水號，確保同一物件內參數名稱唯一且可預期。 */
     private int paramIndex = 0;
 
+    /**
+     * 建立一個空的查詢條件物件，初始化內部 SQL 片段緩衝區。
+     */
     public Conditions () {
         condition = new StringBuilder();
     }
@@ -43,10 +46,15 @@ public class Conditions {
         return parameters;
     }
 
+    /** 產生下一個唯一的具名參數名稱（格式：c0, c1, c2 ...）。 */
     private String nextParamName () {
         return "c" + (paramIndex++);
     }
 
+    /**
+     * 將值登錄至參數 Map，並回傳對應的具名參數名稱，
+     * 供後續在 SQL 片段中以 {@code :name} 形式引用。
+     */
     private String bindValue (Object value) {
         String name = nextParamName();
         parameters.put(name, value);
@@ -64,70 +72,154 @@ public class Conditions {
         }
     }
 
+    /**
+     * 新增等於（=）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions equal (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.EQUAL));
         return this;
     }
 
+    /**
+     * 新增模糊比對（LIKE）條件，值會自動加上前後 % 萬用字元。
+     *
+     * @param column 欄位名稱
+     * @param value  比對關鍵字
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions like (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.LIKE));
         return this;
     }
 
+    /**
+     * 新增不等於（!=）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions unEqual (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.UNEQUAL));
         return this;
     }
 
+    /**
+     * 新增 IN 條件，比對欄位值是否存在於指定清單中。
+     *
+     * @param column 欄位名稱
+     * @param values 允許的值清單
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions in (String column, List<String> values) {
         appendPairTypes(new Pair(column, values, SQL.IN));
         return this;
     }
 
+    /**
+     * 新增 NOT IN 條件，比對欄位值是否不存在於指定清單中。
+     *
+     * @param column 欄位名稱
+     * @param values 排除的值清單
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions notIn (String column, List<String> values) {
         appendPairTypes(new Pair(column, values, SQL.NOTIN));
         return this;
     }
 
+    /**
+     * 新增大於（&gt;）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions gt (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.GT));
         return this;
     }
 
+    /**
+     * 新增小於（&lt;）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions lt (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.LT));
         return this;
     }
 
+    /**
+     * 新增大於等於（&gt;=）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions gtEqual (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.GTEQUAL));
         return this;
     }
 
+    /**
+     * 新增小於等於（&lt;=）條件。
+     *
+     * @param column 欄位名稱
+     * @param value  比對值
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions ltEqual (String column, String value) {
         appendPairTypes(new Pair(column, value, SQL.LTEQUAL));
         return this;
     }
 
+    /**
+     * 新增 IS NOT NULL 條件。
+     *
+     * @param column 欄位名稱
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions notNull (String column) {
         appendPairTypes(new Pair(column, SQL.NOTNULL));
         return this;
     }
 
+    /**
+     * 新增 IS NULL 條件。
+     *
+     * @param column 欄位名稱
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions isNull (String column) {
         appendPairTypes(new Pair(column, SQL.ISNULL));
         return this;
     }
 
+    /**
+     * 新增 NOT EXISTS 條件，{@code value} 為子查詢 SQL 字串。
+     *
+     * <p><b>資安警告：</b>子查詢無法參數化，{@code value} 必須為程式內固定字串，
+     * 嚴禁傳入任何使用者可控的輸入。</p>
+     *
+     * @param value 子查詢 SQL 字串
+     * @return 本物件（支援 method chaining）
+     */
     public Conditions notExists (String value) {
         appendPairTypes(new Pair("", value, SQL.NOTEXISTS));
         return this;
     }
 
     /**
-     * 左括弧
+     * 在條件字串中插入左括弧，用於群組化子條件。
      *
-     * @return
+     * @return 本物件（支援 method chaining）
      */
     public Conditions leftPT () {
         condition.append(" (");
@@ -135,21 +227,20 @@ public class Conditions {
     }
 
     /**
-     * 左括弧
+     * 在條件字串中插入「連結符號 + 左括弧」，用於以 AND / OR 開頭的子群組。
      *
      * @param e 連結符號 ( AND、OR... )
-     * @return
+     * @return 本物件（支援 method chaining）
      */
-
     public Conditions leftPT (SQL e) {
         condition.append(" " + e.operator() + " (");
         return this;
     }
 
     /**
-     * 右括弧
+     * 在條件字串中插入右括弧，結束子條件群組。
      *
-     * @return
+     * @return 本物件（支援 method chaining）
      */
     public Conditions rightPT () {
         condition.append(") ");
@@ -157,10 +248,10 @@ public class Conditions {
     }
 
     /**
-     * 右括弧
+     * 在條件字串中插入「右括弧 + 連結符號」，結束子群組後緊接後續連結。
      *
      * @param e 連結符號 ( AND、OR... )
-     * @return
+     * @return 本物件（支援 method chaining）
      */
     public Conditions rightPT (SQL e) {
         condition.append(") " + e.operator() + " ");
@@ -168,9 +259,9 @@ public class Conditions {
     }
 
     /**
-     * 將組裝好的條件句參數AND起來
+     * 將組裝好的條件句參數 AND 起來。
      *
-     * @return
+     * @return 本物件（支援 method chaining）
      */
     public Conditions and () {
         condition.append(" " + SQL.AND.operator() + " ");
@@ -178,9 +269,9 @@ public class Conditions {
     }
 
     /**
-     * 將組裝好的條件句參數OR起來
+     * 將組裝好的條件句參數 OR 起來。
      *
-     * @return
+     * @return 本物件（支援 method chaining）
      */
     public Conditions or () {
         condition.append(" " + SQL.OR.operator() + " ");
@@ -188,19 +279,21 @@ public class Conditions {
     }
 
     /**
-     * 排序
+     * 以預設升冪（ASC）對指定欄位排序。
      *
-     * @return
+     * @param column 排序欄位名稱
+     * @return 本物件（支援 method chaining）
      */
     public Conditions orderBy (String column) {
         return orderBy(column, SQL.ASC);
     }
 
     /**
-     * 排序
+     * 對指定欄位以指定方向排序。
      *
-     * @param order 升/降 冪
-     * @return
+     * @param column 排序欄位名稱
+     * @param order  排序方向（{@link SQL#ASC} 升冪 / {@link SQL#DESC} 降冪）
+     * @return 本物件（支援 method chaining）
      */
     public Conditions orderBy (String column, SQL order) {
         validateColumn(column);
@@ -214,8 +307,8 @@ public class Conditions {
      * <p><b>資安警告：</b>此方法不做任何跳脫或參數化，傳入內容會原樣拼進 SQL。
      * 嚴禁傳入任何使用者可控的輸入，僅可用於程式內固定字串。</p>
      *
-     * @param sql SQL語法
-     * @return
+     * @param sql 要附加的 SQL 語法片段
+     * @return 本物件（支援 method chaining）
      */
     public Conditions rawSql (String sql) {
         condition.append(" " + sql);
@@ -223,9 +316,12 @@ public class Conditions {
     }
 
     /**
-     * 宣告條件句結束
+     * 宣告條件句組裝結束，將條件片段替換進 SQL 範本並回傳最終 SQL 字串。
      *
-     * @return
+     * <p>方法執行後內部緩衝區會被清空（設為 {@code null}），物件不可再重用。</p>
+     *
+     * @param sqlText 含有 {@code ${CONDITIONS}} 佔位符的 SQL 範本字串
+     * @return 替換完成後的完整 SQL 字串
      */
     public String done (String sqlText) {
         String done = StringUtils.replace(sqlText, "${CONDITIONS}", condition.toString());
@@ -234,6 +330,11 @@ public class Conditions {
         return done;
     }
 
+    /**
+     * 依據 {@link Pair} 攜帶的條件類型，將對應的 SQL 片段與具名參數追加至內部緩衝區。
+     * IN / NOT IN 會逐一展開各個佔位符；LIKE 自動補上前後萬用字元；
+     * NOT EXISTS 保留子查詢原文；IS NULL / IS NOT NULL 不需要值。
+     */
     private void appendPairTypes (Pair pair) {
         String column = pair.getColumn();
         String value = pair.getValue();

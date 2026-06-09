@@ -15,8 +15,10 @@ import java.security.NoSuchAlgorithmException;
 @Deprecated
 public class Md5Util {
     /**
+     * 將字串計算為 32 位小寫 MD5 雜湊值。
+     *
      * @param str 來源字串
-     * @Description: 32位小寫MD5
+     * @return 32 位小寫十六進位 MD5 字串；若發生演算法例外則回傳 {@code null}
      * @deprecated 禁止用於密碼雜湊或簽章，僅可作非安全用途。
      */
     @Deprecated
@@ -27,7 +29,9 @@ public class Md5Util {
             byte[] bytes = md5.digest(str.getBytes());
             StringBuffer stringBuffer = new StringBuffer();
             for (byte b : bytes) {
+                // 將有號 byte 轉為無號整數，避免負數造成十六進位字串錯誤
                 int bt = b & 0xff;
+                // 若值小於 16（即單一十六進位字元），補上前導零以維持固定 2 字元寬度
                 if (bt < 16) {
                     stringBuffer.append(0);
                 }
@@ -41,8 +45,10 @@ public class Md5Util {
     }
 
     /**
+     * 將字串計算為 32 位大寫 MD5 雜湊值。
+     *
      * @param str 來源字串
-     * @Description: 32位大寫MD5
+     * @return 32 位大寫十六進位 MD5 字串；若發生演算法例外則回傳 {@code null}
      * @deprecated 禁止用於密碼雜湊或簽章，僅可作非安全用途。
      */
     @Deprecated
@@ -55,8 +61,13 @@ public class Md5Util {
     }
 
     /**
+     * 將字串計算為 16 位大寫 MD5 雜湊值（取 32 位結果的中段 8～24 字元）。
+     * <p>
+     * 注意：方法名稱雖含 "U16"，實際上回傳的是大寫格式；
+     * 16 位 MD5 是截取 32 位完整 MD5 的第 9 至 24 個字元所得。
+     *
      * @param str 來源字串
-     * @Description: 16位小寫MD5
+     * @return 16 位大寫十六進位 MD5 字串；若發生演算法例外則回傳 {@code null}
      * @deprecated 禁止用於密碼雜湊或簽章，僅可作非安全用途。
      */
     @Deprecated
@@ -69,8 +80,13 @@ public class Md5Util {
     }
 
     /**
+     * 將字串計算為 16 位小寫 MD5 雜湊值（取 32 位結果的中段 8～24 字元）。
+     * <p>
+     * 注意：方法名稱雖含 "L16"，實際上回傳的是小寫格式；
+     * 16 位 MD5 是截取 32 位完整 MD5 的第 9 至 24 個字元所得。
+     *
      * @param str 來源字串
-     * @Description: 16位大寫MD5
+     * @return 16 位小寫十六進位 MD5 字串；若發生演算法例外則回傳 {@code null}
      * @deprecated 禁止用於密碼雜湊或簽章，僅可作非安全用途。
      */
     @Deprecated

@@ -10,6 +10,14 @@ import org.springframework.context.annotation.Configuration;
 import java.time.LocalDateTime;
 
 /**
+ * Quartz 排程作業的資料模型。
+ *
+ * <p>透過 {@code @ConfigurationProperties(prefix = "quartz.job")} 與
+ * {@code application.yml} / {@code application.properties} 中的
+ * {@code quartz.job.*} 屬性綁定，持有單一排程的完整設定資訊，
+ * 包含排程名稱、群組、對應的執行類別、Cron 表達式、起訖時間
+ * 以及傳遞給 Job 的參數映射。
+ *
  * @author : Gary Tsai
  **/
 @Configuration

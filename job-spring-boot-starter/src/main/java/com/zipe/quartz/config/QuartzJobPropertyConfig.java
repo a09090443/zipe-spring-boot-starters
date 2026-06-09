@@ -10,12 +10,23 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Quartz 排程屬性設定類別。
+ * <p>
+ * 對應 {@code application.yml} 中 {@code quartz} 前綴的設定區塊，
+ * 負責持有靜態排程定義（{@code jobMap}）以及允許動態載入的 Job 類別白名單
+ * （{@code allowedJobClasses}）。Spring Boot 啟動時會自動將設定值繫結至此類別。
+ * </p>
+ *
  * @author : Gary Tsai
  **/
 @Configuration
 @ConfigurationProperties(prefix = "quartz")
 @Data
 public class QuartzJobPropertyConfig {
+    /**
+     * 靜態排程定義映射表，Key 為排程識別名稱，Value 為對應的 {@link Job} 設定物件。
+     * 對應設定格式為 {@code quartz.job-map.<name>.*}。
+     */
     private Map<String, Job> jobMap;
 
     /**

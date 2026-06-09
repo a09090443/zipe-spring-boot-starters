@@ -18,6 +18,7 @@ import java.util.List;
 @Data
 public abstract class Paging {
 
+    /** 分頁 SQL 模板字串，於類別載入時從 classpath 資源檔讀取並快取，供所有子類別共用 */
     private static String pageingTemplate = null;
 
     private int page;                   // 當前頁碼
@@ -27,6 +28,7 @@ public abstract class Paging {
     private List<String> orderBy;       // 需要使用哪些欄位排序
 
     static {
+        // 透過 ResourceEnum 取得分頁 SQL 檔案的路徑資訊，並組合為完整相對路徑
         ResourceEnum resource = ResourceEnum.SQL.getResource("PAGING");
         StringBuilder path = new StringBuilder();
         path.append(resource.dir());
@@ -34,6 +36,7 @@ public abstract class Paging {
         path.append(resource.extension());
         File file = FileUtil.getFileFromClasspath(path.toString());
         try {
+            // 將分頁 SQL 模板一次讀入記憶體，避免每次查詢都進行 I/O
             pageingTemplate = FileUtil.readFileToString(file, StandardCharsets.UTF_8.name());
         } catch (IOException e) {
             e.getMessage();
@@ -41,6 +44,14 @@ public abstract class Paging {
 
     }
 
+    /**
+     * 取得從資源檔載入的分頁 SQL 模板字串。
+     * <p>
+     * 子類別可透過此方法取得通用的分頁 SQL，再依需求組合實際的查詢語句。
+     * </p>
+     *
+     * @return 分頁 SQL 模板字串；若初始化時讀取失敗則回傳 {@code null}
+     */
     public String getPagingSQL() {
         return pageingTemplate;
     }

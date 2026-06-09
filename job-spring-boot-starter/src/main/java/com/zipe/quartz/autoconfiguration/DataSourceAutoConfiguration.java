@@ -18,7 +18,12 @@ import org.springframework.util.StringUtils;
 import javax.sql.DataSource;
 
 /**
- * Quartz data source
+ * Quartz 資料來源自動配置類別。
+ * <p>
+ * 當 {@code spring.quartz.enable=true} 且 {@code spring.quartz.job-store-type=jdbc} 時，
+ * 自動讀取 {@code spring.datasource.quartz.*} 與 {@code spring.datasource.hikari.*} 設定，
+ * 建立 HikariCP 連線池並以 {@link org.springframework.boot.autoconfigure.quartz.QuartzDataSource}
+ * 標記供 Quartz 排程框架專用，避免與應用程式主要資料來源混用。
  *
  * @author zipe
  */
@@ -30,12 +35,28 @@ import javax.sql.DataSource;
 @ConditionalOnExpression("${spring.quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")
 public class DataSourceAutoConfiguration {
 
+    /** Quartz 資料來源相關連線設定，由 Spring 自動注入。 */
     private final QuartzDataSourceProperties quartzDataSourceProperties;
 
+    /**
+     * 建構子注入 {@link QuartzDataSourceProperties}。
+     * <p>
+     * 採用建構子注入而非欄位注入，確保物件在初始化時即具備完整的資料來源設定。
+     *
+     * @param quartzDataSourceProperties Quartz 資料來源屬性設定物件
+     */
     DataSourceAutoConfiguration(QuartzDataSourceProperties quartzDataSourceProperties) {
         this.quartzDataSourceProperties = quartzDataSourceProperties;
     }
 
+    /**
+     * 根據 {@link DataSourceProperties} 建立 {@link HikariDataSource} 實例。
+     * <p>
+     * 若 {@code properties.getName()} 有值，則一併設定連線池名稱，便於監控與日誌識別。
+     *
+     * @param properties 包含 JDBC 連線資訊（URL、帳號、密碼、驅動）的資料來源屬性物件
+     * @return 已初始化的 {@link HikariDataSource} 連線池實例
+     */
     private static HikariDataSource createHikariDataSource(DataSourceProperties properties) {
         // 建立 HikariDataSource 物件
         HikariDataSource dataSource = properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
@@ -60,7 +81,14 @@ public class DataSourceAutoConfiguration {
 //    }
 
     /**
-     * 建立 quartz 資料來源
+     * 建立並註冊 Quartz 專用的 {@link DataSource} Bean。
+     * <p>
+     * 從 {@link QuartzDataSourceProperties}（對應 {@code spring.datasource.quartz.*}）
+     * 讀取連線設定，再套用 {@code spring.datasource.hikari.*} 的 HikariCP 連線池參數，
+     * 最終產生一個標記為 {@code @QuartzDataSource} 的連線池，使 Quartz 排程框架
+     * 使用此專屬資料來源而非應用程式的主要資料來源。
+     *
+     * @return 供 Quartz 排程使用的 {@link HikariDataSource} 連線池實例
      */
     @Primary
     @Bean(name = "quartzDataSource")

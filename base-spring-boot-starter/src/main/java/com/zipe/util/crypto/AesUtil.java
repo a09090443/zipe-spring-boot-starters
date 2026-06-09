@@ -20,15 +20,23 @@ import java.security.SecureRandom;
 import java.util.Objects;
 
 /**
- * @author Gary Tsai
- * @Description: AES加密和解密工具類
+ * AES 對稱加解密工具類別。
  * <p>
  * 採用 AES/CBC/PKCS5Padding，每次加密皆以 {@link SecureRandom} 產生隨機 16-byte IV，
  * 字串輸出格式為 Base64(IV || ciphertext)，檔案輸出則在密文前以明文寫入 16-byte IV。
  * 因此相同明文每次加密皆會得到不同密文，避免 CBC 退化為確定性加密。
+ * <p>
+ * 目前僅支援 128-bit（16 bytes）金鑰長度。
+ *
+ * @author Gary Tsai
  */
 public class AesUtil implements Crypto {
 
+    /**
+     * 建構 AesUtil 實例，並綁定加解密金鑰。
+     *
+     * @param secretKey AES 金鑰字串，長度必須恰好為 16 個字元（128-bit）
+     */
     public AesUtil(String secretKey) {
         this.secretKey = secretKey;
     }
@@ -48,6 +56,7 @@ public class AesUtil implements Crypto {
     // IV 長度（AES 區塊大小固定為 16 bytes）
     private static final int IV_SIZE_BYTE = 16;
 
+    /** 檔案加解密時使用的串流緩衝區大小（位元組） */
     public static final int BUFFER_SIZE = 512;
 
     /**
@@ -59,16 +68,16 @@ public class AesUtil implements Crypto {
      */
     private Cipher initParam(int mode, byte[] iv) {
         try {
-            // 獲得原始對稱密鑰的字節數組
+            // 取得原始對稱金鑰的位元組陣列
             byte[] raw = secretKey.getBytes();
 
-            // 根據字節數組生成AES內部密鑰
+            // 根據位元組陣列建立 AES 內部金鑰規格
             SecretKeySpec key = new SecretKeySpec(raw, KEY_ALGORITHM);
-            // 根據指定算法"AES/CBC/PKCS5Padding"實例化密碼器
+            // 根據指定演算法 "AES/CBC/PKCS5Padding" 實例化密碼器
             Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM_CBC);
             IvParameterSpec ivSpec = new IvParameterSpec(iv);
 
-            // 初始化AES密碼器
+            // 以金鑰與 IV 初始化 AES 密碼器
             cipher.init(mode, key, ivSpec);
 
             return cipher;
@@ -96,9 +105,10 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 使用預設字元集將明文加密，回傳 Base64 編碼的密文字串。
+     *
      * @param content 明文：要加密的內容
      * @return 密文：Base64(IV || ciphertext)
-     * @Description: 加密
      */
     @Override
     public String getEncrypt(String content) {
@@ -106,10 +116,14 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 使用指定字元集將明文加密，回傳 Base64 編碼的密文字串。
+     * <p>
+     * 輸出格式為 Base64(IV || ciphertext)，其中 IV 為每次隨機產生的 16 bytes，
+     * 確保相同明文多次加密後結果不同。
+     *
      * @param content 明文：要加密的內容
-     * @param charset 字符
-     * @return cipherText 密文：Base64(IV || ciphertext)
-     * @Description: 加密
+     * @param charset 字元集名稱（如 "UTF-8"），傳入空值時使用 JVM 預設字元集
+     * @return 密文：Base64(IV || ciphertext)
      */
     @Override
     public String getEncrypt(String content, String charset) {
@@ -142,9 +156,10 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 使用預設字元集解密 Base64 編碼的密文，回傳明文字串。
+     *
      * @param content 密文：Base64(IV || ciphertext)，即需要解密的內容
      * @return 明文：解密後的內容
-     * @Description: 解密
      */
     @Override
     public String getDecode(String content) {
@@ -152,17 +167,20 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 使用指定字元集解密 Base64 編碼的密文，回傳明文字串。
+     * <p>
+     * 密文須為 {@link #getEncrypt(String, String)} 所產生的格式：Base64(IV || ciphertext)。
+     *
      * @param content 密文：Base64(IV || ciphertext)
-     * @param charset 字符
-     * @return plainText 明文：解密後的內容
-     * @Description: 解密
+     * @param charset 字元集名稱（如 "UTF-8"），傳入空值時使用 JVM 預設字元集
+     * @return 明文：解密後的內容
      */
     @Override
     public String getDecode(String content, String charset) {
         checkKeyLength();
 
         try {
-            // 將加密並編碼後的內容解碼成字節數組
+            // 將加密並編碼後的內容 Base64 解碼，還原為位元組陣列
             byte[] ivAndCipher = Base64.decodeBase64(content);
             if (ivAndCipher.length <= IV_SIZE_BYTE) {
                 throw new RuntimeException("AESUtil:Invalid cipher text (missing IV prefix)");
@@ -189,9 +207,14 @@ public class AesUtil implements Crypto {
     }
 
     /**
-     * @param source 來源檔案
-     * @param target 加密檔案
-     * @Description: 檔案加密；輸出檔案開頭為 16-byte 明文 IV，其後為密文。
+     * 對來源檔案進行 AES 加密，並將加密結果寫入目標檔案。
+     * <p>
+     * 輸出檔案結構：前 16 bytes 為明文 IV，其後為 AES/CBC 加密後的密文。
+     * 解密時須先讀取開頭 16 bytes 作為 IV。
+     *
+     * @param source 來源檔案（明文）
+     * @param target 目標檔案（加密後輸出）
+     * @throws Exception 加密過程或檔案 I/O 發生錯誤時拋出
      */
     public void encryptFile(File source, File target) throws Exception {
         checkKeyLength();
@@ -212,9 +235,13 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 對加密檔案進行 AES 解密，並將解密結果寫入目標檔案。
+     * <p>
+     * 來源檔案須符合 {@link #encryptFile(File, File)} 產生的格式：開頭 16 bytes 為 IV。
+     *
      * @param source 加密檔案（開頭為 16-byte 明文 IV）
-     * @param target 解密檔案
-     * @Description: 檔案解密
+     * @param target 目標檔案（解密後輸出）
+     * @throws Exception 解密過程或檔案 I/O 發生錯誤時拋出
      */
     public void decryptFile(File source, File target) throws Exception {
         checkKeyLength();
@@ -234,9 +261,13 @@ public class AesUtil implements Crypto {
     }
 
     /**
+     * 對加密檔案進行 AES 解密，並以 {@link ByteArrayInputStream} 形式回傳解密後的內容。
+     * <p>
+     * 適用於不需要寫回磁碟、直接在記憶體中處理解密資料的情境。
+     *
      * @param source 加密檔案（開頭為 16-byte 明文 IV）
      * @return 解密後內容的 {@link ByteArrayInputStream}
-     * @Description: 檔案解密為輸入串流
+     * @throws Exception 解密過程或檔案 I/O 發生錯誤時拋出
      */
     public ByteArrayInputStream decryptFile(File source) throws Exception {
         checkKeyLength();
@@ -272,9 +303,16 @@ public class AesUtil implements Crypto {
     }
 
     /**
-     * @param source 來源檔案
-     * @param target 目標檔案
-     * @Description: 確認來源和目標檔案類型及是否存在
+     * 確認來源與目標檔案的合法性。
+     * <p>
+     * 驗證項目：來源不得為目錄、來源必須存在、來源與目標路徑不得相同；
+     * 若目標檔案的上層目錄不存在，則自動建立。
+     *
+     * @param source 來源檔案（不可為 {@code null}）
+     * @param target 目標檔案（不可為 {@code null}）
+     * @throws IOException           檔案路徑無效或目錄建立失敗時拋出
+     * @throws FileNotFoundException 來源檔案不存在或為目錄時拋出
+     * @throws IllegalArgumentException 來源與目標為相同檔案時拋出
      */
     public static void checkPath(File source, File target) throws IOException {
         Objects.requireNonNull(source);
