@@ -71,9 +71,7 @@ public class LogoutSuccessHandler extends SimpleUrlLogoutSuccessHandler {
                 throw new Exception("The Custom-Record-Log must have value while Record-Log-Enable = true");
             }
             CustomLogonLogRecord logRecord = (CustomLogonLogRecord) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomRecordLogBean());
-            // FIXME(待修 Bug)：登出成功卻呼叫 recordFailureLog()，應為 recordLogoutSuccessLog()。
-            //   否則 CustomLogonLogRecord.recordLogoutSuccessLog 永遠不會被觸發，稽核日誌無法區分「登出」與「登入失敗」。
-            logRecord.recordFailureLog(UserInfoUtil.loginUserId());
+            logRecord.recordLogoutSuccessLog(UserInfoUtil.loginUserId());
         }
 
         super.onLogoutSuccess(request, response, authentication);
