@@ -203,9 +203,7 @@ public abstract class BaseJob {
             newTrigger = quartzManageUtil.buildJobTrigger(scheduleBuilder);
         } catch (ClassNotFoundException e) {
             log.error("Job name:{}, class not found, class name:{}", job.getName(), job.getClazz());
-            // FIXME(待修 Bug)：buildJobDetail 失敗後 jobDetail / newTrigger 仍為 null，方法卻繼續往下執行，
-            //   最終以 null 呼叫 scheduler.scheduleJob(null, set, true) 觸發 NullPointerException，
-            //   被外層 catch 包成「未知錯誤」掩蓋真因。應在此 early return 或重新拋出例外。
+            throw e;
         }
 
         Set<Trigger> set = new HashSet<>();
