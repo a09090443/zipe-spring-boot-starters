@@ -63,7 +63,7 @@ public class InitialJobAutoConfiguration {
 
     /**
      * 依照 {@link QuartzJobPropertyConfig} 中讀取到的排程設定，
-     * 清除既有的 "schedule" 群組排程後，重新建立並啟動所有排程。
+     * 清除既有的同群組排程後，重新建立並啟動所有排程。
      * <p>
      * 每次應用程式啟動時執行，確保排程定義與設定檔保持一致。
      * </p>
@@ -71,9 +71,8 @@ public class InitialJobAutoConfiguration {
     @Bean
     public void createJobs() {
         quartzJobPropertyConfig.getJobMap().forEach((key, value) -> {
-            // FIXME(待修 Bug)：此處刪除查詢的 group 為 "schedule"，但下方建立 job 使用的 group 為 JOB_GROUP_NAME="file"，
-            //   兩者不一致，導致每次啟動無法清除舊的 "file" 群組排程，長期累積殭屍排程。應統一為同一 group。
-            GroupMatcher<JobKey> matcher = GroupMatcher.jobGroupEquals("schedule");
+            // 清除先前由 quartz-jobs.properties 建立的同群組排程
+            GroupMatcher<JobKey> matcher = GroupMatcher.jobGroupEquals(JOB_GROUP_NAME);
             try {
                 Set<JobKey> jobKeys = scheduler.getJobKeys(matcher);
                 scheduler.deleteJobs(new ArrayList<>(jobKeys));
