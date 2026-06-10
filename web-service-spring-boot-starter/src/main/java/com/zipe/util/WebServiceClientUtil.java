@@ -62,10 +62,7 @@ public class WebServiceClientUtil {
         // 建立動態用戶端工廠並依 WSDL 位址產生客戶端實例
         JaxWsDynamicClientFactory dcf = JaxWsDynamicClientFactory.newInstance();
         Client client = dcf.createClient(wsdlUrl);
-        // FIXME(待修 Bug)：認證判斷反向。此處為 isBlank(username)，導致「帳號為空白時」才加入登入攔截器，
-        //   有帳號時反而不加，認證功能完全失效。正確應為 StringUtils.isNotBlank(username)。
-        //   修正涉及行為變更，待確認後再改；目前僅標註、不動邏輯。
-        if (StringUtils.isBlank(username)) {
+        if (StringUtils.isNotBlank(username)) {
             client.getOutInterceptors().add(new ClientLoginInterceptor(username, password));
         }
         Object[] objects;
