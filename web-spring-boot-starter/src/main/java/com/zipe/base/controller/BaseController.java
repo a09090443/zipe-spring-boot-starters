@@ -7,10 +7,8 @@ import org.springframework.context.MessageSource;
 import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.ModelAndView;
 
-// FIXME(待修 Bug)：Spring Boot 3.x 應使用 jakarta.servlet.*。目前 import javax.servlet（因遞移相依仍可編譯），
-//   但執行期容器提供的是 jakarta 型別，繼承此類別的 Controller 注入 request/response 會失敗。應改為 jakarta.servlet.*。
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
 
 /**
