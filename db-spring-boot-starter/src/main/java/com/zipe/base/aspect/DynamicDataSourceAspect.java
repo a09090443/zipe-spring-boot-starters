@@ -37,7 +37,15 @@ public class DynamicDataSourceAspect {
     public void dataSourcePointCut(){}
 
     /**
-     * 環繞通知：在目標方法執行前設定資料來源，執行後由 Spring 事務同步機制負責清理。
+     * 環繞通知：在目標方法執行前設定資料來源，執行後於 {@code finally} 區塊還原為外層原值。
+     *
+     * <p>進入方法時先保存當前執行緒既有的資料來源名稱（外層值），再切換為 {@code @DS} 指定的目標；
+     * 方法結束後一律還原為外層值，若外層原本未設定（最外層呼叫）則清除 ThreadLocal。
+     * 此「保存 / 還原」機制同時解決兩個問題：</p>
+     * <ul>
+     *   <li>執行緒池環境（Tomcat/Undertow）下執行緒被後續請求重用時，殘留設定導致的錯誤路由；</li>
+     *   <li>巢狀 {@code @DS} 呼叫返回後，外層方法剩餘的資料庫操作被內層資料來源污染的問題。</li>
+     * </ul>
      *
      * @param joinPoint 正在執行的連接點，用於取得目標方法及其所屬類別的資訊
      * @return 目標方法的實際回傳值
@@ -45,13 +53,21 @@ public class DynamicDataSourceAspect {
      */
     @Around("dataSourcePointCut()")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 保存外層既有的資料來源名稱，供方法結束後還原（支援巢狀 @DS 呼叫）
+        String previousDsKey = DataSourceHolder.getDataSourceName();
         // 取得 @DS 指定的資料來源索引鍵，並設定至當前執行緒的 ThreadLocal 中
         String dsKey = getDSAnnotation(joinPoint).value();
         DataSourceHolder.setDataSourceName(dsKey);
-        // FIXME(待修 Bug)：未於 finally 區塊清除 ThreadLocal。執行緒池環境（Tomcat/Undertow）下執行緒被後續
-        //   請求重用時會殘留前次的資料來源設定，導致路由至錯誤資料來源。
-        //   應改為 try { return joinPoint.proceed(); } finally { DataSourceHolder.clearDataSourceName(); }。
-        return joinPoint.proceed();
+        try {
+            return joinPoint.proceed();
+        } finally {
+            // 還原為外層原值；若外層未設定（最外層呼叫）則清除 ThreadLocal，避免執行緒池殘留
+            if (Objects.nonNull(previousDsKey)) {
+                DataSourceHolder.setDataSourceName(previousDsKey);
+            } else {
+                DataSourceHolder.clearDataSourceName();
+            }
+        }
     }
 
     /**
