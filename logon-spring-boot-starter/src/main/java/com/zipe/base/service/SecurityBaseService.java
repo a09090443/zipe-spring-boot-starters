@@ -4,10 +4,7 @@ import com.zipe.util.UserInfoUtil;
 import com.zipe.vo.SysUserVO;
 import org.springframework.beans.factory.annotation.Autowired;
 
-// FIXME(待修 Bug)：Spring Boot 3.x 應使用 jakarta.servlet.http.HttpSession。
-//   目前 import javax.servlet（classpath 因遞移相依仍可編譯），但執行期容器注入的是 jakarta 型別，
-//   會導致 @Autowired HttpSession 注入失敗。應改為 import jakarta.servlet.http.HttpSession。
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * 安全性基礎服務，供各業務服務繼承使用。
