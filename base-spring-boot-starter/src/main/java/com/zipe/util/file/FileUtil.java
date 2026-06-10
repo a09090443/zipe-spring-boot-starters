@@ -144,14 +144,10 @@ public class FileUtil {
      * @修改時間：2018年8月28日 下午1:55:40
      */
     public static Long sizeOf(File file) throws IOException {
-        // FIXME(待修 Bug)：條件與呼叫的方法疑似對調。
-        //   目前 isDirectory()==true 呼叫 FileUtils.sizeOf()、false 呼叫 FileUtils.sizeOfDirectory()，
-        //   與兩個 API 的語意相反（sizeOfDirectory 才是用於計算目錄）。傳入目錄時可能取得錯誤大小。
-        //   正確應為：isDirectory() 時呼叫 sizeOfDirectory()，否則呼叫 sizeOf()。修正前請先確認是否有呼叫端依賴現有行為。
         if (file.isDirectory()) {
-            return FileUtils.sizeOf(file);
-        } else {
             return FileUtils.sizeOfDirectory(file);
+        } else {
+            return FileUtils.sizeOf(file);
         }
 
     }
