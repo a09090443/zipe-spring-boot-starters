@@ -4,8 +4,8 @@ import com.zipe.keycloak.KeycloakProperties;
 import lombok.RequiredArgsConstructor;
 import org.keycloak.Config;
 
+import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -154,8 +154,9 @@ public class SpringBootConfigProvider implements Config.ConfigProvider {
         /**
          * 取得指定鍵的字串陣列值。
          *
-         * <p>Spring Boot 解析 YAML 清單時，可能將其轉換為 {@link LinkedHashMap}（以索引為鍵）
-         * 而非 {@code String[]}，因此此處針對兩種情況分別處理。</p>
+         * <p>YAML 序列已於 {@link KeycloakProperties#normalizeIndexedLists()} 正規化為
+         * {@link Collection}，因此此處以集合為主要型別處理，並相容字串陣列與單一值
+         * （單一值視為單元素陣列）。</p>
          *
          * @param key 設定鍵名
          * @return 字串陣列，若不存在則回傳空陣列
@@ -166,20 +167,13 @@ public class SpringBootConfigProvider implements Config.ConfigProvider {
             if (obj == null) {
                 return new String[0];
             }
-
-            // TODO find better way to parse config yaml into a list instead of a LinkedHashMap in the first place
-            // YAML 序列被解析成 LinkedHashMap（以數字索引為鍵）時，逐一取出值轉為字串陣列
-            if (obj instanceof LinkedHashMap) {
-                LinkedHashMap lm = (LinkedHashMap) obj;
-                String[] strings = new String[lm.size()];
-                int i = 0;
-                for (Object entryValue : lm.values()) {
-                    strings[i++] = String.valueOf(entryValue);
-                }
-                return strings;
+            if (obj instanceof Collection<?> collection) {
+                return collection.stream().map(String::valueOf).toArray(String[]::new);
             }
-
-            return (String[]) obj;
+            if (obj instanceof String[] arr) {
+                return arr;
+            }
+            return new String[]{String.valueOf(obj)};
         }
 
         /**
