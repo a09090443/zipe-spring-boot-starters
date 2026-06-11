@@ -13,7 +13,7 @@
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>zipe-spring-boot-starters</artifactId>
-    <version>3.5.11.0</version>
+    <version>3.5.14.0</version>
     <packaging>pom</packaging>
     <name>zipe-spring-boot-starters</name>
     <description>Zipe 自製 Spring Boot Starter 集合</description>

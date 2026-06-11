@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.11</version>
+    <version>3.5.14</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   <groupId>com.example</groupId>
@@ -21,7 +21,7 @@
     <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
     <webjars-jquery.version>3.7.1</webjars-jquery.version>
     <webjars-locator.version>0.46</webjars-locator.version>
-    <zipe.spring.starter.version>3.5.11.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>3.5.14.0</zipe.spring.starter.version>
   </properties>
 
   <dependencies>
