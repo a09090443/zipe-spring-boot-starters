@@ -115,16 +115,11 @@
             <artifactId>gson</artifactId>
         </dependency>
 
-        <!-- Velocity -->
+        <!-- Velocity（velocity 1.7 runtime 需要 commons-lang 2.x 的 org.apache.commons.lang.StringUtils，
+             不可 exclude commons-lang，否則 VelocityUtil 執行時會 NoClassDefFoundError） -->
         <dependency>
             <groupId>org.apache.velocity</groupId>
             <artifactId>velocity</artifactId>
-            <exclusions>
-                <exclusion>
-                    <artifactId>commons-lang</artifactId>
-                    <groupId>commons-lang</groupId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <!-- Java Servlet -->
