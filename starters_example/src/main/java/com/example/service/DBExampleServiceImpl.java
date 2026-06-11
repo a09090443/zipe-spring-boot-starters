@@ -43,7 +43,7 @@ public class DBExampleServiceImpl implements DBExampleService {
    * 依使用者名稱查詢主要資料，示範以程式碼手動切換資料來源的方式。
    *
    * <p>方法執行前會先記錄目前的資料來源名稱，
-   * 接著明確將資料來源切換為 {@code "common"}，再執行查詢。
+   * 接著明確將資料來源切換為 {@code "example2"}，再執行查詢。
    *
    * @param name 要查詢的使用者名稱
    * @return 對應的 {@link UserMain} 實體，若查無資料則回傳 {@code null}
@@ -52,8 +52,8 @@ public class DBExampleServiceImpl implements DBExampleService {
   public UserMain getUserMainByName(String name) {
     String dataSourceName = DataSourceHolder.getDataSourceName();
     log.debug("DataSourceName:{}", dataSourceName);
-    // 指定 datasource
-    DataSourceHolder.setDataSourceName("common");
+    // 指定 datasource（須為 data-source.properties 中實際存在的資料源名稱）
+    DataSourceHolder.setDataSourceName("example2");
     dataSourceName = DataSourceHolder.getDataSourceName();
     log.debug("DataSourceName:{}", dataSourceName);
     return userMainRepository.findUserByName(name);
@@ -69,7 +69,7 @@ public class DBExampleServiceImpl implements DBExampleService {
    * @return 對應的 {@link UserDetail} 實體，若查無資料則回傳 {@code null}
    */
   @Override
-  @DS
+  @DS("example2")
   public UserDetail getUserDetailByName(String name) {
     return userDetailRepository.findByName(name);
   }

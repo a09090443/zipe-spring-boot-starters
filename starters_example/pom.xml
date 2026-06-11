@@ -18,8 +18,8 @@
   <properties>
     <java.version>17</java.version>
     <jaxws-ri.version>4.0.1</jaxws-ri.version>
-    <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
-    <webjars-jquery.version>3.6.4</webjars-jquery.version>
+    <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
+    <webjars-jquery.version>3.7.1</webjars-jquery.version>
     <webjars-locator.version>0.46</webjars-locator.version>
     <zipe.spring.starter.version>3.5.11.0</zipe.spring.starter.version>
   </properties>
@@ -111,6 +111,13 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- PostgreSQL driver（驗證跨資料庫類型動態切換；版本由 Spring Boot BOM 管理） -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
@@ -128,6 +135,12 @@
   <build>
     <finalName>example</finalName>
     <resources>
+      <!-- 預設資源目錄（application.yml、data-source.properties、init SQL、jasperreport 模板等）。
+           一旦明確宣告 <resources> 就會覆蓋 Maven 預設值，故須手動補回此目錄，否則 src/main/resources 不會被打包。 -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
       <resource>
         <directory>src/main/webapp</directory>
         <!--這裡必須是META-INF/resources-->
