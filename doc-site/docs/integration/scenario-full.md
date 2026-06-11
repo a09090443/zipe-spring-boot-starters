@@ -71,12 +71,12 @@ description: 整合所有 Starter 建構完整的企業應用系統
     <dependency>
         <groupId>org.webjars</groupId>
         <artifactId>bootstrap</artifactId>
-        <version>5.2.3</version>
+        <version>5.3.8</version>
     </dependency>
     <dependency>
         <groupId>org.webjars</groupId>
         <artifactId>jquery</artifactId>
-        <version>3.6.4</version>
+        <version>3.7.1</version>
     </dependency>
 </dependencies>
 ```
