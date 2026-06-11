@@ -11,12 +11,12 @@
 
 | 模組 | 版本 | 說明 |
 |------|------|------|
-| [base-spring-boot-starter](base-spring-boot-starter/README.md) | 3.5.11.0 | 基礎工具（加解密、文件、郵件等） |
-| [db-spring-boot-starter](db-spring-boot-starter/README.md) | 3.5.11.0 | 動態多資料來源切換 |
-| [job-spring-boot-starter](job-spring-boot-starter/README.md) | 3.5.11.0 | Quartz 排程任務管理 |
-| [logon-spring-boot-starter](logon-spring-boot-starter/README.md) | 3.5.11.0 | Spring Security 登入認證 |
-| [web-spring-boot-starter](web-spring-boot-starter/README.md) | 3.5.11.0 | JSP / Thymeleaf 視圖整合 |
-| [web-service-spring-boot-starter](web-service-spring-boot-starter/README.md) | 3.5.11.0 | Apache CXF SOAP WebService |
+| [base-spring-boot-starter](base-spring-boot-starter/README.md) | 3.5.14.0 | 基礎工具（加解密、文件、郵件等） |
+| [db-spring-boot-starter](db-spring-boot-starter/README.md) | 3.5.14.0 | 動態多資料來源切換 |
+| [job-spring-boot-starter](job-spring-boot-starter/README.md) | 3.5.14.0 | Quartz 排程任務管理 |
+| [logon-spring-boot-starter](logon-spring-boot-starter/README.md) | 3.5.14.0 | Spring Security 登入認證 |
+| [web-spring-boot-starter](web-spring-boot-starter/README.md) | 3.5.14.0 | JSP / Thymeleaf 視圖整合 |
+| [web-service-spring-boot-starter](web-service-spring-boot-starter/README.md) | 3.5.14.0 | Apache CXF SOAP WebService |
 | [keycloak-spring-boot-starter](keycloak-spring-boot-starter/README.md) | 2.4.4.1 | 嵌入式 Keycloak OAuth 伺服器 |
 
 ---
@@ -41,7 +41,7 @@
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.11.0</version>
+    <version>3.5.14.0</version>
 </dependency>
 ```
 

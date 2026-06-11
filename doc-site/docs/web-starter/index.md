@@ -30,7 +30,7 @@ description: 提供 JSP / Thymeleaf 視圖切換與統一 REST 回應格式的�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.11.0</version>
+    <version>3.5.14.0</version>
 </dependency>
 ```
 

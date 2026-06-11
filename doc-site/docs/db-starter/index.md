@@ -28,7 +28,7 @@ description: 支援多資料來源動態切換、JDBC 封裝與 SQL 條件建構
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.11.0</version>
+    <version>3.5.14.0</version>
 </dependency>
 ```
 
