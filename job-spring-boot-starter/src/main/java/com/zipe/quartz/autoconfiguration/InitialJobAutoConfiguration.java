@@ -5,6 +5,7 @@ import com.zipe.quartz.controller.QuartzController;
 import com.zipe.quartz.enums.ScheduleEnum;
 import com.zipe.quartz.model.Job;
 import com.zipe.quartz.util.QuartzJobUtil;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
@@ -16,7 +17,6 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -68,7 +68,7 @@ public class InitialJobAutoConfiguration {
      * 每次應用程式啟動時執行，確保排程定義與設定檔保持一致。
      * </p>
      */
-    @Bean
+    @PostConstruct
     public void createJobs() {
         quartzJobPropertyConfig.getJobMap().forEach((key, value) -> {
             // 清除先前由 quartz-jobs.properties 建立的同群組排程
