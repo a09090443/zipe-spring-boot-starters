@@ -171,25 +171,25 @@ public interface UserDetailRepository extends JpaRepository<UserDetail, String> 
 ```java
 @Override
 public UserMain getUserMainByName(String name) {
-    DataSourceHolder.getDataSourceName();          // 讀取目前 DS
-    DataSourceHolder.setDataSourceName("common");  // 手動切換至 common
+    DataSourceHolder.getDataSourceName();            // 讀取目前 DS
+    DataSourceHolder.setDataSourceName("example2");  // 手動切換至 example2
     return userMainRepository.findUserByName(name);
 }
 ```
 
-適合需要在同一方法中切換多次的場景。
+適合需要在同一方法中切換多次的場景。切換目標須為 `data-source.properties` 中**實際存在**的資料源名稱；若指定不存在的名稱，`DynamicDataSource` 會 fallback 回 primary，導致「看似切換、實則未切換」。
 
 ### 方式二：@DS 注解宣告式切換
 
 ```java
 @Override
-@DS   // 預設 value = "common"，由 AOP 自動切換
+@DS("example2")   // 由 AOP 自動切換至 example2，方法結束後還原
 public UserDetail getUserDetailByName(String name) {
     return userDetailRepository.findByName(name);
 }
 ```
 
-`@DS` 的 `value` 預設為 `"common"`，也可指定為其他名稱如 `@DS("example2")`。AOP 切面 `DynamicDataSourceAspect` 標記 `@Order(-1)`，確保在 `@Transactional` 之前執行（交易開始前就要確定資料來源）。
+`@DS` 的 `value` 預設為 `"common"`，實務上應明確指定為設定中存在的資料源名稱（如 `@DS("example2")`）。AOP 切面 `DynamicDataSourceAspect` 標記 `@Order(-1)`，確保在 `@Transactional` 之前執行（交易開始前就要確定資料來源）。
 
 :::warning ThreadLocal 切換的注意事項
 資料來源切換是以 `ThreadLocal`（`DataSourceHolder`）實作，因此有以下幾點需特別留意：
@@ -198,3 +198,51 @@ public UserDetail getUserDetailByName(String name) {
 - **及時清除**：使用程式化切換時，務必在使用完畢後清除（或在切面結束時自動清除），避免執行緒被池化重用時殘留錯誤的資料來源名稱。`@DS` 注解方式由 AOP 自動處理清除，較為安全。
 - **與交易的順序**：`@DS` 必須在 `@Transactional` 之前生效，因此切面 `@Order(-1)` 不可隨意調整。在同一個交易內切換資料來源並不會生效（交易已綁定特定連線）。
 :::
+
+## 跨資料庫類型動態切換（MySQL ↔ PostgreSQL）
+
+動態資料來源不限於同類型資料庫，也能在**不同資料庫產品**之間切換。`starters_example` 以三個資料來源示範：
+
+| 資料源 key | 類型 | 連線 | 獨有標記資料 |
+|---|---|---|---|
+| `example1`（primary） | MySQL | `localhost:3306/example1` | `OnlyExample1` |
+| `example2` | MySQL | `localhost:3306/example2` | `OnlyExample2` |
+| `postgres` | PostgreSQL | `localhost:5432/pgdb` | `OnlyPostgres` |
+
+三個資料來源具有相同的基礎資料（Tom/Jen/Andy/Gary），各自再放一筆**獨有標記**，
+用以辨識查詢究竟被路由到哪個資料來源——這是驗證「切換確實生效、而非 fallback 回 primary」的關鍵。
+
+### 測試資料初始化
+
+整合測試所需的資料庫、帳號、資料表與測試資料，以初始化腳本維護於：
+
+```
+starters_example/src/test/resources/db/
+├── mysql-init.sql      # example1 / example2（建庫、帳號、資料表、資料）
+├── postgres-init.sql   # pgdb（資料表、資料）
+├── apply.sh / apply.ps1 # 一鍵套用
+└── README.md           # 資料源對照與套用說明
+```
+
+啟動 Docker 資料庫後執行 `apply.sh`（或 `apply.ps1`）即可重建完整測試環境，腳本為冪等設計，可重複執行重置。
+
+### 驗證測試
+
+`CrossDbSwitchTest` 以「互斥資料法」證明跨類型切換生效：
+
+```java
+// 切換至 example1（MySQL）：只查得到 MySQL 的獨有資料
+DataSourceHolder.setDataSourceName("example1");
+assertNotNull(userMainRepository.findUserByName("OnlyExample1"));  // MySQL 有
+assertNull(userMainRepository.findUserByName("OnlyPostgres"));     // MySQL 無
+
+// 切換至 postgres（PostgreSQL）：只查得到 PostgreSQL 的獨有資料
+DataSourceHolder.setDataSourceName("postgres");
+assertNotNull(userMainRepository.findUserByName("OnlyPostgres"));  // PostgreSQL 有
+assertNull(userMainRepository.findUserByName("OnlyExample1"));     // PostgreSQL 無
+```
+
+四個斷言僅在查詢「真正跨資料庫類型路由」時才能同時成立——若切換失效而 fallback 至同一資料來源，`assertNull` 必然失敗。
+
+PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`），跨方言的限制請參閱
+[db-starter 設定文件的「跨資料庫類型的方言限制」](../db-starter/configuration.md#混用不同資料庫類型mysql--postgresql)。

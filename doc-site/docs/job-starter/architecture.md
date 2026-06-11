@@ -290,7 +290,7 @@ Spring Boot 啟動
        │    ├─ @PropertySource 載入 quartz.properties / quartz-jobs.properties / spring-quartz.properties
        │    ├─ QuartzJobPropertyConfig 綁定 quartz.job-map.*
        │    ├─ @Import QuartzController → 註冊為 REST Controller Bean
-       │    └─ @Bean createJobs()
+       │    └─ @PostConstruct createJobs()（Bean 初始化後執行批次註冊）
        │         ├─ 1. scheduler.deleteJobs（group="schedule" 的所有 JobKey）
        │         ├─ 2. 遍歷 jobMap，建構 Job 物件（group 強制設為 "file"）
        │         ├─ 3. QuartzJobUtil.buildJobDetail() → JobDetail（Class.forName 動態載入）
@@ -458,7 +458,8 @@ public DataSource quartzDataSource() { ... }
 @ConditionalOnProperty(name = "spring.quartz.enable", havingValue = "true")
 ```
 
-`createJobs()` Bean 方法邏輯：
+`createJobs()` 方法邏輯（標註 `@PostConstruct`，於 Bean 依賴注入完成後執行一次；
+不可使用 `@Bean void`，Spring 6.x 會拒絕回傳型別為 void 的 `@Bean` 方法）：
 
 1. 讀取 `quartz.job-map.*`（`QuartzJobPropertyConfig.jobMap`）
 2. 先清空 group=`"schedule"` 的所有 Job

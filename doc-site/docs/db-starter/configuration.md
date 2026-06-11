@@ -117,6 +117,44 @@ dynamic.data-source-map[mssql_db].pa55word=SqlPassword1
 dynamic.data-source-map[mssql_db].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
 
+### 混用不同資料庫類型（MySQL + PostgreSQL）
+
+動態資料來源可在**不同資料庫產品之間**切換。以下示範 primary 為 MySQL、另一個資料來源為 PostgreSQL：
+
+```properties
+dynamic.primary=example1
+dynamic.entity-scan=com.example
+dynamic.is-encrypt=false
+
+# MySQL 資料來源
+dynamic.data-source-map[example1].url=jdbc:p6spy:mysql://localhost:3306/example1?useUnicode=true&characterEncoding=utf-8&serverTimezone=UTC
+dynamic.data-source-map[example1].username=user1
+dynamic.data-source-map[example1].pa55word=example1
+dynamic.data-source-map[example1].driverClassName=com.p6spy.engine.spy.P6SpyDriver
+
+# PostgreSQL 資料來源
+dynamic.data-source-map[postgres].url=jdbc:p6spy:postgresql://localhost:5432/pgdb
+dynamic.data-source-map[postgres].username=pguser
+dynamic.data-source-map[postgres].pa55word=pgpass
+dynamic.data-source-map[postgres].driverClassName=com.p6spy.engine.spy.P6SpyDriver
+```
+
+PostgreSQL driver 並未隨 Starter 提供，引用方需自行加入依賴（版本可交由 Spring Boot BOM 管理）：
+
+```xml
+<dependency>
+  <groupId>org.postgresql</groupId>
+  <artifactId>postgresql</artifactId>
+  <scope>runtime</scope>
+</dependency>
+```
+
+:::warning 跨資料庫類型的方言限制
+
+多個資料來源共用**單一** `EntityManagerFactory`，Hibernate 方言（dialect）以 `primary` 資料來源偵測。基本 CRUD 查詢（`SELECT / INSERT / UPDATE / DELETE`）的 SQL 在不同資料庫間語法通用，可正常跨類型切換；但若用到**方言專屬語法**（分頁 `LIMIT` vs `OFFSET FETCH`、資料庫專屬函式、型別轉換等），以 primary 方言產生的 SQL 可能不適用於另一類型的資料庫。此情境下建議為各資料庫類型配置獨立的 `EntityManagerFactory`。
+
+:::
+
 ### 啟用密碼加密
 
 當 `dynamic.is-encrypt=true` 時，模組會以 `CryptoUtil(Base64Util)` 對 `pa55word` 進行 Base64 解碼：
