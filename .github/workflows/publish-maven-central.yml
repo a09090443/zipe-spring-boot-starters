@@ -1,0 +1,42 @@
+name: 發布至 Maven Central
+
+# 觸發時機：
+# - 於 GitHub 建立並發布 Release（含 tag）時自動發布
+# - 於 Actions 頁面手動執行（備用，需自行確認當前 commit 版本正確）
+#
+# 必要的 GitHub Secrets（Settings → Secrets and variables → Actions）：
+# - MAVEN_CENTRAL_USERNAME：Central Portal 產生的 token 使用者名稱
+# - MAVEN_CENTRAL_PASSWORD：Central Portal 產生的 token 密碼
+# - GPG_PRIVATE_KEY：armored 格式 GPG 私鑰（gpg --armor --export-secret-keys <keyid>）
+# - GPG_PASSPHRASE：上述 GPG 私鑰的 passphrase
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: 建置並發布
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 JDK 17 並匯入 GPG 私鑰
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: 啟用 release profile 建置並發布至 Maven Central
+        run: mvn -B -Prelease -s .github/maven-settings.xml clean deploy
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

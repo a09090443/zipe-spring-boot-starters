@@ -86,7 +86,7 @@
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
-        <gpg.keyname>F15B8450C83032817D560D0C023B9997714356C1</gpg.keyname>
+        <gpg.keyname>063A3F99C99FC14AB63FA41F451A84C7C09C90F0</gpg.keyname>
     </properties>
 
     <dependencyManagement>
