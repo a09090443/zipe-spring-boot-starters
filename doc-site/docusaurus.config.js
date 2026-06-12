@@ -14,6 +14,15 @@ const config = {
   i18n: { defaultLocale: 'zh-Hant', locales: ['zh-Hant'] },
   markdown: { hooks: { onBrokenMarkdownLinks: 'warn' } },
   presets: [['classic', { docs: { sidebarPath: './sidebars.js', routeBasePath: '/' }, blog: false, theme: { customCss: './src/css/custom.css' } }]],
+  plugins: [
+    ['docusaurus-plugin-llms', {
+      title: 'Zipe Spring Boot Starters',
+      description: '自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、WebService、前端視圖等常用功能的自動配置模組。',
+      generateLLMsTxt: true,
+      generateLLMsFullTxt: true,
+      includeBlog: false,
+    }],
+  ],
   themeConfig: {
     navbar: {
       title: 'Zipe Spring Boot Starters',
