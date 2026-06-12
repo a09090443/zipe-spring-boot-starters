@@ -1,5 +1,5 @@
 ---
-description: keycloak-spring-boot-starter 的目錄結構與功能說明
+description: keycloak-spring-boot-starter 的功能說明（doc-site 文件尚未建立）
 paths:
   - keycloak-spring-boot-starter/**
   - example-keycloak/**
@@ -7,37 +7,22 @@ paths:
 
 # keycloak-spring-boot-starter
 
-Keycloak 嵌入式服務的 Starter，允許在 Spring Boot 應用中直接嵌入 Keycloak 身份認證伺服器。
+Keycloak 嵌入式服務的 Starter，允許在 Spring Boot 應用中直接嵌入 Keycloak 身份認證伺服器（Undertow + Infinispan 快取）。
 
-## 目錄結構
+## 主要功能領域
 
-```
-keycloak-spring-boot-starter/
-└── src/main/java/com/zipe/
-    └── keycloak/
-        ├── autoconfiguration/
-        │   └── EmbeddedKeycloakAutoConfiguration.java  # Keycloak 嵌入式自動配置
-        ├── scripting/
-        │   └── EmbeddedScriptBasedComponentRegistrar.java  # 腳本元件註冊
-        ├── support/
-        │   ├── DynamicJndiContextFactoryBuilder.java   # 動態 JNDI 工廠
-        │   ├── InfinispanCacheManagerProvider.java     # Infinispan 快取管理
-        │   ├── KeycloakInitialContext.java              # Keycloak 初始化 Context
-        │   ├── KeycloakUndertowRequestFilter.java      # Undertow 請求過濾器
-        │   ├── PopulateKeycloakPropertiesApplicationListener.java  # 屬性初始化監聽器
-        │   ├── Resteasy3Provider.java                  # RESTEasy 3 提供者
-        │   ├── SpringBootConfigProvider.java           # Spring Boot 設定提供者
-        │   └── SpringBootPlatformProvider.java         # Spring Boot 平台提供者
-        ├── EmbeddedKeycloakApplication.java            # Keycloak 應用程式
-        ├── EmbeddedKeycloakServer.java                 # Keycloak 伺服器
-        ├── KeycloakCustomProperties.java               # 自訂 Keycloak 屬性
-        └── KeycloakProperties.java                     # Keycloak 屬性設定
-```
+嵌入式 Keycloak 服務啟動、Spring Boot 屬性整合（`keycloak.custom.*`）、Infinispan 快取支援、Undertow 請求過濾、Realm 匯入（singleFile / multipleFiles）。
 
-## 主要功能
+## 設定屬性前綴（無 doc-site，供快速參照）
 
-嵌入式 Keycloak 服務啟動、Spring Boot 整合配置、Infinispan 快取支援、Undertow 請求過濾
+| 前綴 | 說明 |
+|---|---|
+| `keycloak.custom.server.keycloak-path` | Keycloak context path（預設 `/auth`） |
+| `keycloak.custom.admin-user.*` | 管理員帳號建立設定（create-admin-user-enabled、username、password） |
+| `keycloak.custom.migration.*` | Realm 匯入（import-location、import-provider） |
+| `keycloak.custom.infinispan.config-location` | Infinispan 設定檔路徑（預設 `classpath:infinispan.xml`） |
+| `keycloak.*` | 其他 Keycloak 原生屬性（由 `KeycloakProperties` 以 Map 形式接收） |
 
-## 對應文件
+## doc-site 文件
 
-本模組尚未建立 doc-site 技術文件頁面，後續若新增功能請同步補上文件。
+本模組尚未建立 doc-site 技術文件頁面。新增功能時請同步在 `doc-site/docs/keycloak-starter/` 下建立對應文件（index / quickstart / configuration / examples / architecture）。

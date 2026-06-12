@@ -1,51 +1,25 @@
 ---
-description: web-service-spring-boot-starter 的目錄結構與功能說明
+description: web-service-spring-boot-starter 的功能說明與 doc-site 文件導覽
 paths:
   - web-service-spring-boot-starter/**
 ---
 
 # web-service-spring-boot-starter
 
-WebService 功能的 Starter，基於 Apache CXF，提供 SOAP WebService 的服務端與客戶端整合。
+WebService 功能的 Starter，基於 Apache CXF，提供 SOAP WebService 的服務端自動註冊與客戶端呼叫整合。
 
-## 目錄結構
+## 主要功能領域
 
-```
-web-service-spring-boot-starter/
-└── src/main/java/com/zipe/
-    ├── adapt/
-    │   └── CdataAdapter.java                        # CDATA XML 轉換器
-    ├── autoconfiguration/
-    │   ├── CxfConfigAutoConfiguration.java          # CXF 框架自動配置
-    │   └── WebServiceRegisterAutoConfiguration.java # WebService 自動註冊
-    ├── config/
-    │   ├── Service.java                             # 服務設定 Annotation
-    │   └── WebServicePropertyConfig.java            # WebService 屬性設定
-    ├── interceptor/
-    │   ├── CdataContentInterceptor.java             # CDATA 內容攔截器 (入)
-    │   └── ResponseCdataInterceptor.java            # CDATA 回應攔截器 (出)
-    ├── model/
-    │   └── User.java                                # 使用者模型 (範例)
-    ├── service/
-    │   ├── UserService.java                         # WebService 介面 (範例)
-    │   └── impl/UserServiceImpl.java                # WebService 實作 (範例)
-    └── util/
-        ├── ClientLoginInterceptor.java              # 客戶端登入攔截器
-        ├── SoapUtil.java                            # SOAP 訊息工具
-        ├── WebServiceClientUtil.java                # WebService 客戶端工具
-        └── XmlUtil.java                             # XML 處理工具
-```
+CXF SOAP WebService 服務端自動註冊、`WebServiceClientUtil` 客戶端動態呼叫、`SoapUtil` SOAP 訊息工具、CDATA 內容攔截器（入 / 出）、`ClientLoginInterceptor` 客戶端認證、XML 工具。
 
-## 主要功能
+## doc-site 文件導覽
 
-CXF SOAP WebService 服務端自動註冊、WebService 客戶端呼叫工具、CDATA 內容攔截器、客戶端認證攔截器、XML 工具
+工作於本模組時，依需求閱讀對應文件：
 
-## 對應文件
-
-本模組的完整使用說明與開發指南請參閱 doc-site 技術文件：
-
-- [模組簡介](../../doc-site/docs/web-service-starter/index.md)
-- [快速開始](../../doc-site/docs/web-service-starter/quickstart.md)
-- [配置參考](../../doc-site/docs/web-service-starter/configuration.md)
-- [使用範例](../../doc-site/docs/web-service-starter/examples.md)
-- [架構與開發指南](../../doc-site/docs/web-service-starter/architecture.md)
+| 需求 | doc-site 文件 |
+|---|---|
+| 了解模組整體功能與主要類別清單 | [index.md](../../doc-site/docs/web-service-starter/index.md) |
+| 引入 Maven 依賴、定義 `@WebService` 服務與最小 `web.service.*` 設定步驟 | [quickstart.md](../../doc-site/docs/web-service-starter/quickstart.md) |
+| 查詢 `web.service.*`（uri-mapping、map）及 `Service`（bean-name、uri-mapping）子屬性 | [configuration.md](../../doc-site/docs/web-service-starter/configuration.md) |
+| 查詢 `WebServiceClientUtil` 呼叫遠端服務、SOAP 攔截器掛載、CDATA 處理、`SoapUtil` 用法 | [examples.md](../../doc-site/docs/web-service-starter/examples.md) |
+| 了解 CXF 自動配置機制、`WebServiceRegisterAutoConfiguration` 服務掃描註冊原理、擴充指南 | [architecture.md](../../doc-site/docs/web-service-starter/architecture.md) |
