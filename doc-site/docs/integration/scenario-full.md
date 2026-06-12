@@ -257,14 +257,18 @@ cd starters_example
 
 測試策略分為三層：
 
-- **整合測試層**（繼承 `TestBase`，啟動完整 Context）：`RestControllerTest`、`WebControllerTest` 以 `@AutoConfigureMockMvc` 模擬 HTTP 請求；`DBExampleServiceTest` 驗證多資料來源切換。
-- **單元測試層**（純 JUnit 5，不啟動 Context）：`CryptoUtilTest`（AES/3DES/Base64）、`TestExportBean`/`TestImportExcel`、`JasperreportTest`。
-- **手動測試層**：`Example.postman_collection.json` 收錄三個 SOAP WebService 測試，對已啟動的應用發送真實請求。
+- **整合測試層**（繼承 `TestBase`，啟動完整 Context）：
+  - `RestControllerTest`、`WebControllerTest`：以 `@AutoConfigureMockMvc` 模擬 HTTP 請求。
+  - `DBExampleServiceTest`：透過 Service 方法間接驗證 `DataSourceHolder` 切換（`getUserMainByName()` 內部切至 `example2`）。
+  - `DynamicDataSourceSwitchTest`：直接操作 `DataSourceHolder` 驗證同類型（MySQL `example1` ↔ `example2`）切換是否真正生效。
+  - `CrossDbSwitchTest`：驗證跨資料庫類型（MySQL ↔ PostgreSQL）切換，詳見[情境二](./scenario-db.md)。
+- **單元測試層**（純 JUnit 5，不啟動 Context）：`CryptoUtilTest`（AES/3DES/Base64）、`TestExportBean`/`TestExportMap`/`TestImportExcel`、`JasperreportTest`。
+- **手動測試層**（需應用已啟動）：`ExampleWebServiceTest`（Java 版 WebService 客戶端，含三種呼叫方式：JaxWsProxyFactoryBean、WebServiceClientUtil、JaxWsDynamicClientFactory）；`Example.postman_collection.json` 收錄相同端點的 SOAP 請求。
 
 :::warning 整合測試需注意的外部依賴
-- `DBExampleServiceTest` 預期連線真實 MySQL（`example1` / `example2`），無 MySQL 環境時會失敗。H2 在此扮演開發輔助角色（`sql.init.mode: never` 代表 H2 腳本未自動執行）。
+- `DBExampleServiceTest`、`DynamicDataSourceSwitchTest`、`CrossDbSwitchTest` 均預期連線真實 MySQL（`example1` / `example2`），`CrossDbSwitchTest` 額外需要 PostgreSQL；無對應環境時會失敗。H2 在此扮演開發輔助角色（`sql.init.mode: never` 代表 H2 腳本未自動執行）。
 - Excel 與 JasperReport 測試依賴本機 `D:/tmp/` 目錄的實際檔案，缺檔即失敗，屬本機手動測試性質。
-- SOAP 的 Postman 測試需應用程式已啟動才能執行。
+- `ExampleWebServiceTest` 與 Postman 測試均需應用程式已啟動才能執行。
 :::
 
 :::info 從全功能拆解到單一情境

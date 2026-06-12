@@ -228,7 +228,23 @@ starters_example/src/test/resources/db/
 
 ### 驗證測試
 
-`CrossDbSwitchTest` 以「互斥資料法」證明跨類型切換生效：
+本範例提供兩個互補的切換驗證測試：
+
+**`DynamicDataSourceSwitchTest`** — 驗證同類型（MySQL `example1` ↔ `example2`）切換：
+
+```java
+// 切換至 example1：只查得到 example1 的獨有資料
+DataSourceHolder.setDataSourceName("example1");
+assertNotNull(userMainRepository.findUserByName("OnlyExample1"));
+assertNull(userMainRepository.findUserByName("OnlyExample2"));
+
+// 切換至 example2：只查得到 example2 的獨有資料
+DataSourceHolder.setDataSourceName("example2");
+assertNotNull(userMainRepository.findUserByName("OnlyExample2"));
+assertNull(userMainRepository.findUserByName("OnlyExample1"));
+```
+
+**`CrossDbSwitchTest`** — 以「互斥資料法」證明跨類型切換生效：
 
 ```java
 // 切換至 example1（MySQL）：只查得到 MySQL 的獨有資料
