@@ -38,6 +38,11 @@ paths:
 
 > 文件同步**不只是 doc-site**。README 常寫死版本號與模組清單，最容易被遺漏，務必一併檢查。
 
+> **`llms.txt` 為自動產生，無須手動編輯**：`doc-site/build/llms.txt` 與 `llms-full.txt` 由
+> `docusaurus-plugin-llms` 於 `npm run build` 時自動從 `doc-site/docs/` 重新產生（`build/` 已被
+> gitignore，不進版控）。因此**只要把 docs 改正確，llms 檔即自動同步**——詳見下方「LLM 文件
+> （llms.txt）同步」一節。
+
 ### 每次必做的檢查步驟（Checklist）
 
 收尾前，逐步執行並在回覆中明確交代結果：
@@ -89,6 +94,45 @@ paths:
 | `configuration.md` | 設定屬性表（屬性鍵 / 預設值 / 說明） |
 | `examples.md` | 可執行使用範例（方法簽章須與原始碼一致） |
 | `architecture.md` | 套件結構、核心類別、自動配置原理、擴充與維護指南 |
+
+---
+
+## LLM 文件（llms.txt）同步
+
+doc-site 已透過 `docusaurus-plugin-llms` 提供符合 [llmstxt.org](https://llmstxt.org) 標準的
+LLM 友善文件，供 AI 助理 / IDE / RAG 高效消費。
+
+### 運作方式
+
+| 檔案 | 內容 | 產生方式 |
+|---|---|---|
+| `doc-site/build/llms.txt` | 文件索引（各頁標題 + 摘要 + 連結） | `npm run build` 時自動產生 |
+| `doc-site/build/llms-full.txt` | 全部文件串接的單一全文 | `npm run build` 時自動產生 |
+
+- 設定位於 `doc-site/docusaurus.config.js` 的 `plugins` 區段（`docusaurus-plugin-llms`）。
+- 兩檔的**內容直接來自 `doc-site/docs/`**，`build/` 已被 gitignore，**不需也不應手動編輯或提交**。
+- 每筆索引的**摘要取自各 `.md` 的 frontmatter `description` 或開頭段落**，所以寫 docs 時
+  維持清楚的開頭描述，即可獲得高品質的 llms.txt 摘要。
+
+### 需人工確認的時機（少數例外）
+
+llms 檔內容自動同步，但**下列情況需手動更新 plugin 設定或重建驗證**：
+
+1. **新增 / 移除整個 starter 模組或文件目錄**：確認該模組 docs 已建立；新模組的頁面會自動被
+   收錄，無須改 plugin 設定，但應 `npm run build` 確認頁數正確（外掛會回報
+   `N total available documents processed`）。
+2. **專案定位、模組清單或一句話簡介有變**：更新 `docusaurus.config.js` 內
+   `docusaurus-plugin-llms` 的 `title` / `description`（此為 llms.txt 開頭的專案描述，
+   非自動產生）。
+3. **doc-site 部署網址（`url` / `organizationName`）變更**：llms.txt 內所有連結以此為前綴，
+   變更後須重建，連結才會正確。
+
+### 紅旗
+
+| 念頭 | 事實 |
+|---|---|
+| 「llms.txt 內容過時了，手動改一下」 | 不要手改 `build/` 內的檔；改 `docs/` 後重新 build 即同步。 |
+| 「加了新模組文件，llms.txt 不用管」 | 內容會自動收錄，但應 build 一次確認頁數，並檢視 plugin `description` 是否仍涵蓋新模組。 |
 
 ---
 
