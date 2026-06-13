@@ -54,9 +54,11 @@ public class BasicUserServiceImpl implements UserDetailsService {
             throw new UsernameNotFoundException(username);
         }
         // 封裝成 Spring Security 定義的 UserDetails 物件後回傳
+        // 須同時設定 password 與 passwordEncoder，build() 會以 encoder 對 password 編碼
         return User.builder()
                 .username(username)
-                .passwordEncoder(s -> passwordEncoder.encode(passwd))
+                .password(passwd)
+                .passwordEncoder(passwordEncoder::encode)
                 .authorities(new SimpleGrantedAuthority("admin"))
                 .build();
     }
