@@ -1,12 +1,10 @@
 package com.zipe.util;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlFactory;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.dataformat.xml.XmlFactory;
+import tools.jackson.dataformat.xml.XmlMapper;
 
 import javax.xml.stream.XMLInputFactory;
 import java.text.SimpleDateFormat;
@@ -20,8 +18,21 @@ import java.text.SimpleDateFormat;
  */
 public class XmlUtil {
 
-    /** 全域共用的 XmlMapper 實例，底層 XmlFactory 已啟用 XXE 防護。 */
-    private static final XmlMapper xmlMapper = new XmlMapper(buildSecureXmlFactory());
+    /**
+     * 全域共用的 XmlMapper 實例，底層 XmlFactory 已啟用 XXE 防護。
+     *
+     * <p>Jackson 3 的 mapper 為不可變物件，所有設定須於 builder 階段完成；
+     * 日期/時間型別（LocalDate 等）的支援在 Jackson 3 已內建，無須額外註冊模組。
+     * 預設屬性包含策略即為 ALWAYS（含 null），故不需顯式設定。</p>
+     */
+    private static final XmlMapper xmlMapper = XmlMapper.builder(buildSecureXmlFactory())
+            // 設定日期欄位序列化與反序列化格式
+            .defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"))
+            // 忽略空 Bean 序列化時的錯誤，避免無欄位的物件導致例外
+            .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+            // 忽略未知屬性，防止 XML 有而 Java 物件無對應欄位時反序列化失敗
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .build();
 
     /**
      * 建立已停用 DTD 與外部實體的安全 XmlFactory，避免 XXE（XML 外部實體）攻擊。
@@ -36,22 +47,7 @@ public class XmlUtil {
         inputFactory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
         // 停用外部實體解析，避免讀取本機檔案或外部資源（SSRF）
         inputFactory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-        return XmlFactory.builder()
-                .inputFactory(inputFactory)
-                .build();
-    }
-
-    static {
-        // 序列化時始終輸出所有欄位，包含 null 值
-        xmlMapper.setSerializationInclusion(Include.ALWAYS);
-        // 設定日期欄位序列化與反序列化格式
-        xmlMapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"));
-        // 忽略空 Bean 序列化時的錯誤，避免無欄位的物件導致例外
-        xmlMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        // 忽略未知屬性，防止 XML 字串存在而 Java 物件不存在的欄位時反序列化失敗
-        xmlMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        // 註冊 Java 8 時間模組，支援 LocalDate / LocalDateTime 等型別
-        xmlMapper.registerModule(new JavaTimeModule());
+        return new XmlFactory(inputFactory);
     }
 
     /**
@@ -66,7 +62,7 @@ public class XmlUtil {
     public static <T> T xmlToBean(String xml, Class<T> clazz) {
         try {
             return xmlMapper.readValue(xml, clazz);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("XML 序列化失敗", e);
         }
     }
@@ -81,7 +77,7 @@ public class XmlUtil {
     public static String beanToXml(Object obj) {
         try {
             return xmlMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("XML 序列化失敗", e);
         }
     }

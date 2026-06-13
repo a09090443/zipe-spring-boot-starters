@@ -1,12 +1,11 @@
 package com.zipe.util;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -134,8 +133,9 @@ public class SoapUtil {
     /**
      * 以 HTTP POST 方式傳送 XML 內容至指定 URL，並回傳回應字串。
      *
-     * <p>使用 Apache HttpClient 傳送請求，Content-Type 設為 {@code application/xml}，
-     * 回應內容以 UTF-8 編碼解析。無論成功或失敗，HTTP 連線與回應資源均會在 finally 區塊關閉。
+     * <p>使用 Apache HttpClient 5 傳送請求，Content-Type 設為 {@code application/xml}，
+     * 回應內容以 UTF-8 編碼解析。HttpClient 與回應資源透過 try-with-resources 與
+     * response handler 自動關閉。
      *
      * @param url 目標服務的 URL 字串
      * @param xml 欲傳送的 XML 請求主體（通常為 SOAP Envelope）
@@ -143,33 +143,14 @@ public class SoapUtil {
      * @throws IOException 當 HTTP 連線、傳送或關閉資源失敗時
      */
     public static String doPostWithXml(String url, String xml) throws IOException {
-        // Create Httpclient object
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        CloseableHttpResponse response = null;
-        String resultString = "";
-        try {
-            // Create Http Post request
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            // 建立 HTTP POST 請求，主體為 application/xml 的 SOAP Envelope
             HttpPost httpPost = new HttpPost(url);
-            // Create StringEntity with the XML content
-            StringEntity entity = new StringEntity(xml, ContentType.APPLICATION_XML);
-            httpPost.setEntity(entity);
-            // Execute http request
-            response = httpClient.execute(httpPost);
-            resultString = EntityUtils.toString(response.getEntity(), "utf-8");
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            try {
-                if (response != null) {
-                    response.close();
-                }
-                httpClient.close();
-            } catch (IOException e) {
-                throw e;
-            }
+            httpPost.setEntity(new StringEntity(xml, ContentType.APPLICATION_XML));
+            // 以 response handler 取出回應字串，HttpClient 5 會自動關閉回應資源
+            return httpClient.execute(httpPost, response ->
+                    EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
         }
-
-        return resultString;
     }
 
     /**
