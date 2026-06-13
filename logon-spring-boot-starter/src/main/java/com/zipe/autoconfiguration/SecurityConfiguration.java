@@ -184,8 +184,7 @@ public class SecurityConfiguration {
                 break;
             case BASIC:
             default:
-                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-                authProvider.setUserDetailsService(basicUserServiceImpl());
+                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(basicUserServiceImpl());
                 authProvider.setPasswordEncoder(passwordEncoder());
                 http.authenticationProvider(authProvider);
         }
