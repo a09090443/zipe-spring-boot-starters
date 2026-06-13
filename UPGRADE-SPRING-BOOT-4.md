@@ -742,9 +742,16 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
   Java 11），於 README 標記 LEGACY / 未支援 SB4。日後若需 SB4 整合 Keycloak，應改用獨立 Quarkus
   伺服器 + Spring Security OAuth2/OIDC（另案新開發）。
 
-### 8.4 待留意風險
+### 8.4 整合驗證發現與處置
 
-- **logon `PathPatternRequestMatcher`（SS7）**：allow-uris 路徑語意需於 starters_example
-  整合啟動時驗證（單元測試無法覆蓋）。
-- **doc-sync 版本號**：文件寫死的是「已發布版本」`3.5.14.0`，SB4 發布版號須待 release
-  打 tag 時由 workflow 決定，故版本號 + `llms.txt` 整批同步留至收尾階段一次做對。
+- **logon BASIC 認證回歸（已修復）**：整合測試（MySQL+PostgreSQL 容器）發現 controller
+  端點回 401。根因非原先預判的 `PathPatternRequestMatcher`，而是 `BasicUserServiceImpl`
+  以 `User.builder()` 建立 UserDetails 時僅設 `passwordEncoder` 未設 `password()`，SS7 下
+  儲存密碼無法比對 → BadCredentials。已補 `.password(passwd)` 修復；example controller 測試
+  改以 `httpBasic("admin","admin")` 端到端驗證 BASIC 登入，現 200 通過。
+- **starters_example 整合結果**：18 測試 15 通過。多資料源動態切換、跨 DB 類型切換、
+  JasperReport、Excel 匯出、Crypto、BASIC 登入皆綠燈。剩 3 個為環境性（非升級回歸）：
+  `TestImportExcel`（讀硬編路徑 `d:\tmp`）、`ExampleWebServiceTest.getUserByClientUtil`
+  （需 localhost:8080 活著的 SOAP 端點）。
+- **doc-sync 版本號（已完成）**：發布版號採 `4.0.0.0`，已同步 doc-site/docs、README 與
+  根 `llms.txt` / `llms-full.txt`。實際發布版仍由 release tag 決定。
