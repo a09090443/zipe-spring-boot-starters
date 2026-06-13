@@ -736,6 +736,11 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
   綠燈，升級為行為敏感且零測試覆蓋，故保留現狀，待整合驗證階段若有實際問題再處理。
 - **velocity 升 2.x 取消**：原計畫的設定鍵改寫與 velocity-tools `WebappLoader`（本即未引入）
   風險高、無測試，暫不執行。
+- **keycloak go/no-go = NO-GO（凍結 legacy）**：嵌入式 Keycloak Server 架構自 Keycloak 17
+  （2022-06）改 Quarkus 後已被上游移除，Keycloak 13 + RESTEasy 3.15 + Infinispan 11 全為 javax
+  （Jakarta EE 8），無法升級至 SB4 / Jakarta EE 11。決定保留模組現狀（本在 reactor 外、SB 2.4.4 /
+  Java 11），於 README 標記 LEGACY / 未支援 SB4。日後若需 SB4 整合 Keycloak，應改用獨立 Quarkus
+  伺服器 + Spring Security OAuth2/OIDC（另案新開發）。
 
 ### 8.4 待留意風險
 

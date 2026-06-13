@@ -29,7 +29,9 @@
 | **Spring Boot** | 3.5.x |
 | **Maven** | 3.8.4+ |
 
-> ⚠️ `keycloak-spring-boot-starter` 需使用 Java 11 與 Spring Boot 2.4.4
+> 🛑 `keycloak-spring-boot-starter` 為 **LEGACY**，凍結於 Java 11 / Spring Boot 2.4.4 / Keycloak 13，
+> **未支援也無法升級至 Spring Boot 4**（嵌入式 Keycloak Server 架構已被上游移除）。詳見其
+> [README](keycloak-spring-boot-starter/README.md)。
 
 ---
 
