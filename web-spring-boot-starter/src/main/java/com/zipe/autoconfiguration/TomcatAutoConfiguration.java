@@ -5,14 +5,14 @@ import org.apache.tomcat.util.scan.StandardJarScanner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
-import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.autoconfigure.servlet.ServletWebServerConfiguration;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 
 /**
  * Tomcat 嵌入式伺服器的自動配置類別。
  * <p>
- * 在 {@link ServletWebServerFactoryAutoConfiguration} 之前套用，
+ * 在 {@link ServletWebServerConfiguration} 之前套用，
  * 以便自訂 Tomcat 的行為（例如關閉 JAR Manifest 掃描，加速應用程式啟動）。
  * 僅在 {@link WebAutoConfiguration} 存在於 Classpath 時才會生效。
  * </p>
@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass({WebAutoConfiguration.class})
-@AutoConfigureBefore(ServletWebServerFactoryAutoConfiguration.class)
+@AutoConfigureBefore(ServletWebServerConfiguration.class)
 public class TomcatAutoConfiguration {
 
     /**
