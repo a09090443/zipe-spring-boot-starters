@@ -7,13 +7,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
+        <version>4.0.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>zipe-spring-boot-starters</artifactId>
-    <version>3.5.14.1</version>
+    <version>4.0.0.1</version>
     <packaging>pom</packaging>
     <name>zipe-spring-boot-starters</name>
     <description>Zipe 自製 Spring Boot Starter 集合</description>
@@ -62,13 +62,10 @@
         <commons-collections4.version>4.5.0</commons-collections4.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
-        <logback-ext-spring.version>0.1.5</logback-ext-spring.version>
         <velocity.version>1.7</velocity.version>
-        <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
         <poi.version>5.2.5</poi.version>
         <jasperreports.version>6.21.3</jasperreports.version>
         <itext.version>[1.02b,2.1.7]</itext.version>
-        <mail.version>1.6.2</mail.version>
         <okhttp3.version>4.12.0</okhttp3.version>
 
         <!-- db-starter 第三方版本 -->
@@ -140,19 +137,9 @@
                 <version>${commons-beanutils.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.logback-extensions</groupId>
-                <artifactId>logback-ext-spring</artifactId>
-                <version>${logback-ext-spring.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.apache.velocity</groupId>
                 <artifactId>velocity</artifactId>
                 <version>${velocity.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>javax.servlet</groupId>
-                <artifactId>javax.servlet-api</artifactId>
-                <version>${javax.servlet-api.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.poi</groupId>
@@ -173,11 +160,6 @@
                 <groupId>com.lowagie</groupId>
                 <artifactId>itext</artifactId>
                 <version>${itext.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.mail</groupId>
-                <artifactId>javax.mail</artifactId>
-                <version>${mail.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
