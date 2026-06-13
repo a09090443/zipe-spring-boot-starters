@@ -31,7 +31,7 @@ This file contains all documentation content in a single document following the 
 
 ```
 base-spring-boot-starter/
-├── pom.xml                                         # Maven 建構描述，版本 3.5.14.0
+├── pom.xml                                         # Maven 建構描述，版本 4.0.0.0
 └── src/main/
     ├── java/com/zipe/
     │   ├── autoconfiguration/
@@ -1403,7 +1403,7 @@ public class PhotoLocationExample {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -1467,7 +1467,7 @@ public class PhotoLocationExample {
 ## 前置需求
 
 - 已安裝 JDK 17 以上版本。
-- 業務專案使用 Spring Boot 3.5.x。
+- 業務專案使用 Spring Boot 4.0.x。
 - 已具備可用的 Maven 環境。
 
 :::note
@@ -1494,7 +1494,7 @@ cd base-spring-boot-starter
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
-        <version>3.5.14.0</version>
+        <version>4.0.0.0</version>
     </dependency>
 </dependencies>
 ```
@@ -2961,7 +2961,7 @@ public class OrderService {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -3014,7 +3014,7 @@ public class OrderService {
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已準備至少一組（建議兩組）可連線的資料庫。
 - 已將 `db-spring-boot-starter` 安裝至本地 Maven Repository。
 
@@ -3037,7 +3037,7 @@ cd db-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -3288,7 +3288,7 @@ cd zipe-spring-boot-starters
 
 ### 步驟二：取得 Starter 依賴
 
-範例引用的 Starter（`io.github.a09090443:*:3.5.14.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+範例引用的 Starter（`io.github.a09090443:*:4.0.0.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
 
 若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
@@ -3318,7 +3318,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `3.5.14`、`zipe.spring.starter.version` 為 `3.5.14.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案
@@ -3599,7 +3599,7 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>3.5.14.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.0</zipe.spring.starter.version>
 </properties>
 
 <dependencies>
@@ -4490,7 +4490,7 @@ CXF 會根據介面與實作上的 JAX-WS 注解（`@WebService`、`@WebMethod`�
 | 項目 | 需求版本 |
 |---|---|
 | **Java** | 17 以上（建議使用 JDK 17 LTS） |
-| **Spring Boot** | 3.5.x |
+| **Spring Boot** | 4.0.x |
 | **建構工具** | Maven 3.8+ |
 
 :::note 為什麼是 Java 17？
@@ -4521,7 +4521,7 @@ cd base-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -4575,7 +4575,7 @@ cd starters_example
 
 ```
 job-spring-boot-starter/
-├── pom.xml                                              # groupId=io.github.a09090443, version=3.5.14.0
+├── pom.xml                                              # groupId=io.github.a09090443, version=4.0.0.0
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                             # 模組內建獨立啟動入口（開發/測試用）
@@ -5973,7 +5973,7 @@ curl -X POST http://localhost:8080/quartz/register \
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -6018,7 +6018,7 @@ curl -X POST http://localhost:8080/quartz/register \
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `job-spring-boot-starter` 安裝至本地 Maven Repository。
 - 若使用 JDBC 模式，需準備一組資料庫並建立 Quartz 資料表。
 
@@ -6039,7 +6039,7 @@ cd job-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -6863,21 +6863,10 @@ logRecord.recordLogoutSuccessLog(UserInfoUtil.loginUserId());
 
 ---
 
-#### Bug 2：SecurityBaseService 使用 javax.servlet（Spring Boot 3.x 不相容）
+#### Bug 2（已解決）：servlet 命名空間統一為 jakarta
 
-`SecurityBaseService.java` 第 8 行：
-
-```java
-import javax.servlet.http.HttpSession;  // 錯誤，Spring Boot 3.x 已遷移至 jakarta.*
-```
-
-其他 Handler 類別已正確使用 `jakarta.servlet`，此處不一致導致在 Spring Boot 3.x 環境**無法編譯**。
-
-**修復方式：**
-
-```java
-import jakarta.servlet.http.HttpSession;  // 正確
-```
+`SecurityBaseService` 與所有 Handler 類別均使用 `jakarta.servlet.*`，相容 Spring Boot 4 /
+Jakarta EE 11，無命名空間不一致問題。
 
 ---
 
@@ -6935,7 +6924,7 @@ throw new IllegalArgumentException(
 
 ### 依賴版本一致性
 
-- 模組依賴 `base-spring-boot-starter:3.5.14.0`（`LdapUtil` 來源），兩者版本需同步更新
+- 模組依賴 `base-spring-boot-starter:4.0.0.0`（`LdapUtil` 來源），兩者版本需同步更新
 - `spring-security-test` 為 test scope，不傳遞至引用方
 - `spring-boot-configuration-processor` 為 optional，不傳遞至引用方
 
@@ -7508,7 +7497,7 @@ security:
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -7563,7 +7552,7 @@ security:
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `logon-spring-boot-starter` 安裝至本地 Maven Repository。
 - 選定驗證模式：`basic`（開發測試）、`ldap`（企業 AD）或 `custom`（業務資料庫）。
 
@@ -7584,7 +7573,7 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -7749,9 +7738,9 @@ Spring Security 預設啟用 CSRF 保護（`csrf-enabled: true`）。若使用�
 
 ### 技術選型
 
-- **CXF 4.0.x**：Jakarta EE 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 3.x 配對。
+- **CXF 4.2.x**：Jakarta EE 11 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 4.x / Spring Framework 7 配對。
 - **JAXB DataBinding**：序列化／反序列化層，可透過 `XmlAdapter` 進行欄位級客製化。
-- **Apache HttpClient 4.5.x**：`SoapUtil` 底層 HTTP 傳輸（長期應考慮遷移至 HttpClient 5.x）。
+- **Apache HttpClient 5.x**：`SoapUtil` 底層 HTTP 傳輸（`org.apache.hc.client5` / `core5`，採 try-with-resources 與 response handler）。
 
 ---
 
@@ -8452,8 +8441,8 @@ try (CloseableHttpClient httpClient = HttpClients.createDefault();
 | 項目 | 說明 |
 |---|---|
 | **Jakarta EE 命名空間** | 本模組使用 `jakarta.xml.bind`、`jakarta.jws` 等命名空間，**不相容 Spring Boot 2.x**（`javax` 命名空間）。 |
-| **CXF 版本** | 確保業務專案的 CXF 版本為 4.0.x（已切換至 Jakarta EE），與本 starter 一致。 |
-| **Apache HttpClient** | 目前使用 HttpClient 4.5.x（舊版，已進入維護模式），長期應考慮遷移至 5.x。 |
+| **CXF 版本** | 確保業務專案的 CXF 版本為 4.2.x（支援 Spring Framework 7 / Jakarta EE 11），與本 starter 一致。 |
+| **Apache HttpClient** | 使用 HttpClient 5.x（`org.apache.hc.client5` / `core5`），由 Spring Boot 4 BOM 管理版本。 |
 
 ---
 
@@ -8922,7 +8911,7 @@ LoggingFeature 會將完整 SOAP 訊息輸出至日誌，可能包含帳號密�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -8966,7 +8955,7 @@ LoggingFeature 會將完整 SOAP 訊息輸出至日誌，可能包含帳號密�
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `web-service-spring-boot-starter` 安裝至本地 Maven Repository。
 - 對 SOAP / WSDL 有基本認識。
 
@@ -8987,7 +8976,7 @@ cd web-service-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -9125,7 +9114,7 @@ SOAP 客戶端與服務端的 `targetNamespace` 需一致。若由外部 WSDL �
 
 ```
 web-spring-boot-starter/
-├── pom.xml                                          # 模組建構定義（Spring Boot 3.5.11，Java 17）
+├── pom.xml                                          # 模組建構定義（Spring Boot 4.0.0，Java 17）
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                         # 內建獨立執行入口（開發/測試用）
@@ -9347,15 +9336,15 @@ web-spring-boot-starter/
 
 | 保護欄位 / 方法 | 說明 |
 |---|---|
-| `request` | `HttpServletRequest`（目前為 `javax.servlet`，見注意事項） |
+| `request` | `HttpServletRequest`（`jakarta.servlet.http`） |
 | `response` | `HttpServletResponse` |
 | `currentLocale` | 當前語系 |
 | `defaultMsg` | 預設訊息字串 |
 | `getMessage(String key)` | 透過 `MessageSource` 查找 i18n 訊息 |
 | `initPage()` | 抽象方法，子類別必須實作，回傳 `ModelAndView` 作為首頁 |
 
-:::warning 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。繼承此類別的業務程式碼在 Spring Boot 3.x 環境下會有編譯錯誤。維護時應優先修正此問題。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ---
@@ -9806,15 +9795,7 @@ cd D:/projects/zipe-spring-boot-starters/web-spring-boot-starter
 
 ## 7. 維護注意事項與常見陷阱
 
-### 7.1 `BaseController` 使用 `javax.servlet`（高優先修正）
-
-`BaseController.java` 的 import 為 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。所有繼承 `BaseController` 的類別在 Spring Boot 3.x 環境下**無法編譯**。
-
-**修正方式：** 將所有 `import javax.servlet.*` 改為 `import jakarta.servlet.*`，再執行 `mvn clean install`。
-
----
-
-### 7.2 `ResultException` 建構子型別限制
+### 7.1 `ResultException` 建構子型別限制
 
 `ResultException(ResultStatus resultStatus)` 接受的是具體枚舉 `ResultStatus`，而非 `IResultStatus` 介面，導致業務自訂狀態碼無法透過 `ResultException` 傳遞。
 
@@ -9835,7 +9816,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.3 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
+### 7.2 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
 
 此 Advice 以 `@ExceptionHandler(Exception.class)` 攔截所有例外。程式碼中有一行被注解的 `@Order(Ordered.HIGHEST_PRECEDENCE)`，顯示開發者曾考慮此問題但未完成決策。
 
@@ -9847,7 +9828,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.4 `beforeBodyWrite` 的 String 特殊處理風險
+### 7.3 `beforeBodyWrite` 的 String 特殊處理風險
 
 `String` 型別需先透過 `ObjectMapper` 序列化後再返回。若 `ObjectMapper` 序列化失敗，會拋出 `RuntimeException` 導致 500。
 
@@ -9857,7 +9838,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.5 雙重 ViewResolver 共存的 viewNames 不能重疊
+### 7.4 雙重 ViewResolver 共存的 viewNames 不能重疊
 
 當 JSP 與 Thymeleaf 同時啟用時，兩者的 viewNames 必須不重疊：
 
@@ -9870,13 +9851,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.6 Thymeleaf `cacheable=false` 在生產環境的性能影響
+### 7.5 Thymeleaf `cacheable=false` 在生產環境的性能影響
 
 `SpringResourceTemplateResolver.setCacheable(false)` 代表每次請求都重新解析模板，適合開發環境。**生產環境必須改為 `true`（或由 `spring.thymeleaf.cache=true` 覆蓋）**，否則會有明顯性能問題。
 
 ---
 
-### 7.7 範例 Controller 會佔用固定路由
+### 7.6 範例 Controller 會佔用固定路由
 
 `RestfulController` 和 `WebController` 打包在 Starter jar 中。引入此 Starter 且掃描範圍涵蓋 `com.zipe.controller` 時，以下路由會被自動暴露：
 
@@ -9891,7 +9872,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.8 `Application.java` 不應打包進 Starter
+### 7.7 `Application.java` 不應打包進 Starter
 
 `Application.java`（含 `@SpringBootApplication`）打包在 Starter jar 中，若引入此 Starter 的應用元件掃描誤觸發此類別，可能造成 Bean 重複或掃描範圍異常。
 
@@ -9899,13 +9880,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.9 `tomcat-embed-jasper` 重複宣告
+### 7.8 `tomcat-embed-jasper` 重複宣告
 
 `pom.xml` 中 `tomcat-embed-jasper` 依賴被宣告兩次。Maven 雖會自動去重，但應清理以維持 pom 整潔。
 
 ---
 
-### 7.10 `BaseController` 的執行緒安全問題
+### 7.9 `BaseController` 的執行緒安全問題
 
 `BaseController` 暴露 `protected HttpServletRequest request`、`HttpServletResponse response` 等欄位，但 Spring Controller 預設為 Singleton。若子類別將每次請求的 request 賦值給這些欄位，在高並發下會發生執行緒安全問題（不同請求互相覆蓋欄位值）。
 
@@ -10343,8 +10324,8 @@ public class UserController {
 
 `BaseController` 提供 i18n 訊息查找（`getMessage`）與 `Environment` 存取功能。
 
-:::warning `BaseController` 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，在 Spring Boot 3.x 環境下繼承此類別會有編譯錯誤（需改為 `jakarta.servlet.*`）。使用前請確認此問題已修正。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ```java
@@ -10465,7 +10446,7 @@ GET /api/events?startDate=1717200000000&endDate=1717286400000
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 
@@ -10510,7 +10491,7 @@ GET /api/events?startDate=1717200000000&endDate=1717286400000
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `web-spring-boot-starter` 安裝至本地 Maven Repository。
 
 :::note JSP 與 Thymeleaf 共存注意事項
@@ -10530,7 +10511,7 @@ cd web-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 

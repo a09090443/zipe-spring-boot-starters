@@ -688,21 +688,10 @@ logRecord.recordLogoutSuccessLog(UserInfoUtil.loginUserId());
 
 ---
 
-#### Bug 2：SecurityBaseService 使用 javax.servlet（Spring Boot 3.x 不相容）
+#### Bug 2（已解決）：servlet 命名空間統一為 jakarta
 
-`SecurityBaseService.java` 第 8 行：
-
-```java
-import javax.servlet.http.HttpSession;  // 錯誤，Spring Boot 3.x 已遷移至 jakarta.*
-```
-
-其他 Handler 類別已正確使用 `jakarta.servlet`，此處不一致導致在 Spring Boot 3.x 環境**無法編譯**。
-
-**修復方式：**
-
-```java
-import jakarta.servlet.http.HttpSession;  // 正確
-```
+`SecurityBaseService` 與所有 Handler 類別均使用 `jakarta.servlet.*`，相容 Spring Boot 4 /
+Jakarta EE 11，無命名空間不一致問題。
 
 ---
 
@@ -760,6 +749,6 @@ throw new IllegalArgumentException(
 
 ### 依賴版本一致性
 
-- 模組依賴 `base-spring-boot-starter:3.5.14.0`（`LdapUtil` 來源），兩者版本需同步更新
+- 模組依賴 `base-spring-boot-starter:4.0.0.0`（`LdapUtil` 來源），兩者版本需同步更新
 - `spring-security-test` 為 test scope，不傳遞至引用方
 - `spring-boot-configuration-processor` 為 optional，不傳遞至引用方

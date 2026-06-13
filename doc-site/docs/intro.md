@@ -30,7 +30,7 @@ sidebar_position: 1
 | 項目 | 需求版本 |
 |---|---|
 | **Java** | 17 以上（建議使用 JDK 17 LTS） |
-| **Spring Boot** | 3.5.x |
+| **Spring Boot** | 4.0.x |
 | **建構工具** | Maven 3.8+ |
 
 :::note 為什麼是 Java 17？
@@ -61,7 +61,7 @@ cd base-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 

@@ -28,7 +28,7 @@ description: 基於 Apache CXF 的 SOAP WebService Starter，提供服務端與�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 

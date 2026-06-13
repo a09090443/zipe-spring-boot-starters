@@ -10,7 +10,7 @@ sidebar_position: 2
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `logon-spring-boot-starter` 安裝至本地 Maven Repository。
 - 選定驗證模式：`basic`（開發測試）、`ldap`（企業 AD）或 `custom`（業務資料庫）。
 
@@ -31,7 +31,7 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 

@@ -30,7 +30,7 @@ sidebar_position: 5
 
 ```
 web-spring-boot-starter/
-├── pom.xml                                          # 模組建構定義（Spring Boot 3.5.11，Java 17）
+├── pom.xml                                          # 模組建構定義（Spring Boot 4.0.0，Java 17）
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                         # 內建獨立執行入口（開發/測試用）
@@ -252,15 +252,15 @@ web-spring-boot-starter/
 
 | 保護欄位 / 方法 | 說明 |
 |---|---|
-| `request` | `HttpServletRequest`（目前為 `javax.servlet`，見注意事項） |
+| `request` | `HttpServletRequest`（`jakarta.servlet.http`） |
 | `response` | `HttpServletResponse` |
 | `currentLocale` | 當前語系 |
 | `defaultMsg` | 預設訊息字串 |
 | `getMessage(String key)` | 透過 `MessageSource` 查找 i18n 訊息 |
 | `initPage()` | 抽象方法，子類別必須實作，回傳 `ModelAndView` 作為首頁 |
 
-:::warning 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。繼承此類別的業務程式碼在 Spring Boot 3.x 環境下會有編譯錯誤。維護時應優先修正此問題。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ---
@@ -711,15 +711,7 @@ cd D:/projects/zipe-spring-boot-starters/web-spring-boot-starter
 
 ## 7. 維護注意事項與常見陷阱
 
-### 7.1 `BaseController` 使用 `javax.servlet`（高優先修正）
-
-`BaseController.java` 的 import 為 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。所有繼承 `BaseController` 的類別在 Spring Boot 3.x 環境下**無法編譯**。
-
-**修正方式：** 將所有 `import javax.servlet.*` 改為 `import jakarta.servlet.*`，再執行 `mvn clean install`。
-
----
-
-### 7.2 `ResultException` 建構子型別限制
+### 7.1 `ResultException` 建構子型別限制
 
 `ResultException(ResultStatus resultStatus)` 接受的是具體枚舉 `ResultStatus`，而非 `IResultStatus` 介面，導致業務自訂狀態碼無法透過 `ResultException` 傳遞。
 
@@ -740,7 +732,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.3 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
+### 7.2 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
 
 此 Advice 以 `@ExceptionHandler(Exception.class)` 攔截所有例外。程式碼中有一行被注解的 `@Order(Ordered.HIGHEST_PRECEDENCE)`，顯示開發者曾考慮此問題但未完成決策。
 
@@ -752,7 +744,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.4 `beforeBodyWrite` 的 String 特殊處理風險
+### 7.3 `beforeBodyWrite` 的 String 特殊處理風險
 
 `String` 型別需先透過 `ObjectMapper` 序列化後再返回。若 `ObjectMapper` 序列化失敗，會拋出 `RuntimeException` 導致 500。
 
@@ -762,7 +754,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.5 雙重 ViewResolver 共存的 viewNames 不能重疊
+### 7.4 雙重 ViewResolver 共存的 viewNames 不能重疊
 
 當 JSP 與 Thymeleaf 同時啟用時，兩者的 viewNames 必須不重疊：
 
@@ -775,13 +767,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.6 Thymeleaf `cacheable=false` 在生產環境的性能影響
+### 7.5 Thymeleaf `cacheable=false` 在生產環境的性能影響
 
 `SpringResourceTemplateResolver.setCacheable(false)` 代表每次請求都重新解析模板，適合開發環境。**生產環境必須改為 `true`（或由 `spring.thymeleaf.cache=true` 覆蓋）**，否則會有明顯性能問題。
 
 ---
 
-### 7.7 範例 Controller 會佔用固定路由
+### 7.6 範例 Controller 會佔用固定路由
 
 `RestfulController` 和 `WebController` 打包在 Starter jar 中。引入此 Starter 且掃描範圍涵蓋 `com.zipe.controller` 時，以下路由會被自動暴露：
 
@@ -796,7 +788,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.8 `Application.java` 不應打包進 Starter
+### 7.7 `Application.java` 不應打包進 Starter
 
 `Application.java`（含 `@SpringBootApplication`）打包在 Starter jar 中，若引入此 Starter 的應用元件掃描誤觸發此類別，可能造成 Bean 重複或掃描範圍異常。
 
@@ -804,13 +796,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.9 `tomcat-embed-jasper` 重複宣告
+### 7.8 `tomcat-embed-jasper` 重複宣告
 
 `pom.xml` 中 `tomcat-embed-jasper` 依賴被宣告兩次。Maven 雖會自動去重，但應清理以維持 pom 整潔。
 
 ---
 
-### 7.10 `BaseController` 的執行緒安全問題
+### 7.9 `BaseController` 的執行緒安全問題
 
 `BaseController` 暴露 `protected HttpServletRequest request`、`HttpServletResponse response` 等欄位，但 Spring Controller 預設為 Singleton。若子類別將每次請求的 request 賦值給這些欄位，在高並發下會發生執行緒安全問題（不同請求互相覆蓋欄位值）。
 

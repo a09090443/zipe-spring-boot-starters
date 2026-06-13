@@ -10,7 +10,7 @@ sidebar_position: 2
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已準備至少一組（建議兩組）可連線的資料庫。
 - 已將 `db-spring-boot-starter` 安裝至本地 Maven Repository。
 
@@ -33,7 +33,7 @@ cd db-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.0</version>
 </dependency>
 ```
 

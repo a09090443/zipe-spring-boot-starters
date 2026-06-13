@@ -30,7 +30,7 @@ sidebar_position: 5
 
 ```
 base-spring-boot-starter/
-├── pom.xml                                         # Maven 建構描述，版本 3.5.14.0
+├── pom.xml                                         # Maven 建構描述，版本 4.0.0.0
 └── src/main/
     ├── java/com/zipe/
     │   ├── autoconfiguration/

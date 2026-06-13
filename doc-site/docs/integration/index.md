@@ -103,7 +103,7 @@ cd zipe-spring-boot-starters
 
 ### 步驟二：取得 Starter 依賴
 
-範例引用的 Starter（`io.github.a09090443:*:3.5.14.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+範例引用的 Starter（`io.github.a09090443:*:4.0.0.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
 
 若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
@@ -133,7 +133,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `3.5.14`、`zipe.spring.starter.version` 為 `3.5.14.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案

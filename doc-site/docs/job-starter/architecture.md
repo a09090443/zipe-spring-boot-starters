@@ -26,7 +26,7 @@ sidebar_position: 5
 
 ```
 job-spring-boot-starter/
-├── pom.xml                                              # groupId=io.github.a09090443, version=3.5.14.0
+├── pom.xml                                              # groupId=io.github.a09090443, version=4.0.0.0
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                             # 模組內建獨立啟動入口（開發/測試用）
