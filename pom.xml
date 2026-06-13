@@ -73,10 +73,9 @@
         <jt400.version>20.0.6</jt400.version>
 
         <!-- web-service-starter 第三方版本 -->
-        <cxf-spring-boot-starter-jaxws.version>4.0.0</cxf-spring-boot-starter-jaxws.version>
-        <cxf-rt-databinding-jaxb.version>4.0.0</cxf-rt-databinding-jaxb.version>
+        <cxf-spring-boot-starter-jaxws.version>4.2.2</cxf-spring-boot-starter-jaxws.version>
+        <cxf-rt-databinding-jaxb.version>4.2.2</cxf-rt-databinding-jaxb.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
-        <httpclient.version>4.5.14</httpclient.version>
 
         <!-- build 外掛版本 -->
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
@@ -197,11 +196,6 @@
                 <artifactId>jaxws-ri</artifactId>
                 <version>${jaxws-ri.version}</version>
                 <type>pom</type>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>${httpclient.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
