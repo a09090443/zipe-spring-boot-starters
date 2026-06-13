@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,7 +23,9 @@ class RestControllerTest extends TestBase {
 
   @Test
   void sayHelloTest() throws Exception {
-    this.mockMvc.perform(get("/rest/sayHello?name=John")).andDo(print()).andExpect(status().isOk())
+    // BASIC 模式以 admin/admin 認證後存取受保護端點
+    this.mockMvc.perform(get("/rest/sayHello?name=John").with(httpBasic("admin", "admin")))
+        .andDo(print()).andExpect(status().isOk())
         .andExpect(content().string(containsString("Hello,  John!")));
   }
 }

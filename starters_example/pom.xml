@@ -104,6 +104,13 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- 提供 @WithMockUser 等安全測試支援（controller 測試需帶認證身分） -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Compile jsp -->
     <dependency>
       <groupId>org.apache.tomcat.embed</groupId>
