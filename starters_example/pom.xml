@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.14</version>
+    <version>4.0.0</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   <groupId>com.example</groupId>
@@ -21,7 +21,7 @@
     <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
     <webjars-jquery.version>3.7.1</webjars-jquery.version>
     <webjars-locator.version>0.46</webjars-locator.version>
-    <zipe.spring.starter.version>3.5.14.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
   </properties>
 
   <dependencies>
@@ -95,6 +95,13 @@
           <groupId>org.ow2.asm</groupId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <!-- SB4 將 MockMvc 測試切片（@AutoConfigureMockMvc）移至獨立工件 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
+      <scope>test</scope>
     </dependency>
 
     <!-- Compile jsp -->
