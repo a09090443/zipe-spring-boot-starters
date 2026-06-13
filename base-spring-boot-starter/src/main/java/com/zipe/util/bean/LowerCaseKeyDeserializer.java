@@ -1,11 +1,8 @@
 package com.zipe.util.bean;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import org.apache.commons.lang3.StringUtils;
-
-import java.io.IOException;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.KeyDeserializer;
 
 /**
  * 將 JSON 物件的鍵（key）首字母轉為小寫的自訂反序列化器。
@@ -32,10 +29,9 @@ public class LowerCaseKeyDeserializer extends KeyDeserializer {
      * @param key 原始 JSON 鍵字串
      * @param ctx Jackson 反序列化上下文
      * @return 首字母轉小寫後的鍵字串；若原始鍵為空白則回傳空字串
-     * @throws IOException              當底層 I/O 發生錯誤時拋出
-     * @throws JsonProcessingException  當 JSON 處理發生錯誤時拋出
      */
-    public Object deserializeKey(String key, DeserializationContext ctx) throws IOException, JsonProcessingException {
+    @Override
+    public Object deserializeKey(String key, DeserializationContext ctx) {
         return lowerCaseFirst(key);
     }
 
