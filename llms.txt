@@ -11,6 +11,7 @@ This file contains links to documentation sections following the llmstxt.org sta
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/base-starter/examples.md): 本頁提供 `base-spring-boot-starter` 各項工具的實際程式碼範例，涵蓋基礎使用、進階情境與常見問題。所有範例的方法簽章均與原始碼一致。
 - [base-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/base-starter.md): 提供郵件、加解密、文件處理、HTTP 與字串日期等通用工具的基礎 Starter
 - [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/base-starter/quickstart.md): 本頁將帶您在五個步驟內完成 `base-spring-boot-starter` 的引入，並以郵件發送功能進行驗證。
+- [客製化指南](https://a09090443.github.io/zipe-spring-boot-starters/customization.md): 跨 starter 的客製與擴充接點總覽，盤點各模組預留的介面、抽象骨架、可覆寫 Bean 與「以設定值指定 Bean 名稱」機制，協助依需求擴充而不修改 Starter 原始碼。
 - [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/architecture.md): 本文件供接手或深度擴充 `db-spring-boot-starter` 的開發人員閱讀，完整說明模組的設計理念、內部結構與擴充方式。
 - [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/configuration.md): 本頁列出 `db-spring-boot-starter` 的所有可設定屬性。設定主要集中於 `dynamic.*`（對應 `data-source.properties`），用於宣告主資料來源與多組命名資料來源。
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/examples.md): 本頁示範 `db-spring-boot-starter` 的資料來源切換、`BaseJDBC` 封裝與動態 SQL 條件建構的實際用法。所有範例的方法簽章與設定鍵均與原始碼一致。

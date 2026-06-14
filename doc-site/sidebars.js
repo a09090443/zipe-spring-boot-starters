@@ -4,6 +4,7 @@
 const sidebars = {
   docsSidebar: [
     { type: 'doc', id: 'intro', label: '專案總覽' },
+    { type: 'doc', id: 'customization', label: '客製化指南' },
     {
       type: 'category',
       label: 'base-spring-boot-starter',
