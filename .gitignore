@@ -3,3 +3,4 @@
 /base-spring-boot-starter/mvn-repo/
 /.cache/
 /build.log
+/.worktrees/
