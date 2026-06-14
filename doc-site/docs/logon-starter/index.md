@@ -38,8 +38,8 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 引入前請先於 `logon-spring-boot-starter` 目錄執行 `./mvnw clean install`，將模組安裝至本地 Maven Repository。
 :::
 
-:::warning 不得自行定義 SecurityFilterChain
-模組無條件配置 `SecurityFilterChain`，業務專案**不得重複定義**此 Bean，否則 Spring Context 啟動時將因 Bean 定義衝突而失敗。若需調整過濾鏈行為，請使用屬性設定或覆寫個別 Handler Bean。
+:::tip 過濾鏈與各 Bean 皆可覆寫
+模組的 `filterChain` 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，所有其他 `@Bean` 方法（`passwordEncoder` / `basicUserServiceImpl` / `ldapUserDetailsService` / `sessionRegistry` 及三個 Handler）也都標註 `@ConditionalOnMissingBean`。因此業務專案可宣告同型別 Bean 覆寫個別 Handler，或宣告自己的 `SecurityFilterChain` 整鏈接管安全設定，**不會發生 Bean 定義衝突，也不需要 `spring.main.allow-bean-definition-overriding`**。一般情境建議優先以屬性設定與覆寫個別 Handler 為主。
 :::
 
 ## 主要類別

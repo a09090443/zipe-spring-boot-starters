@@ -221,7 +221,7 @@ security:
 
 ### 範例六：覆寫 LoginSuccessHandler 回傳 JSON（前後端分離）
 
-因模組 `application.yml` 啟用 `spring.main.allow-bean-definition-overriding: true`，業務專案宣告同名 Bean 即可覆寫預設 Handler 行為。
+模組的 `loginSuccessHandler` Bean 標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫預設 Handler 行為（無需 `spring.main.allow-bean-definition-overriding`）。
 
 ```java
 // 業務專案：config/SecurityBeanConfig.java
