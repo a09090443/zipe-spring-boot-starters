@@ -62,10 +62,9 @@
         <commons-collections4.version>4.5.0</commons-collections4.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
-        <velocity.version>1.7</velocity.version>
+        <velocity-engine-core.version>2.4.1</velocity-engine-core.version>
         <poi.version>5.2.5</poi.version>
-        <jasperreports.version>6.21.3</jasperreports.version>
-        <itext.version>[1.02b,2.1.7]</itext.version>
+        <jasperreports.version>7.0.7</jasperreports.version>
         <okhttp3.version>4.12.0</okhttp3.version>
 
         <!-- db-starter 第三方版本 -->
@@ -137,8 +136,8 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.velocity</groupId>
-                <artifactId>velocity</artifactId>
-                <version>${velocity.version}</version>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity-engine-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.poi</groupId>
@@ -155,10 +154,11 @@
                 <artifactId>jasperreports</artifactId>
                 <version>${jasperreports.version}</version>
             </dependency>
+            <!-- JasperReports 7.x 將 PDF 匯出拆為獨立模組，PDF 後端改用 OpenPDF（取代 com.lowagie:itext） -->
             <dependency>
-                <groupId>com.lowagie</groupId>
-                <artifactId>itext</artifactId>
-                <version>${itext.version}</version>
+                <groupId>net.sf.jasperreports</groupId>
+                <artifactId>jasperreports-pdf</artifactId>
+                <version>${jasperreports.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>

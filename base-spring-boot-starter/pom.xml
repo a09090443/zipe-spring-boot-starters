@@ -109,11 +109,10 @@
             <artifactId>gson</artifactId>
         </dependency>
 
-        <!-- Velocity（velocity 1.7 runtime 需要 commons-lang 2.x 的 org.apache.commons.lang.StringUtils，
-             不可 exclude commons-lang，否則 VelocityUtil 執行時會 NoClassDefFoundError） -->
+        <!-- Velocity 2.x（velocity-engine-core）：改用 commons-lang3，不再依賴 commons-lang 2.x -->
         <dependency>
             <groupId>org.apache.velocity</groupId>
-            <artifactId>velocity</artifactId>
+            <artifactId>velocity-engine-core</artifactId>
         </dependency>
 
         <!-- Jakarta Servlet（VelocityUtil Web 模式所需，SB4 改用 jakarta 命名空間） -->
@@ -132,7 +131,7 @@
             <artifactId>poi-ooxml</artifactId>
         </dependency>
 
-        <!-- Jsperreport -->
+        <!-- JasperReports 7.x 核心（jackson / commons-beanutils / spring-context 交由 Spring Boot BOM 管理） -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
@@ -150,10 +149,6 @@
                     <groupId>org.springframework</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>commons-lang</artifactId>
-                    <groupId>commons-lang</groupId>
-                </exclusion>
-                <exclusion>
                     <artifactId>jackson-annotations</artifactId>
                     <groupId>com.fasterxml.jackson.core</groupId>
                 </exclusion>
@@ -161,17 +156,13 @@
                     <artifactId>jackson-databind</artifactId>
                     <groupId>com.fasterxml.jackson.core</groupId>
                 </exclusion>
-                <exclusion>
-                    <groupId>com.lowagie</groupId>
-                    <artifactId>itext</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
+        <!-- JasperReports PDF 匯出模組（7.x 拆出獨立模組，PDF 後端為 OpenPDF；JasperExportManager 匯出 PDF 需此模組在 classpath） -->
         <dependency>
-            <groupId>com.lowagie</groupId>
-            <artifactId>itext</artifactId>
-            <scope>compile</scope>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
         </dependency>
 
         <!-- Okhttp3 -->
