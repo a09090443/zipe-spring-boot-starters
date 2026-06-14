@@ -191,5 +191,97 @@ public class LogonLogRecord implements CustomLogonLogRecord {
 只要實作這個介面，即可將登出入事件接到既有的稽核系統、資料庫或外部監控平台，而無須修改 Starter 本身。
 
 :::tip 進一步切換驗證來源
-若內建 `admin/admin` 無法滿足需求，可將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean，即可接上自家的使用者資料庫或 SSO 系統。
+若內建 `admin/admin` 無法滿足需求，可將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean，即可接上自家的使用者資料庫或 SSO 系統。詳見下方「業務端自訂登入（CUSTOM 模式）」一節。
+:::
+
+## 業務端自訂登入（CUSTOM 模式）
+
+`starters_example` 已內建一組可運行的 CUSTOM 自訂登入示範：業務端繼承 `logon-spring-boot-starter` 的 `CommonLoginProcess`，覆寫 `verifyNormalUser()`，以自家的 `user_login` 資料表進行帳號密碼驗證。繼承 `CommonLoginProcess` 的好處是**自動沿用父類別的 ADMIN 動態密碼機制**（`admin` 帳號以「當日日期 `yyyyMMdd`」為密碼），業務端只需專注一般帳號的驗證邏輯。
+
+:::note 與 logon-starter 通用範例的關係
+本節為 `starters_example` 的**實際整合程式碼**。`CommonLoginProcess` 的通用擴充說明、認證 Token 最佳實踐與設定屬性細節，請參閱 [logon-starter examples.md「範例四：CUSTOM 模式」](../logon-starter/examples.md) 與 [configuration.md「CUSTOM 模式」](../logon-starter/configuration.md)，此處不重複。
+:::
+
+### 步驟一：登入帳號資料表與測試資料
+
+CUSTOM 示範使用獨立的 `user_login` 資料表（與 `user_main` 各自獨立，避免影響多資料來源切換測試）。`init/schema.sql` 與 `init/data.sql` 已補上對應結構與兩筆 BCrypt 測試帳號：
+
+```sql
+-- init/schema.sql
+CREATE TABLE `user_login` (
+                              `LoginId`  varchar(100) NOT NULL,
+                              `Password` varchar(100) NOT NULL,
+                              PRIMARY KEY (`LoginId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
+
+```sql
+-- init/data.sql（密碼為 BCrypt 雜湊，strength=10）
+-- user01 / 1234
+INSERT INTO user_login (LoginId, Password) VALUES('user01', '$2a$10$Y6WAl60GuH2wIULKsaRotuHGCAoYfGXmvclCEO2PrvRNQIqcb0VB2');
+-- user02 / abcd
+INSERT INTO user_login (LoginId, Password) VALUES('user02', '$2a$10$1Ihk8NP/mi1bxAErFUA0fu6RnY0EnuDEqYSa57VkDvxzgTrDNMgoK');
+```
+
+對應的 JPA 實體與 Repository（`UserLogin` / `UserLoginRepository`）以 `loginId` 為主鍵，並提供 `findByLoginId(String loginId)` 查詢方法。
+
+### 步驟二：實作自訂 AuthenticationProvider
+
+`starters_example` 中的 `DbAuthProvider` 完整實作如下（`com.example.config.DbAuthProvider`）。`@Component("dbAuthProvider")` 的 Bean 名稱即為 `application.yml` 中 `security.custom-bean-name` 所指定者；`PasswordEncoder` 由 `logon-spring-boot-starter` 預設提供（`BCryptPasswordEncoder`），可直接注入比對：
+
+```java
+@Slf4j
+@Component("dbAuthProvider")
+public class DbAuthProvider extends CommonLoginProcess {
+
+    private final UserLoginRepository userLoginRepository;
+
+    public DbAuthProvider(PasswordEncoder passwordEncoder, UserLoginRepository userLoginRepository) {
+        super(passwordEncoder);
+        this.userLoginRepository = userLoginRepository;
+    }
+
+    @Override
+    protected UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
+        UserLogin userLogin = userLoginRepository.findByLoginId(loginId);
+        if (userLogin == null) {
+            log.warn("使用者:{} 帳號不存在", loginId);
+            throw new BadCredentialsException("使用者:" + loginId + " 帳號或密碼錯誤");
+        }
+        if (!passwordEncoder.matches(password, userLogin.getPassword())) {
+            log.warn("使用者:{} 密碼錯誤", loginId);
+            throw new BadCredentialsException("使用者:" + loginId + " 帳號或密碼錯誤");
+        }
+        log.info("使用者:{} 登入成功", loginId);
+        // 使用非 null 的權限集合使 token 成為已認證狀態，並清除明文密碼
+        return new UsernamePasswordAuthenticationToken(loginId, null, Collections.emptyList());
+    }
+}
+```
+
+:::note data.sql 為 BCrypt 雜湊，故以 matches() 比對
+`data.sql` 寫入的是 BCrypt 雜湊字串（非明文），因此 `verifyNormalUser()` 使用 `passwordEncoder.matches(rawPassword, hashedPassword)` 比對。若你的既有資料庫存的是明文密碼，請改以 `rawPassword.equals(storedPassword)` 等方式，或先將既有資料轉為 BCrypt 雜湊。
+:::
+
+### 步驟三：只改一行即可切換
+
+`starters_example` 為了保留現有 `admin/admin` 示範，預設仍維持 `verification-type: basic`。要切換到自訂登入，只需把 `application.yml` 的 `verification-type` 由 `basic` 改成 `custom` 一行即可——`custom-bean-name` 已預先指向真實存在的 `dbAuthProvider` Bean：
+
+```yaml
+security:
+  enable: true
+  verification-type: custom          # 由 basic 改為 custom 即切換到自訂登入
+  custom-bean-name: dbAuthProvider   # 對應 com.example.config.DbAuthProvider 的 @Component 名稱
+```
+
+切換後可用的測試帳號：
+
+| 帳號 | 密碼 | 驗證方式 |
+|---|---|---|
+| `admin` | 當日日期 `yyyyMMdd`（例如 `20260614`） | 父類別 `CommonLoginProcess.verifySpecialUser()` 動態密碼 |
+| `user01` | `1234` | `DbAuthProvider.verifyNormalUser()` 查 `user_login` 表 |
+| `user02` | `abcd` | 同上 |
+
+:::tip basic 模式下 dbAuthProvider 不會被使用
+`dbAuthProvider` Bean 始終會被 Spring 建立（`@Component`），但只有在 `verification-type: custom` 時，`SecurityConfiguration` 才會透過 `custom-bean-name` 取出並掛載它。因此預設的 `basic` 模式下，此 Bean 存在卻不會被使用，不影響原本的 `admin/admin` 示範與專案啟動。
 :::
