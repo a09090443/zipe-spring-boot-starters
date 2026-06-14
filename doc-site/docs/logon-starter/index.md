@@ -30,7 +30,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

@@ -33,7 +33,7 @@ cd db-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

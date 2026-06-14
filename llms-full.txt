@@ -31,7 +31,7 @@ This file contains all documentation content in a single document following the 
 
 ```
 base-spring-boot-starter/
-├── pom.xml                                         # Maven 建構描述，版本 4.0.0.0
+├── pom.xml                                         # Maven 建構描述，版本 4.0.0.1
 └── src/main/
     ├── java/com/zipe/
     │   ├── autoconfiguration/
@@ -1403,7 +1403,7 @@ public class PhotoLocationExample {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -1494,7 +1494,7 @@ cd base-spring-boot-starter
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
-        <version>4.0.0.0</version>
+        <version>4.0.0.1</version>
     </dependency>
 </dependencies>
 ```
@@ -2961,7 +2961,7 @@ public class OrderService {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -3037,7 +3037,7 @@ cd db-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -3288,7 +3288,7 @@ cd zipe-spring-boot-starters
 
 ### 步驟二：取得 Starter 依賴
 
-範例引用的 Starter（`io.github.a09090443:*:4.0.0.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+範例引用的 Starter（`io.github.a09090443:*:4.0.0.1`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
 
 若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
@@ -3318,7 +3318,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.1`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案
@@ -3599,7 +3599,7 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>4.0.0.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
 </properties>
 
 <dependencies>
@@ -4521,7 +4521,7 @@ cd base-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -4575,7 +4575,7 @@ cd starters_example
 
 ```
 job-spring-boot-starter/
-├── pom.xml                                              # groupId=io.github.a09090443, version=4.0.0.0
+├── pom.xml                                              # groupId=io.github.a09090443, version=4.0.0.1
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                             # 模組內建獨立啟動入口（開發/測試用）
@@ -5328,7 +5328,7 @@ spring:
 本頁列出 `job-spring-boot-starter` 的所有可設定屬性，涵蓋排程啟用、儲存模式、JDBC 資料來源與連線池設定。
 
 :::important 正確的命名空間
-本模組讀取的是 **`spring.quartz.*`** 與 **`spring.datasource.quartz.*`** 命名空間，而非 `zipe.quartz.*`。JDBC 資料來源設定請使用 `spring.datasource.quartz.*`。
+本模組共使用三個命名空間：**`spring.quartz.*`**（排程啟用與儲存模式，Spring Boot 原生整合）、**`quartz.*`**（本模組自訂屬性，含 `quartz.controller.*`、`quartz.allowed-job-classes`、`quartz.job-map`，對應 `QuartzJobPropertyConfig`）、以及 **`spring.datasource.quartz.*`**（JDBC 模式資料來源）。三者皆非 `zipe.quartz.*`。
 :::
 
 ---
@@ -5973,7 +5973,7 @@ curl -X POST http://localhost:8080/quartz/register \
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -6039,7 +6039,7 @@ cd job-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -6924,7 +6924,7 @@ throw new IllegalArgumentException(
 
 ### 依賴版本一致性
 
-- 模組依賴 `base-spring-boot-starter:4.0.0.0`（`LdapUtil` 來源），兩者版本需同步更新
+- 模組依賴 `base-spring-boot-starter:4.0.0.1`（`LdapUtil` 來源），兩者版本需同步更新
 - `spring-security-test` 為 test scope，不傳遞至引用方
 - `spring-boot-configuration-processor` 為 optional，不傳遞至引用方
 
@@ -7497,7 +7497,7 @@ security:
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -7573,7 +7573,7 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -8911,7 +8911,7 @@ LoggingFeature 會將完整 SOAP 訊息輸出至日誌，可能包含帳號密�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -8976,7 +8976,7 @@ cd web-service-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -10446,7 +10446,7 @@ GET /api/events?startDate=1717200000000&endDate=1717286400000
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -10511,7 +10511,7 @@ cd web-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

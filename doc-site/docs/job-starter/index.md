@@ -28,7 +28,7 @@ description: 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>4.0.0.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

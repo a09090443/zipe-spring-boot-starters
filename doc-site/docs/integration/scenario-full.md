@@ -15,7 +15,7 @@ description: 整合所有 Starter 建構完整的企業應用系統
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>4.0.0.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
 </properties>
 
 <dependencies>

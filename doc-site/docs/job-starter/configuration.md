@@ -9,7 +9,7 @@ sidebar_position: 3
 本頁列出 `job-spring-boot-starter` 的所有可設定屬性，涵蓋排程啟用、儲存模式、JDBC 資料來源與連線池設定。
 
 :::important 正確的命名空間
-本模組讀取的是 **`spring.quartz.*`** 與 **`spring.datasource.quartz.*`** 命名空間，而非 `zipe.quartz.*`。JDBC 資料來源設定請使用 `spring.datasource.quartz.*`。
+本模組共使用三個命名空間：**`spring.quartz.*`**（排程啟用與儲存模式，Spring Boot 原生整合）、**`quartz.*`**（本模組自訂屬性，含 `quartz.controller.*`、`quartz.allowed-job-classes`、`quartz.job-map`，對應 `QuartzJobPropertyConfig`）、以及 **`spring.datasource.quartz.*`**（JDBC 模式資料來源）。三者皆非 `zipe.quartz.*`。
 :::
 
 ---
