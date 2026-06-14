@@ -27,10 +27,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.beanutils.BeanComparator;
-import org.apache.commons.collections.ComparatorUtils;
-import org.apache.commons.collections.comparators.ComparableComparator;
-import org.apache.commons.collections.comparators.ComparatorChain;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.ComparatorUtils;
+import org.apache.commons.collections4.comparators.ComparatorChain;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFRichTextString;
@@ -1329,7 +1328,7 @@ public class ExcelUtil {
     private static void sortByProperties(List<? extends Object> list, boolean isNullHigh,
                                          boolean isReversed, String... props) {
         if (CollectionUtils.isNotEmpty(list)) {
-            Comparator<?> typeComp = ComparableComparator.getInstance();
+            Comparator<?> typeComp = ComparatorUtils.naturalComparator();
             if (isNullHigh == true) {
                 typeComp = ComparatorUtils.nullHighComparator(typeComp);
             } else {
