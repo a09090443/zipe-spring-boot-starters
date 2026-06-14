@@ -267,7 +267,7 @@ cd starters_example
 
 :::warning 整合測試需注意的外部依賴
 - `DBExampleServiceTest`、`DynamicDataSourceSwitchTest`、`CrossDbSwitchTest` 均預期連線真實 MySQL（`example1` / `example2`），`CrossDbSwitchTest` 額外需要 PostgreSQL；無對應環境時會失敗。H2 在此扮演開發輔助角色（`sql.init.mode: never` 代表 H2 腳本未自動執行）。
-- Excel 與 JasperReport 測試依賴本機 `D:/tmp/` 目錄的實際檔案，缺檔即失敗，屬本機手動測試性質。
+- Excel 與 JasperReport 測試的輸出檔改寫入 JUnit `@TempDir` 提供的暫存目錄（不再硬編 `D:/tmp/`），可跨平台執行並於測試結束自動清除。
 - `ExampleWebServiceTest` 與 Postman 測試均需應用程式已啟動才能執行。
 :::
 

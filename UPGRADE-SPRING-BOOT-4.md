@@ -732,10 +732,22 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
 
 ### 8.3 決策記錄
 
-- **velocity 1.7 / jasperreports 6.21.3 暫不升級**：兩者於 SB4 / Java 17 仍可編譯運行且測試
-  綠燈，升級為行為敏感且零測試覆蓋，故保留現狀，待整合驗證階段若有實際問題再處理。
-- **velocity 升 2.x 取消**：原計畫的設定鍵改寫與 velocity-tools `WebappLoader`（本即未引入）
-  風險高、無測試，暫不執行。
+- **velocity 1.7 → velocity-engine-core 2.4.1（已升級，反轉先前「暫不升級」決策）**：先前因
+  零測試覆蓋而保留，後依需求補上回歸測試後執行升級。artifactId 改名（groupId 仍
+  `org.apache.velocity`），移除 commons-lang 2.x / commons-collections 硬依賴。沿用 1.x 風格設定
+  鍵（`resource.loader`、`classpath.resource.loader.class`、`input.encoding`），2.x 具相容轉譯
+  僅出現 deprecation 警告。新增 `VelocityUtilTest` 驗證 classpath 模板渲染與 UTF-8 中文輸出。
+- **jasperreports 6.21.3 → 7.0.7 + jasperreports-pdf（已升級，反轉先前「暫不升級」決策）**：
+  7.0 起支援 jakarta。PDF 後端由內建 `com.lowagie:itext` 改為獨立 `jasperreports-pdf` 模組
+  （底層 OpenPDF `1.3.43.jaspersoft.1`），已移除 `com.lowagie:itext` 依賴與相關 exclusions。
+  JR 7.0 以 Jackson XML 取代 Commons Digester，**6.x 命名空間 JRXML 無法再被載入**，故以 JR 7.0
+  設計 API + `JRXmlWriter` 將兩支測試樣板（`SimpleReporter.jrxml`、`ExampleReport.jrxml`）重產為
+  7.0 原生格式。`JasperReportUtil.exportPdfFile` 補上 try-with-resources 關閉 `FileOutputStream`
+  （修正 Windows 下檔案被佔用無法刪除的資源洩漏）。
+- **ExcelUtil 改用 commons-collections4**：velocity/jasper 升級後失去 commons-collections 3.x
+  傳遞依賴，`ExcelUtil` 排序邏輯改用 `org.apache.commons.collections4`
+  （`ComparatorUtils.naturalComparator()` / `ComparatorChain`），並於 base pom 直接宣告
+  `commons-collections4` 依賴。
 - **keycloak go/no-go = NO-GO（凍結 legacy）**：嵌入式 Keycloak Server 架構自 Keycloak 17
   （2022-06）改 Quarkus 後已被上游移除，Keycloak 13 + RESTEasy 3.15 + Infinispan 11 全為 javax
   （Jakarta EE 8），無法升級至 SB4 / Jakarta EE 11。決定保留模組現狀（本在 reactor 外、SB 2.4.4 /
@@ -749,9 +761,13 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
   以 `User.builder()` 建立 UserDetails 時僅設 `passwordEncoder` 未設 `password()`，SS7 下
   儲存密碼無法比對 → BadCredentials。已補 `.password(passwd)` 修復；example controller 測試
   改以 `httpBasic("admin","admin")` 端到端驗證 BASIC 登入，現 200 通過。
-- **starters_example 整合結果**：18 測試 15 通過。多資料源動態切換、跨 DB 類型切換、
-  JasperReport、Excel 匯出、Crypto、BASIC 登入皆綠燈。剩 3 個為環境性（非升級回歸）：
-  `TestImportExcel`（讀硬編路徑 `d:\tmp`）、`ExampleWebServiceTest.getUserByClientUtil`
-  （需 localhost:8080 活著的 SOAP 端點）。
+- **starters_example 整合結果**：多資料源動態切換、跨 DB 類型切換、JasperReport（7.0.7）、
+  Excel 匯入匯出、Velocity、Crypto、BASIC 登入皆綠燈。`TestImportExcel` 與 `JasperreportTest`
+  的硬編 `d:\tmp` 輸出已改為 `@TempDir`，可跨平台執行。剩餘失敗均為環境性（非升級回歸）：
+  DB 類測試需真實 MySQL/PostgreSQL 容器；`ExampleWebServiceTest.getUserByClientUtil` 需
+  localhost:8080 活著的 SOAP 端點。
+- **velocity / jasperreports 升級（本階段完成）**：見 §8.3 決策記錄。新增 `VelocityUtilTest`、
+  重產 JR 7.0 格式測試樣板、修正 `JasperReportUtil` 的 `FileOutputStream` 資源洩漏，
+  全 reactor（base 13 / db 7 / job 5 / logon 2 / web-service 6）建構與測試綠燈。
 - **doc-sync 版本號（已完成）**：發布版號採 `4.0.0.0`，已同步 doc-site/docs、README 與
   根 `llms.txt` / `llms-full.txt`。實際發布版仍由 release tag 決定。

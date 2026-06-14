@@ -176,7 +176,7 @@ base-spring-boot-starter/
 | `initWebPath(request, path)` | WebApp loader，適用 Servlet 環境 |
 | `generateContent(templateName, map)` | 以 Map 填入 VelocityContext，merge 後回傳 HTML 字串 |
 | `writeTemplateOutput(templateName, outputFile, map)` | 呼叫 `generateContent` 後寫入檔案，UTF-8，1 MB 緩衝 |
-| `close()` | 將 `ve` 設為 null 釋放引用（Velocity 1.7 無 close() 方法，GC 後釋放） |
+| `close()` | 將 `ve` 設為 null 釋放引用（velocity-engine-core 2.x 的 `VelocityEngine` 無顯式 close()，僅釋放參考交由 GC 回收） |
 
 **初始化模式比較：**
 
