@@ -76,6 +76,9 @@
         <cxf-rt-databinding-jaxb.version>4.2.2</cxf-rt-databinding-jaxb.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
 
+        <!-- logon-starter 第三方版本 -->
+        <jjwt.version>0.12.6</jjwt.version>
+
         <!-- build 外掛版本 -->
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
@@ -196,6 +199,25 @@
                 <artifactId>jaxws-ri</artifactId>
                 <version>${jaxws-ri.version}</version>
                 <type>pom</type>
+            </dependency>
+
+            <!-- logon-starter 第三方依賴（JWT 登入模式使用 jjwt） -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
