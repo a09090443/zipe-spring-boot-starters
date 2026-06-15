@@ -1,15 +1,24 @@
 package com.zipe.jwt;
 
+import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.util.StreamUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 
 /**
@@ -28,15 +37,28 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
-        if ("HS256".equalsIgnoreCase(properties.getAlgorithm())) {
+        String algorithm = properties.getAlgorithm();
+        if ("HS256".equalsIgnoreCase(algorithm)) {
             if (StringUtils.isBlank(properties.getSecret())) {
                 throw new IllegalStateException("security.jwt.secret is required for HS256");
             }
             SecretKey key = Keys.hmacShaKeyFor(properties.getSecret().getBytes(StandardCharsets.UTF_8));
             this.signKey = key;
             this.verifyKey = key;
+        } else if ("RS256".equalsIgnoreCase(algorithm)) {
+            if (StringUtils.isBlank(properties.getPrivateKeyLocation())
+                    || StringUtils.isBlank(properties.getPublicKeyLocation())) {
+                throw new IllegalStateException(
+                        "security.jwt.private-key-location and public-key-location are required for RS256");
+            }
+            try {
+                this.signKey = loadPrivateKey(properties.getPrivateKeyLocation());
+                this.verifyKey = loadPublicKey(properties.getPublicKeyLocation());
+            } catch (Exception ex) {
+                throw new IllegalStateException("Failed to load RS256 keys: " + ex.getMessage(), ex);
+            }
         } else {
-            throw new IllegalStateException("Unsupported algorithm: " + properties.getAlgorithm());
+            throw new IllegalStateException("Unsupported algorithm: " + algorithm);
         }
     }
 
@@ -55,11 +77,38 @@ public class JwtTokenProvider {
     }
 
     public String validateAndGetUsername(String token) {
-        return Jwts.parser()
-                .verifyWith((SecretKey) verifyKey)
+        JwtParserBuilder parserBuilder = Jwts.parser();
+        if (verifyKey instanceof SecretKey secretKey) {
+            parserBuilder.verifyWith(secretKey);
+        } else {
+            parserBuilder.verifyWith((PublicKey) verifyKey);
+        }
+        return parserBuilder
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
+    }
+
+    private PrivateKey loadPrivateKey(String location) throws Exception {
+        byte[] der = readPemDer(location, "PRIVATE KEY");
+        return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
+    }
+
+    private PublicKey loadPublicKey(String location) throws Exception {
+        byte[] der = readPemDer(location, "PUBLIC KEY");
+        return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
+    }
+
+    private byte[] readPemDer(String location, String type) throws Exception {
+        var resource = new DefaultResourceLoader().getResource(location);
+        String pem;
+        try (var in = resource.getInputStream()) {
+            pem = StreamUtils.copyToString(in, StandardCharsets.UTF_8);
+        }
+        String base64 = pem.replace("-----BEGIN " + type + "-----", "")
+                .replace("-----END " + type + "-----", "")
+                .replaceAll("\\s", "");
+        return Base64.getDecoder().decode(base64);
     }
 }
