@@ -5,6 +5,10 @@ import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.handler.LoginFailureHandler;
 import com.zipe.handler.LoginSuccessHandler;
 import com.zipe.handler.LogoutSuccessHandler;
+import com.zipe.jwt.JwtAuthenticationFilter;
+import com.zipe.jwt.JwtLoginController;
+import com.zipe.jwt.JwtProperties;
+import com.zipe.jwt.JwtTokenProvider;
 import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.util.ApplicationContextHelper;
@@ -13,9 +17,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,6 +35,7 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -42,7 +50,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @AutoConfiguration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@EnableConfigurationProperties({SecurityPropertyConfig.class})
+@EnableConfigurationProperties({SecurityPropertyConfig.class, JwtProperties.class})
 public class SecurityConfiguration {
 
     /** 開放所有路徑的萬用 URI 樣式，僅在安全性停用時使用。 */
@@ -59,6 +67,111 @@ public class SecurityConfiguration {
     public SecurityConfiguration(SecurityPropertyConfig securityPropertyConfig) {
         this.securityPropertyConfig = securityPropertyConfig;
     }
+
+    // ============================ JWT 無狀態模式 ============================
+    // 僅當 security.verification-type=JWT 時生效。本 filter chain 先於預設 filterChain
+    // 註冊，使其 @ConditionalOnMissingBean(SecurityFilterChain.class) 自動退讓。
+    // 各 Bean 皆標註 @ConditionalOnMissingBean，業務專案可自行覆寫。
+
+    /**
+     * 建立 JWT 無狀態模式的 {@link SecurityFilterChain}。
+     *
+     * <p>停用 CSRF 與 Session（{@link SessionCreationPolicy#STATELESS}），放行登入端點與
+     * {@code security.allow-uris}，其餘請求須通過 {@link JwtAuthenticationFilter} 驗證。</p>
+     *
+     * @param http                   {@link HttpSecurity} 設定建構器
+     * @param jwtAuthenticationFilter JWT 驗證過濾器（容器 Bean）
+     * @param jwtProperties          JWT 設定屬性（容器 Bean）
+     * @return 建置完成的 {@link SecurityFilterChain}
+     * @throws Exception 設定過程發生例外時拋出
+     */
+    @Bean
+    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    public SecurityFilterChain jwtSecurityFilterChain(HttpSecurity http,
+                                                      JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                      JwtProperties jwtProperties) throws Exception {
+        http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers(switchSecurity()).permitAll()
+                        .requestMatchers(jwtProperties.getLoginUri()).permitAll()
+                        .anyRequest().authenticated())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        configureFrameOptions(http);
+        return http.build();
+    }
+
+    /**
+     * 建立 {@link JwtTokenProvider}，由 Spring 觸發其 {@code @PostConstruct init()}。
+     *
+     * @param jwtProperties JWT 設定屬性（容器 Bean）
+     * @return {@link JwtTokenProvider} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    public JwtTokenProvider jwtTokenProvider(JwtProperties jwtProperties) {
+        return new JwtTokenProvider(jwtProperties);
+    }
+
+    /**
+     * 建立 {@link JwtAuthenticationFilter}。
+     *
+     * <p>查權限的 {@link com.zipe.service.BasicUserServiceImpl} 以具體型別注入，
+     * 避免容器中多個 {@code UserDetailsService} Bean 造成歧義；
+     * 若需改以 LDAP 等其他來源查權限，業務專案可覆寫本 Bean。</p>
+     *
+     * @param provider         JWT 簽驗核心（容器 Bean）
+     * @param basicUserService BASIC 模式使用者服務（容器 Bean）
+     * @param jwtProperties    JWT 設定屬性（容器 Bean）
+     * @return {@link JwtAuthenticationFilter} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider provider,
+                                                           BasicUserServiceImpl basicUserService,
+                                                           JwtProperties jwtProperties) {
+        return new JwtAuthenticationFilter(provider, basicUserService, jwtProperties);
+    }
+
+    /**
+     * 建立 JWT 模式登入用的 {@link AuthenticationManager}。
+     *
+     * <p>預設以 {@link DaoAuthenticationProvider} 搭配 {@link BasicUserServiceImpl} 驗帳密；
+     * 若需 LDAP 等其他驗證來源，業務專案可覆寫本 Bean。</p>
+     *
+     * @param basicUserService BASIC 模式使用者服務（容器 Bean）
+     * @param passwordEncoder  密碼編碼器（容器 Bean）
+     * @return {@link AuthenticationManager} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl basicUserService,
+                                                          PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
+    }
+
+    /**
+     * 建立內建 JWT 登入端點 {@link JwtLoginController}。
+     *
+     * @param authenticationManager JWT 模式的認證管理器（容器 Bean）
+     * @param provider              JWT 簽驗核心（容器 Bean）
+     * @return {@link JwtLoginController} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    public JwtLoginController jwtLoginController(AuthenticationManager authenticationManager,
+                                                JwtTokenProvider provider) {
+        return new JwtLoginController(authenticationManager, provider);
+    }
+
+    // ============================ 預設（BASIC / LDAP / CUSTOM）模式 ============================
 
     /**
      * 建立並回傳主要的 {@link SecurityFilterChain}。
