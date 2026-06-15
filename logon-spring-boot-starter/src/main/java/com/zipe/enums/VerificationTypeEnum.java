@@ -18,7 +18,9 @@ public enum VerificationTypeEnum {
     /** 使用 LDAP 目錄服務進行驗證 */
     LDAP,
     /** 使用自訂驗證流程 */
-    CUSTOM;
+    CUSTOM,
+    /** 使用 JWT 無狀態 token 驗證 */
+    JWT;
 
     /**
      * 依字串名稱（不區分大小寫）取得對應的列舉常數。

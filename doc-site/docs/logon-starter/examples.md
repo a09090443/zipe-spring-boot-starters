@@ -285,6 +285,93 @@ LDAP 驗證流程中，`LdapUserDetailsService` 會以 `sAMAccountName` 搜尋�
 
 ---
 
+### 範例八：JWT 模式——登入取得 token 並存取受保護資源
+
+**application.yml（業務專案）：**
+
+```yaml
+security:
+  verification-type: jwt
+  allow-uris: /static/**,/public/**
+  jwt:
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600
+    login-uri: /api/login
+```
+
+**Step 1：登入取得 token**
+
+```bash
+curl -X POST http://localhost:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
+```
+
+回應：
+
+```json
+{ "token": "eyJhbGciOiJIUzI1NiJ9...", "tokenType": "Bearer" }
+```
+
+**Step 2：帶 token 存取受保護資源**
+
+```bash
+curl http://localhost:8080/whoami \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..."
+```
+
+未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
+
+:::note 權限查詢與即時撤銷
+token 內僅存放 username，`JwtAuthenticationFilter` 於**每次請求**透過 `UserDetailsService.loadUserByUsername()` 取得最新權限。因此停用帳號或調整權限可立即生效，無需等待 token 過期。預設驗帳密與查權限均使用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub），生產環境請覆寫（見下個範例）。
+:::
+
+### 範例九：JWT 模式覆寫內建端點與驗證來源
+
+JWT 相關 Bean 皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫。
+
+**覆寫登入端點（自訂回應格式 / 路徑）：** 宣告自己的 `JwtLoginController`（沿用方法簽章 `login(JwtLoginRequest)` 回傳 `ResponseEntity<JwtLoginResponse>`），或直接宣告 `@RestController` 接管登入路徑。
+
+**改以資料庫帳號驗證並填入權限：** 覆寫 `AuthenticationManager` 與查權限用的 `UserDetailsService`（以 `BasicUserServiceImpl` 型別覆寫）：
+
+```java
+// 業務專案：config/JwtBeanConfig.java
+import com.zipe.service.BasicUserServiceImpl;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class JwtBeanConfig {
+
+    /** 覆寫查權限用的 UserDetailsService（JWT filter 以 BasicUserServiceImpl 型別注入）。 */
+    @Bean
+    public BasicUserServiceImpl basicUserServiceImpl(PasswordEncoder passwordEncoder) {
+        return new BasicUserServiceImpl(passwordEncoder) {
+            // 覆寫 loadUserByUsername 改查業務資料庫，並填入角色
+        };
+    }
+
+    /** 覆寫登入驗證用的 AuthenticationManager。 */
+    @Bean
+    public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl userService,
+                                                          PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
+    }
+}
+```
+
+:::warning JWT 模式的角色控制
+與其他模式相同，`@PreAuthorize` 需要 `UserDetails` 帶有正確的 `GrantedAuthority`。JWT 模式下權限來自查權限的 `UserDetailsService`，請在覆寫的 `loadUserByUsername()` 中填入角色清單。
+:::
+
+---
+
 ## 常見情境
 
 ### 情境一：讓部分路徑免登入

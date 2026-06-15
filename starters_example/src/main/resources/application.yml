@@ -55,7 +55,7 @@ web:
 # logon-spring-boot-starter(Basic login user/password:admin/admin)
 security:
   enable: true # security 開關
-  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
+  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)，jwt 無狀態 token 登入(需定義 security.jwt.secret)
   # 將上方 verification-type 從 basic 改成 custom，即可切換到業務端自訂登入(DbAuthProvider)。
   # custom 模式下會以 user_login 資料表(帳密:user01/1234、user02/abcd)做 DB 驗證，admin 帳號仍走父類別動態密碼機制。
   custom-bean-name: dbAuthProvider # 自訂登入方式，請填入 bean name(對應 com.example.config.DbAuthProvider 的 @Component 名稱)
@@ -65,6 +65,17 @@ security:
   #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
   login-success-uri: /jsp # 登入成功後的頁面
   login-failure-uri: /login # 登入失敗的頁面
+  # === JWT 無狀態登入模式 ===
+  # 將上方 verification-type 改成 jwt，即可切換到 JWT 無狀態 token 登入。
+  # 啟用後：POST /api/login (帳密 admin/admin) 取得 token，後續請求帶
+  # Authorization: Bearer <token> 即可存取受保護資源；不再使用表單登入與 session。
+  # 內建 JwtLoginController 與 JwtAuthenticationFilter 皆可由業務端覆寫。
+  jwt:
+    # HS256 對稱式密鑰，長度至少 32 位元組（正式環境請以環境變數注入，勿寫死於設定檔）。
+    secret: example-jwt-secret-key-please-change-in-production
+    # algorithm: HS256 # 預設 HS256；改用 RS256 時改填 private-key-location / public-key-location
+    # expiration-seconds: 3600 # token 有效秒數，預設 3600
+    # login-uri: /api/login # 內建登入端點路徑，預設 /api/login
   ldap:
     ip: 127.0.0.1 # Ldap 主機
     domain: ldap.zipe.com # Ldap domain name
