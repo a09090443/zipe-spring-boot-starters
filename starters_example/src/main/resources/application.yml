@@ -55,7 +55,7 @@ web:
 # logon-spring-boot-starter(Basic login user/password:admin/admin)
 security:
   enable: true # security 開關
-  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
+  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)，jwt 無狀態 token 登入(需定義 security.jwt.secret)
   # 將上方 verification-type 從 basic 改成 custom，即可切換到業務端自訂登入(DbAuthProvider)。
   # custom 模式下會以 user_login 資料表(帳密:user01/1234、user02/abcd)做 DB 驗證，admin 帳號仍走父類別動態密碼機制。
   custom-bean-name: dbAuthProvider # 自訂登入方式，請填入 bean name(對應 com.example.config.DbAuthProvider 的 @Component 名稱)

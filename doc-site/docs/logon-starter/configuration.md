@@ -17,7 +17,7 @@ sidebar_position: 3
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
 | `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行（會輸出 WARN 日誌，請勿用於正式環境） |
-| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom`（大小寫不敏感） |
+| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom` / `jwt`（大小寫不敏感） |
 | `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
 | `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
 | `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
@@ -27,6 +27,22 @@ sidebar_position: 3
 | `security.record-log-enable` | Boolean | `false` | 是否啟用登入稽核回呼；設為 `true` 時必須同時設定 `custom-record-log-bean` |
 | `security.custom-record-log-bean` | String | 無 | `record-log-enable=true` 時必填；業務端 `CustomLogonLogRecord` Bean 的名稱 |
 | `security.custom-bean-name` | String | 無 | `verification-type=custom` 時必填；業務端 `AuthenticationProvider` Bean 的名稱 |
+
+## JWT 子屬性（`security.jwt.*`）
+
+僅在 `security.verification-type: jwt` 時需要設定。對應 `JwtProperties`。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.jwt.algorithm` | String | `HS256` | 簽章演算法：`HS256`（對稱）或 `RS256`（非對稱） |
+| `security.jwt.secret` | String | 無 | HS256 對稱密鑰，長度至少 32 位元組；`algorithm=HS256` 時必填（建議以環境變數注入） |
+| `security.jwt.private-key-location` | String | 無 | RS256 私鑰位置（PEM，簽 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
+| `security.jwt.public-key-location` | String | 無 | RS256 公鑰位置（PEM，驗 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
+| `security.jwt.expiration-seconds` | long | `3600` | access token 有效秒數，預設 3600（1 小時） |
+| `security.jwt.login-uri` | String | `/api/login` | 內建登入端點路徑 |
+| `security.jwt.header` | String | `Authorization` | 讀取 token 的 HTTP 標頭名稱 |
+| `security.jwt.token-prefix` | String | `Bearer ` | token 前綴（注意尾端含一個空格） |
+| `security.jwt.issuer` | String | 無 | 選填，寫入 token 的 `iss` claim |
 
 ## LDAP 子屬性（`security.ldap.*`）
 
@@ -88,6 +104,40 @@ security:
   csrf-enabled: false
 ```
 
+### JWT 模式（無狀態 token）
+
+HS256（對稱密鑰）：
+
+```yaml
+security:
+  enable: true
+  verification-type: jwt
+  allow-uris: /static/**,/public/**
+  jwt:
+    algorithm: HS256
+    secret: 0123456789-0123456789-0123456789-secret  # 至少 32 位元組，請以環境變數注入
+    expiration-seconds: 3600
+    login-uri: /api/login
+```
+
+RS256（公私鑰）：
+
+```yaml
+security:
+  enable: true
+  verification-type: jwt
+  allow-uris: /static/**,/public/**
+  jwt:
+    algorithm: RS256
+    private-key-location: classpath:keys/jwt-private.pem
+    public-key-location: classpath:keys/jwt-public.pem
+    expiration-seconds: 3600
+```
+
+:::note JWT 模式不使用表單登入與 session
+`verification-type=jwt` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），未通過驗證的請求回傳 401。
+:::
+
 ### 含稽核日誌的完整範例
 
 ```yaml
@@ -146,6 +196,10 @@ security:
 
 :::warning CUSTOM 模式必填屬性
 設定 `verification-type: custom` 時，**必須同時設定 `custom-bean-name`**，否則 Spring Context 啟動時會因 `NullPointerException` 而失敗，應用無法啟動。
+:::
+
+:::warning JWT HS256 金鑰長度
+`algorithm=HS256` 時 `security.jwt.secret` 長度**至少需 32 位元組（256 bit）**，否則 jjwt 會在 `JwtTokenProvider.init()` 啟動階段拋出例外。RS256 模式則需同時提供 `private-key-location` 與 `public-key-location`，缺一即啟動失敗。
 :::
 
 :::note 密碼編碼

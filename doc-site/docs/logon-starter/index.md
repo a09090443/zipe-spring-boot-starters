@@ -2,21 +2,22 @@
 id: index
 title: logon-spring-boot-starter
 sidebar_position: 1
-description: 整合 Spring Security 的登入認證 Starter，支援表單登入、LDAP 與自訂驗證
+description: 整合 Spring Security 的登入認證 Starter，支援表單登入、LDAP、自訂驗證與 JWT
 ---
 
 # logon-spring-boot-starter
 
-`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組支援三種驗證類型：BASIC（內建 stub）、LDAP 目錄服務，以及 CUSTOM（業務自訂 `AuthenticationProvider`），透過 `security.verification-type` 屬性切換，無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
+`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組支援四種驗證類型：BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`），以及 JWT（無狀態 token 登入），透過 `security.verification-type` 屬性切換，無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
 
 ## 功能概述
 
-模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。
+模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。JWT 模式（`verification-type=JWT`）則切換到無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager` 驗帳密後由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
 
 ## 主要特性
 
-- **多種驗證類型**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）可切換。
+- **多種驗證類型**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）、`JWT`（無狀態 token）可切換。
 - **表單登入**：內建標準的 Spring Security 表單登入流程，支援自訂或預設登入頁。
+- **JWT 無狀態登入**：內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
 - **LDAP 整合**：自動補全網域、JNDI 連線 AD/LDAP，驗證後解析 `sAMAccountName`。
 - **ADMIN 動態密碼**：帳號 `admin` 以當日日期（`yyyyMMdd`）作為動態密碼，便於維護期間緊急登入。
 - **登入 Handler**：`LoginSuccessHandler`（還原原始請求 URL）、`LoginFailureHandler`（伺服器端 forward）、`LogoutSuccessHandler`（清理 Session）。
@@ -53,13 +54,18 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 | `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`（hardcoded stub，僅適合開發測試） |
 | `LdapUserDetailsService` | `service` | LDAP 模式，繼承 `CommonLoginProcess`，與 AD/LDAP 互動 |
 | `CustomLogonLogRecord` | `service` | 稽核日誌回呼介面，業務專案自行實作 |
+| `JwtProperties` | `jwt` | 屬性綁定（prefix: `security.jwt`），持有 JWT 演算法、金鑰與 token 設定 |
+| `JwtTokenProvider` | `jwt` | JWT 簽發與驗證核心，支援 HS256 / RS256 |
+| `JwtAuthenticationFilter` | `jwt` | 解析 `Authorization: Bearer` token，查權限寫入 `SecurityContext` |
+| `JwtLoginController` | `jwt` | 內建 JWT 登入端點（預設 `/api/login`），可覆寫 |
+| `JwtLoginRequest` / `JwtLoginResponse` | `jwt.vo` | JWT 登入請求 / 回應 DTO |
 | `LoginSuccessHandler` | `handler` | 登入成功處理器，記錄日誌與 IP，導向成功頁 |
 | `LoginFailureHandler` | `handler` | 登入失敗處理器，分類日誌，伺服器端 forward 至失敗頁 |
 | `LogoutSuccessHandler` | `handler` | 登出成功處理器，清理 Session，導向登入頁 |
 | `UserInfoUtil` | `util` | 靜態工具，`loginUserId()` 從 `SecurityContextHolder` 取得當前帳號 |
 | `SecurityBaseService` | `base/service` | 業務 Service 基底，封裝 Session 存取，`fetchLoginUser()` 回傳 `SysUserVO` |
 | `SysUserVO` | `vo` | 儲存於 `HttpSession` 的使用者 VO（`userId` / `loginTime`） |
-| `VerificationTypeEnum` | `enums` | 驗證模式列舉：`BASIC` / `LDAP` / `CUSTOM` |
+| `VerificationTypeEnum` | `enums` | 驗證模式列舉：`BASIC` / `LDAP` / `CUSTOM` / `JWT` |
 | `UserEnum` | `enums` | 特殊使用者列舉：`SYSTEM` / `ADMIN` |
 | `LdapUser` | `model` | LDAP 驗證後的資料傳輸物件 |
 
@@ -73,5 +79,6 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 :::tip 驗證類型選擇建議
 - 組織已建置 AD / LDAP → 使用 `ldap` 驗證
 - 帳號自管於資料庫 → 使用 `custom` 驗證，實作 `CommonLoginProcess.verifyNormalUser()`
+- 前後端分離 / 行動 App / 無狀態 API → 使用 `jwt` 驗證，以 token 取代 session
 - 快速開發 / 測試環境 → 使用 `basic`（注意：預設帳密為 `admin/admin`，上線前必須切換）
 :::

@@ -168,6 +168,30 @@ security:
 
 詳細實作步驟請參閱[使用範例](./examples.md)。
 
+## JWT 模式快速設定
+
+前後端分離、行動 App 或無狀態 API 場景，改用 JWT token 登入：
+
+```yaml
+security:
+  verification-type: jwt
+  allow-uris: /static/**,/public/**
+  jwt:
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600                          # token 有效秒數
+    login-uri: /api/login                             # 內建登入端點（預設值）
+```
+
+啟用後流程：
+
+1. `POST /api/login`，body 為 `{"username":"admin","password":"admin"}`，回傳 `{"token":"...","tokenType":"Bearer"}`。
+2. 後續請求帶標頭 `Authorization: Bearer <token>` 即可存取受保護資源。
+3. 未帶或 token 無效時回傳 `401 Unauthorized`。
+
+:::note JWT 模式與表單登入互斥
+`verification-type=jwt` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；驗帳密預設沿用 BASIC 的 `admin/admin` stub，生產環境請覆寫 `basicUserServiceImpl` 或 `AuthenticationManager` Bean。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
+:::
+
 :::warning CSRF 設定
 Spring Security 預設啟用 CSRF 保護（`csrf-enabled: true`）。若使用傳統表單登入，請確保表單包含 CSRF token；若為純 REST API 或前後端分離架構，可設定 `csrf-enabled: false`。
 :::
