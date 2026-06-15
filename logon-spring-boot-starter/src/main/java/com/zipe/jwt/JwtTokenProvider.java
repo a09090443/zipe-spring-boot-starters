@@ -68,8 +68,14 @@ public class JwtTokenProvider {
         var builder = Jwts.builder()
                 .subject(username)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(exp))
-                .signWith(signKey);
+                .expiration(Date.from(exp));
+        // 明確指定設定的演算法，避免 jjwt 依金鑰長度自動改用更強的 HS384/HS512，
+        // 確保 token header 的 alg 與 security.jwt.algorithm 設定一致。
+        if (signKey instanceof SecretKey secretKey) {
+            builder.signWith(secretKey, Jwts.SIG.HS256);
+        } else {
+            builder.signWith((PrivateKey) signKey, Jwts.SIG.RS256);
+        }
         if (StringUtils.isNotBlank(properties.getIssuer())) {
             builder.issuer(properties.getIssuer());
         }

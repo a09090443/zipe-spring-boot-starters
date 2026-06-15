@@ -3,8 +3,12 @@ package com.zipe.jwt;
 import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtTokenProviderTest {
 
@@ -32,6 +36,24 @@ class JwtTokenProviderTest {
         String token = provider.generateToken("alice");
         String tampered = token.substring(0, token.length() - 2) + "xx";
         assertThrows(JwtException.class, () -> provider.validateAndGetUsername(tampered));
+    }
+
+    @Test
+    void hs256_tokenHeader_shouldUseConfiguredAlgorithm() {
+        JwtProperties p = new JwtProperties();
+        p.setAlgorithm("HS256");
+        // 64 bytes 金鑰：若未明確指定演算法，jjwt 會依金鑰長度自動選用 HS512，
+        // 因此本測試確保簽章固定採用設定的 HS256。
+        p.setSecret("0123456789012345678901234567890123456789012345678901234567890123");
+        JwtTokenProvider provider = new JwtTokenProvider(p);
+        provider.init();
+
+        String token = provider.generateToken("alice");
+        String headerJson = new String(
+                Base64.getUrlDecoder().decode(token.split("\\.")[0]), StandardCharsets.UTF_8);
+
+        assertTrue(headerJson.contains("\"alg\":\"HS256\""),
+                "token header 應使用設定的 HS256，實際為: " + headerJson);
     }
 
     @Test
