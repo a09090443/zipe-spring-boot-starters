@@ -17,7 +17,7 @@ sidebar_position: 3
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
 | `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行（會輸出 WARN 日誌，請勿用於正式環境） |
-| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom` / `jwt`（大小寫不敏感） |
+| `security.verification-type` | String | `basic` | 憑證來源（怎麼驗帳密）：`basic` / `ldap` / `custom`（大小寫不敏感）。與 `security.jwt.enabled`（登入後狀態策略）正交 |
 | `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
 | `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
 | `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
@@ -30,10 +30,11 @@ sidebar_position: 3
 
 ## JWT 子屬性（`security.jwt.*`）
 
-僅在 `security.verification-type: jwt` 時需要設定。對應 `JwtProperties`。
+設定 `security.jwt.enabled: true` 時生效，與 `verification-type` 正交（可疊加於 basic / ldap / custom 任一憑證來源）。對應 `JwtProperties`。
 
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
+| `security.jwt.enabled` | Boolean | `false` | 是否啟用 JWT 無狀態登入；`true` 時以 JWT filter chain 取代表單登入與 session，登入仍依 `verification-type` 驗帳密 |
 | `security.jwt.algorithm` | String | `HS256` | 簽章演算法：`HS256`（對稱）或 `RS256`（非對稱） |
 | `security.jwt.secret` | String | 無 | HS256 對稱密鑰，長度至少 32 位元組；`algorithm=HS256` 時必填（建議以環境變數注入） |
 | `security.jwt.private-key-location` | String | 無 | RS256 私鑰位置（PEM，簽 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
@@ -104,38 +105,49 @@ security:
   csrf-enabled: false
 ```
 
-### JWT 模式（無狀態 token）
+### JWT 無狀態登入（疊加於任一憑證來源）
 
-HS256（對稱密鑰）：
+JWT 與 `verification-type` 正交：`verification-type` 決定怎麼驗帳密，`jwt.enabled: true` 決定驗完改發 token。以下示範 BASIC + JWT（HS256）：
 
 ```yaml
 security:
   enable: true
-  verification-type: jwt
+  verification-type: basic       # 憑證來源：basic / ldap / custom 皆可
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
     algorithm: HS256
     secret: 0123456789-0123456789-0123456789-secret  # 至少 32 位元組，請以環境變數注入
     expiration-seconds: 3600
     login-uri: /api/login
 ```
 
-RS256（公私鑰）：
+LDAP + JWT（RS256）—— 登入走 LDAP 驗證，驗成功後發 RS256 token：
 
 ```yaml
 security:
   enable: true
-  verification-type: jwt
+  verification-type: ldap        # 登入以 LDAP 驗帳密
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true
     algorithm: RS256
     private-key-location: classpath:keys/jwt-private.pem
     public-key-location: classpath:keys/jwt-public.pem
     expiration-seconds: 3600
+  ldap:
+    ip: 192.168.1.100
+    domain: corp.example.com
+    port: 389
+    dn: DC=corp,DC=example,DC=com
 ```
 
-:::note JWT 模式不使用表單登入與 session
-`verification-type=jwt` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），未通過驗證的請求回傳 401。
+:::note JWT 啟用時不使用表單登入與 session
+`security.jwt.enabled=true` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM；未通過驗證的請求回傳 401。
+:::
+
+:::warning LDAP / CUSTOM + JWT 的權限查詢
+JWT 每次請求以 token 內的 username 透過 `UserDetailsService` 查權限。`LdapUserDetailsService` 與一般 CUSTOM `AuthenticationProvider` 需要密碼、無法僅以 username 查詢，因此 `verification-type=ldap|custom` 搭配 JWT 時，請覆寫 `basicUserServiceImpl` Bean，提供可依 username 載入權限的 `UserDetailsService`，否則一般使用者帶 token 的請求會因查無使用者而被拒（登入本身仍正常）。
 :::
 
 ### 含稽核日誌的完整範例

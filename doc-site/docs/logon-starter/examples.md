@@ -285,15 +285,16 @@ LDAP 驗證流程中，`LdapUserDetailsService` 會以 `sAMAccountName` 搜尋�
 
 ---
 
-### 範例八：JWT 模式——登入取得 token 並存取受保護資源
+### 範例八：JWT 無狀態登入——取得 token 並存取受保護資源
 
-**application.yml（業務專案）：**
+**application.yml（業務專案）：** JWT 與 `verification-type` 正交，以下示範 BASIC + JWT。
 
 ```yaml
 security:
-  verification-type: jwt
+  verification-type: basic       # 憑證來源：basic / ldap / custom
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
     secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
     expiration-seconds: 3600
     login-uri: /api/login
@@ -322,17 +323,19 @@ curl http://localhost:8080/whoami \
 
 未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
 
-:::note 權限查詢與即時撤銷
-token 內僅存放 username，`JwtAuthenticationFilter` 於**每次請求**透過 `UserDetailsService.loadUserByUsername()` 取得最新權限。因此停用帳號或調整權限可立即生效，無需等待 token 過期。預設驗帳密與查權限均使用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub），生產環境請覆寫（見下個範例）。
+:::note 登入驗證來源與權限查詢
+**登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
+
+**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
 :::
 
-### 範例九：JWT 模式覆寫內建端點與驗證來源
+### 範例九：覆寫 JWT 內建端點與查權限來源
 
 JWT 相關 Bean 皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫。
 
 **覆寫登入端點（自訂回應格式 / 路徑）：** 宣告自己的 `JwtLoginController`（沿用方法簽章 `login(JwtLoginRequest)` 回傳 `ResponseEntity<JwtLoginResponse>`），或直接宣告 `@RestController` 接管登入路徑。
 
-**改以資料庫帳號驗證並填入權限：** 覆寫 `AuthenticationManager` 與查權限用的 `UserDetailsService`（以 `BasicUserServiceImpl` 型別覆寫）：
+**覆寫查權限用的 UserDetailsService（LDAP/CUSTOM + JWT 必要）：** 登入驗證已由 `verification-type` 處理，通常只需提供可依 username 載入權限的 `UserDetailsService`（以 `basicUserServiceImpl` 型別覆寫）。若還想完全接管登入驗證，再額外覆寫 `AuthenticationManager`：
 
 ```java
 // 業務專案：config/JwtBeanConfig.java

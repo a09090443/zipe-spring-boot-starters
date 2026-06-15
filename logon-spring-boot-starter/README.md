@@ -1,11 +1,11 @@
 # logon-spring-boot-starter
 
-Spring Security 認證整合模組，支援一般表單登入、LDAP 驗證、自訂驗證流程與 JWT 無狀態登入四種模式。
+Spring Security 認證整合模組，以兩個正交設定組合登入方式：憑證來源（`verification-type`：BASIC / LDAP / CUSTOM）與登入後狀態策略（`security.jwt.enabled`：傳統 session 或 JWT 無狀態 token）。
 
 ## 主要功能
 
-- 四種驗證模式：`BASIC`（表單）、`LDAP`（目錄服務）、`CUSTOM`（自訂）、`JWT`（無狀態 token）
-- JWT 內建 `/api/login` 端點，支援 HS256 / RS256，token 僅存 username、每次查 `UserDetailsService` 取權限
+- 三種憑證來源：`BASIC`（表單）、`LDAP`（目錄服務）、`CUSTOM`（自訂），由 `verification-type` 切換
+- JWT 無狀態登入（正交疊加）：`security.jwt.enabled=true` 即在任一憑證來源之上改發 token；內建 `/api/login`，支援 HS256 / RS256，token 僅存 username、每次查 `UserDetailsService` 取權限
 - Session 管理與多 Session 控制
 - 登入成功／失敗／登出事件處理器
 - 自訂登入日誌記錄介面（`CustomLogonLogRecord`）
@@ -27,10 +27,11 @@ Spring Security 認證整合模組，支援一般表單登入、LDAP 驗證、�
 # 啟用安全控制
 security.enable=true
 
-# 驗證類型：BASIC、LDAP、CUSTOM、JWT
+# 憑證來源：BASIC、LDAP、CUSTOM
 security.verification-type=BASIC
 
-# JWT 模式設定（使用 JWT 模式時，verification-type=JWT）
+# JWT 無狀態登入（與 verification-type 正交，可疊加於任一憑證來源）
+# security.jwt.enabled=true
 # security.jwt.secret=請填入至少 32 位元組的密鑰
 # security.jwt.expiration-seconds=3600
 # security.jwt.login-uri=/api/login

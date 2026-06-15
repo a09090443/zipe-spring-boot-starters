@@ -71,9 +71,10 @@ public class SecurityConfiguration {
     }
 
     // ============================ JWT 無狀態模式 ============================
-    // 僅當 security.verification-type=JWT 時生效。本 filter chain 先於預設 filterChain
-    // 註冊，使其 @ConditionalOnMissingBean(SecurityFilterChain.class) 自動退讓。
-    // 各 Bean 皆標註 @ConditionalOnMissingBean，業務專案可自行覆寫。
+    // 僅當 security.jwt.enabled=true 時生效，與 security.verification-type（憑證來源）正交：
+    // 登入仍依 verification-type（BASIC / LDAP / CUSTOM）驗帳密，驗證成功後改發 JWT。
+    // 本 filter chain 先於預設 filterChain 註冊，使其 @ConditionalOnMissingBean(SecurityFilterChain.class)
+    // 自動退讓。各 Bean 皆標註 @ConditionalOnMissingBean，業務專案可自行覆寫。
 
     /**
      * 建立 JWT 無狀態模式的 {@link SecurityFilterChain}。
@@ -88,7 +89,7 @@ public class SecurityConfiguration {
      * @throws Exception 設定過程發生例外時拋出
      */
     @Bean
-    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
     public SecurityFilterChain jwtSecurityFilterChain(HttpSecurity http,
                                                       JwtAuthenticationFilter jwtAuthenticationFilter,
                                                       JwtProperties jwtProperties) throws Exception {
@@ -114,26 +115,28 @@ public class SecurityConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
     public JwtTokenProvider jwtTokenProvider(JwtProperties jwtProperties) {
         return new JwtTokenProvider(jwtProperties);
     }
 
     /**
-     * 建立 {@link JwtAuthenticationFilter}。
+     * 建立 {@link JwtAuthenticationFilter}，負責每次請求驗 token 並查權限。
      *
-     * <p>查權限的 {@link com.zipe.service.BasicUserServiceImpl} 以具體型別注入，
-     * 避免容器中多個 {@code UserDetailsService} Bean 造成歧義；
-     * 若需改以 LDAP 等其他來源查權限，業務專案可覆寫本 Bean。</p>
+     * <p>查權限以具體型別注入 {@link com.zipe.service.BasicUserServiceImpl}（避免容器多個
+     * {@code UserDetailsService} Bean 歧義）。由於 LDAP / CUSTOM 的驗證需要密碼、無法僅以
+     * username 重新查詢，{@code verification-type=ldap|custom} 搭配 JWT 時，請覆寫
+     * {@code basicUserServiceImpl} Bean，提供可依 username 載入權限的 {@code UserDetailsService}
+     * 實作，否則一般使用者請求會因查無使用者而被拒。</p>
      *
      * @param provider         JWT 簽驗核心（容器 Bean）
-     * @param basicUserService BASIC 模式使用者服務（容器 Bean）
+     * @param basicUserService 查權限用的使用者服務（容器 Bean，可覆寫）
      * @param jwtProperties    JWT 設定屬性（容器 Bean）
      * @return {@link JwtAuthenticationFilter} 實例
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider provider,
                                                            BasicUserServiceImpl basicUserService,
                                                            JwtProperties jwtProperties) {
@@ -143,21 +146,23 @@ public class SecurityConfiguration {
     /**
      * 建立 JWT 模式登入用的 {@link AuthenticationManager}。
      *
-     * <p>預設以 {@link DaoAuthenticationProvider} 搭配 {@link BasicUserServiceImpl} 驗帳密；
-     * 若需 LDAP 等其他驗證來源，業務專案可覆寫本 Bean。</p>
+     * <p>重用與表單登入相同的 provider 選擇邏輯（{@link #resolveAuthenticationProvider}），
+     * 因此登入會依 {@code security.verification-type} 走 BASIC / LDAP / CUSTOM 驗帳密，
+     * 而非寫死 BASIC。業務專案可覆寫本 Bean 完全接管登入驗證。</p>
      *
      * @param basicUserService BASIC 模式使用者服務（容器 Bean）
+     * @param ldapUserService  LDAP 模式使用者服務（容器 Bean）
      * @param passwordEncoder  密碼編碼器（容器 Bean）
      * @return {@link AuthenticationManager} 實例
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
     public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl basicUserService,
+                                                          LdapUserDetailsService ldapUserService,
                                                           PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
-        provider.setPasswordEncoder(passwordEncoder);
-        return new ProviderManager(provider);
+        return new ProviderManager(
+                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder));
     }
 
     /**
@@ -169,7 +174,7 @@ public class SecurityConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(name = "security.verification-type", havingValue = "JWT")
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
     public JwtLoginController jwtLoginController(AuthenticationManager authenticationManager,
                                                 JwtTokenProvider provider) {
         return new JwtLoginController(authenticationManager, provider);
@@ -338,25 +343,45 @@ public class SecurityConfiguration {
             http.csrf(AbstractHttpConfigurer::disable);
         }
 
-        VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
-        log.info("登入模式:{}", verificationTypeEnum.name());
+        http.authenticationProvider(
+                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder));
+    }
 
-        switch (verificationTypeEnum) {
-            case LDAP:
-                http.authenticationProvider(ldapUserService);
-                break;
-            case CUSTOM:
-                if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
-                    throw new NullPointerException("Please enter value in custom-bean-name");
-                }
-                http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-                break;
-            case BASIC:
-            default:
-                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(basicUserService);
-                authProvider.setPasswordEncoder(passwordEncoder);
-                http.authenticationProvider(authProvider);
+    /**
+     * 依 {@code security.verification-type} 解析並回傳對應的 {@link AuthenticationProvider}。
+     *
+     * <p>此方法同時供表單登入 filter chain 與 JWT 模式的 {@code AuthenticationManager} 重用，
+     * 確保兩種狀態策略採用一致的憑證來源：</p>
+     * <ul>
+     *   <li>{@code LDAP}：回傳 {@link LdapUserDetailsService}</li>
+     *   <li>{@code CUSTOM}：回傳 {@code custom-bean-name} 指定的 {@link AuthenticationProvider}（未設定則拋例外）</li>
+     *   <li>{@code BASIC}（預設、或未設定）：以 {@link DaoAuthenticationProvider} 搭配 {@link BasicUserServiceImpl}</li>
+     * </ul>
+     *
+     * @param basicUserService BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
+     * @param ldapUserService  LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder  密碼編碼器（容器 Bean）
+     * @return 對應驗證模式的 {@link AuthenticationProvider}
+     */
+    private AuthenticationProvider resolveAuthenticationProvider(BasicUserServiceImpl basicUserService,
+                                                                 LdapUserDetailsService ldapUserService,
+                                                                 PasswordEncoder passwordEncoder) {
+        VerificationTypeEnum verificationTypeEnum =
+                VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        log.info("登入模式:{}", verificationTypeEnum == null ? "BASIC(預設)" : verificationTypeEnum.name());
+
+        if (verificationTypeEnum == VerificationTypeEnum.LDAP) {
+            return ldapUserService;
         }
+        if (verificationTypeEnum == VerificationTypeEnum.CUSTOM) {
+            if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
+                throw new NullPointerException("Please enter value in custom-bean-name");
+            }
+            return (AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName());
+        }
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(basicUserService);
+        authProvider.setPasswordEncoder(passwordEncoder);
+        return authProvider;
     }
 
     /**

@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class VerificationTypeEnumTest {
 
     @Test
-    void getEnum_shouldResolveJwtIgnoreCase() {
-        assertEquals(VerificationTypeEnum.JWT, VerificationTypeEnum.getEnum("jwt"));
-        assertEquals(VerificationTypeEnum.JWT, VerificationTypeEnum.getEnum("JWT"));
+    void getEnum_shouldResolveCustomIgnoreCase() {
+        assertEquals(VerificationTypeEnum.CUSTOM, VerificationTypeEnum.getEnum("custom"));
+        assertEquals(VerificationTypeEnum.CUSTOM, VerificationTypeEnum.getEnum("CUSTOM"));
     }
 
     @Test

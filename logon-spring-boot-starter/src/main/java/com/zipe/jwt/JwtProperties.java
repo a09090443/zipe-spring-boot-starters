@@ -13,6 +13,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "security.jwt")
 public class JwtProperties {
 
+    /**
+     * 是否啟用 JWT 無狀態登入模式，預設 {@code false}。
+     *
+     * <p>此設定與 {@code security.verification-type}（憑證來源）正交：設為 {@code true}
+     * 時，登入仍依 verification-type（BASIC / LDAP / CUSTOM）驗帳密，驗證成功後改發 JWT
+     * 並走無狀態 filter chain，取代表單登入與 session。</p>
+     */
+    private boolean enabled = false;
+
     /** 簽章演算法，支援 {@code HS256}（對稱）與 {@code RS256}（非對稱）。 */
     private String algorithm = "HS256";
 

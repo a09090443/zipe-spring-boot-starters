@@ -79,12 +79,13 @@ security:
 ```
 
 :::note Spring Security 預設行為與覆寫方式
-`logon-spring-boot-starter` 透過 `verification-type` 提供四種驗證模式：
+`logon-spring-boot-starter` 透過 `verification-type` 提供三種**憑證來源**：
 
 - `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`，預設帳密為 `admin/admin`。
 - `ldap`：連接 LDAP 目錄服務，需另行設定 `security.ldap.*`。
 - `custom`：從 Spring Context 取出 `security.custom-bean-name` 指定的 Bean（須實作 `AuthenticationProvider`）。
-- `jwt`：無狀態 token 登入，內建 `POST /api/login` 簽發 token，需設定 `security.jwt.*`（詳見 [logon-starter configuration.md](../logon-starter/configuration.md)）。
+
+另有與之**正交**的 `security.jwt.enabled`：設為 `true` 即在上述任一憑證來源之上改用 JWT 無狀態登入（內建 `POST /api/login` 簽發 token），詳見 [logon-starter configuration.md](../logon-starter/configuration.md)。
 
 此外，`security.login-uri` 未設定時走預設登入頁（`/login`）；設定後則改用自訂登入頁，Session 策略改為 `STATELESS`。若將 `security.enable` 設為 `false`，所有路徑 `/**` 都會 `permitAll`，等同於關閉安全控制。
 :::

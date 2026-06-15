@@ -4442,12 +4442,13 @@ security:
 ```
 
 :::note Spring Security 預設行為與覆寫方式
-`logon-spring-boot-starter` 透過 `verification-type` 提供四種驗證模式：
+`logon-spring-boot-starter` 透過 `verification-type` 提供三種**憑證來源**：
 
 - `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`，預設帳密為 `admin/admin`。
 - `ldap`：連接 LDAP 目錄服務，需另行設定 `security.ldap.*`。
 - `custom`：從 Spring Context 取出 `security.custom-bean-name` 指定的 Bean（須實作 `AuthenticationProvider`）。
-- `jwt`：無狀態 token 登入，內建 `POST /api/login` 簽發 token，需設定 `security.jwt.*`（詳見 [logon-starter configuration.md](../logon-starter/configuration.md)）。
+
+另有與之**正交**的 `security.jwt.enabled`：設為 `true` 即在上述任一憑證來源之上改用 JWT 無狀態登入（內建 `POST /api/login` 簽發 token），詳見 [logon-starter configuration.md](../logon-starter/configuration.md)。
 
 此外，`security.login-uri` 未設定時走預設登入頁（`/login`）；設定後則改用自訂登入頁，Session 策略改為 `STATELESS`。若將 `security.enable` 設為 `false`，所有路徑 `/**` 都會 `permitAll`，等同於關閉安全控制。
 :::
@@ -6590,7 +6591,7 @@ Quartz 預設不透過 Spring 容器建立 Job 實例，因此 `@Autowired` 欄�
 
 - `SecurityConfiguration` 上的類別層級**無任何 `@ConditionalOnXxx` 條件**：只要引入依賴，`SecurityConfiguration` 無條件生效。但各 `@Bean` 方法皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean（含整鏈覆寫 `SecurityFilterChain`）即可取代預設實作，不會衝突。
 - BASIC 模式的 `BasicUserServiceImpl` 為 **hardcoded stub**（帳號 `admin`，密碼 `admin`），僅適合開發測試，生產環境必須切換至 CUSTOM 模式或覆寫此 Bean。
-- JWT 模式採用**獨立的 `jwtSecurityFilterChain`**（`@ConditionalOnProperty(verification-type=JWT)`），與 BASIC/LDAP/CUSTOM 的 `filterChain` 互斥：JWT 模式生效時其先行註冊，使預設 `filterChain` 的 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓，兩者不會同時存在。JWT 模式查帳密與查權限預設沿用 BASIC 的 `BasicUserServiceImpl` stub，生產環境須覆寫。
+- JWT 是與 `verification-type`（憑證來源）**正交的登入後狀態策略**，由 `security.jwt.enabled` 控制，而非第四種 verification-type。啟用時採用**獨立的 `jwtSecurityFilterChain`**（`@ConditionalOnProperty(security.jwt.enabled=true)`），先行註冊使預設 `filterChain` 的 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓，兩者不會同時存在。**登入驗帳密重用 `verification-type` 的 provider 選擇邏輯**（`resolveAuthenticationProvider`），故 LDAP/CUSTOM + JWT 皆可；唯每次請求查權限用的 `UserDetailsService` 預設為 BASIC 的 `BasicUserServiceImpl`，LDAP/CUSTOM + JWT 時須覆寫之。
 
 ---
 
@@ -6620,7 +6621,7 @@ logon-spring-boot-starter/
     │   │   ├── LoginFailureHandler.java              # 登入失敗處理器，分類日誌並回呼 CustomLogonLogRecord
     │   │   ├── LoginSuccessHandler.java              # 登入成功處理器，擷取 IP 並回呼 CustomLogonLogRecord
     │   │   └── LogoutSuccessHandler.java             # 登出成功處理器，清理 Session 並回呼 CustomLogonLogRecord
-    │   ├── jwt/                                      # JWT 無狀態登入模式（verification-type=JWT 時生效）
+    │   ├── jwt/                                      # JWT 無狀態登入（security.jwt.enabled=true 時生效，與 verification-type 正交）
     │   │   ├── JwtProperties.java                    # @ConfigurationProperties(prefix="security.jwt")，演算法 / 金鑰 / token 設定
     │   │   ├── JwtTokenProvider.java                 # JWT 簽發與驗證核心，依 algorithm 選 HS256 / RS256
     │   │   ├── JwtAuthenticationFilter.java          # OncePerRequestFilter，解析 Bearer token 查權限寫入 SecurityContext
@@ -6676,7 +6677,8 @@ logon-spring-boot-starter/
 | `filterChain(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder, SessionRegistry, LoginSuccessHandler, LoginFailureHandler, LogoutSuccessHandler)` | 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，可被業務專案整鏈覆寫。依 `security.login-uri` 是否有值，分派至 `customLoginConfigure()` 或 `basicLoginConfigure()`。Handler、`SessionRegistry`、`PasswordEncoder` 等相依**以方法參數注入容器 Bean**（含使用者覆寫版），不再以 `this.xxx()` 直接 new |
 | `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
 | `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
-| `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | `switch-case` 依 `VerificationTypeEnum`：`LDAP` 掛載傳入的 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取出指定 Bean；`BASIC`（預設）以傳入的 `BasicUserServiceImpl` + `PasswordEncoder` 組裝 `DaoAuthenticationProvider` |
+| `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider 掛載至 `http` |
+| `resolveAuthenticationProvider(BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 依 `VerificationTypeEnum` 回傳 provider：`LDAP` 回傳 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取指定 Bean；`BASIC`（預設 / null）以 `BasicUserServiceImpl` + `PasswordEncoder` 組 `DaoAuthenticationProvider`。**同時供表單登入與 JWT 的 `AuthenticationManager` 重用**，確保兩種狀態策略憑證來源一致 |
 | `switchSecurity()` | `security.enable=false` 時回傳 `["/**"]`（全路徑放行）；否則回傳 `allow-uris` 切分後的陣列 |
 | `passwordEncoder()` | `@Bean @ConditionalOnMissingBean`，回傳 `BCryptPasswordEncoder` |
 | `sessionRegistry()` | `@Bean @ConditionalOnMissingBean`，回傳 `SessionRegistryImpl`，供並行 Session 控制使用 |
@@ -6696,19 +6698,19 @@ logon-spring-boot-starter/
 | `loginFailureHandler` | `LoginFailureHandler` | `@ConditionalOnMissingBean` | 登入失敗處理器 |
 | `logoutSuccessHandler` | `LogoutSuccessHandler` | `@ConditionalOnMissingBean` | 登出成功處理器 |
 
-**JWT 模式專屬 Bean（僅 `@ConditionalOnProperty(security.verification-type=JWT)` 時建立）：**
+**JWT 專屬 Bean（僅 `@ConditionalOnProperty(security.jwt.enabled=true)` 時建立）：**
 
-> 下列 Bean 僅在 `verification-type=JWT` 時生效，且皆標註 `@ConditionalOnMissingBean`，業務專案可覆寫。
+> 下列 Bean 僅在 `security.jwt.enabled=true` 時生效（與 verification-type 正交），且皆標註 `@ConditionalOnMissingBean`，業務專案可覆寫。
 
 | Bean 名稱 | 型別 | 條件 | 說明 |
 |---|---|---|---|
-| `jwtSecurityFilterChain` | `SecurityFilterChain` | `@ConditionalOnProperty(JWT)` | JWT 無狀態過濾鏈：停用 CSRF、`STATELESS` session、401 entry point，並於 `UsernamePasswordAuthenticationFilter` 前插入 `JwtAuthenticationFilter`。**先於預設 `filterChain` 註冊，使其 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓** |
-| `jwtTokenProvider` | `JwtTokenProvider` | `@ConditionalOnProperty(JWT)` + missing | token 簽發 / 驗證核心，由 Spring 觸發 `@PostConstruct init()` |
-| `jwtAuthenticationFilter` | `JwtAuthenticationFilter` | `@ConditionalOnProperty(JWT)` + missing | 以具體型別注入 `BasicUserServiceImpl` 查權限，避免多個 `UserDetailsService` Bean 歧義 |
-| `jwtAuthenticationManager` | `AuthenticationManager` | `@ConditionalOnProperty(JWT)` + missing | 預設以 `DaoAuthenticationProvider(BasicUserServiceImpl) + PasswordEncoder` 組裝的 `ProviderManager` |
-| `jwtLoginController` | `JwtLoginController` | `@ConditionalOnProperty(JWT)` + missing | 內建登入端點 |
+| `jwtSecurityFilterChain` | `SecurityFilterChain` | `@ConditionalOnProperty(jwt.enabled)` | JWT 無狀態過濾鏈：停用 CSRF、`STATELESS` session、401 entry point，並於 `UsernamePasswordAuthenticationFilter` 前插入 `JwtAuthenticationFilter`。**先於預設 `filterChain` 註冊，使其 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓** |
+| `jwtTokenProvider` | `JwtTokenProvider` | `@ConditionalOnProperty(jwt.enabled)` + missing | token 簽發 / 驗證核心，由 Spring 觸發 `@PostConstruct init()` |
+| `jwtAuthenticationFilter` | `JwtAuthenticationFilter` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以具體型別注入 `BasicUserServiceImpl` 作為查權限的 `UserDetailsService`（預設；LDAP/CUSTOM + JWT 須覆寫），避免多個 `UserDetailsService` Bean 歧義 |
+| `jwtAuthenticationManager` | `AuthenticationManager` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以 `resolveAuthenticationProvider(...)` 依 `verification-type` 取得 provider 後組成 `ProviderManager`，登入驗帳密因此與表單登入一致（BASIC/LDAP/CUSTOM） |
+| `jwtLoginController` | `JwtLoginController` | `@ConditionalOnProperty(jwt.enabled)` + missing | 內建登入端點 |
 
-> JWT 模式不套用 `basicLoginConfigure` / `customLoginConfigure` 與三個登入 Handler；登入改走 `JwtLoginController`，並以 `JwtAuthenticationFilter` 取代表單登入流程。
+> JWT 啟用時不套用 `basicLoginConfigure` / `customLoginConfigure` 與三個登入 Handler；登入改走 `JwtLoginController`（仍依 verification-type 驗帳密），並以 `JwtAuthenticationFilter` 取代表單登入流程。
 
 ---
 
@@ -6840,7 +6842,8 @@ logon-spring-boot-starter/
 | `BASIC` | 使用 `BasicUserServiceImpl`（DaoAuthenticationProvider + BCrypt，hardcoded stub） |
 | `LDAP` | 使用 `LdapUserDetailsService`（JNDI 連線 AD/LDAP） |
 | `CUSTOM` | 使用 `security.custom-bean-name` 指定的 `AuthenticationProvider` Bean |
-| `JWT` | 切換至無狀態 filter chain，內建 `/api/login` 簽發 token，`JwtAuthenticationFilter` 驗證 Bearer token |
+
+> JWT 並非此列舉的值，而是與 verification-type 正交的 `security.jwt.enabled` 開關；啟用後登入仍依上述 verification-type 驗帳密。
 
 **UserEnum（`enums` 套件）：**
 
@@ -7379,7 +7382,7 @@ throw new IllegalArgumentException(
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
 | `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行（會輸出 WARN 日誌，請勿用於正式環境） |
-| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom` / `jwt`（大小寫不敏感） |
+| `security.verification-type` | String | `basic` | 憑證來源（怎麼驗帳密）：`basic` / `ldap` / `custom`（大小寫不敏感）。與 `security.jwt.enabled`（登入後狀態策略）正交 |
 | `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
 | `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
 | `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
@@ -7392,10 +7395,11 @@ throw new IllegalArgumentException(
 
 ## JWT 子屬性（`security.jwt.*`）
 
-僅在 `security.verification-type: jwt` 時需要設定。對應 `JwtProperties`。
+設定 `security.jwt.enabled: true` 時生效，與 `verification-type` 正交（可疊加於 basic / ldap / custom 任一憑證來源）。對應 `JwtProperties`。
 
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
+| `security.jwt.enabled` | Boolean | `false` | 是否啟用 JWT 無狀態登入；`true` 時以 JWT filter chain 取代表單登入與 session，登入仍依 `verification-type` 驗帳密 |
 | `security.jwt.algorithm` | String | `HS256` | 簽章演算法：`HS256`（對稱）或 `RS256`（非對稱） |
 | `security.jwt.secret` | String | 無 | HS256 對稱密鑰，長度至少 32 位元組；`algorithm=HS256` 時必填（建議以環境變數注入） |
 | `security.jwt.private-key-location` | String | 無 | RS256 私鑰位置（PEM，簽 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
@@ -7466,38 +7470,49 @@ security:
   csrf-enabled: false
 ```
 
-### JWT 模式（無狀態 token）
+### JWT 無狀態登入（疊加於任一憑證來源）
 
-HS256（對稱密鑰）：
+JWT 與 `verification-type` 正交：`verification-type` 決定怎麼驗帳密，`jwt.enabled: true` 決定驗完改發 token。以下示範 BASIC + JWT（HS256）：
 
 ```yaml
 security:
   enable: true
-  verification-type: jwt
+  verification-type: basic       # 憑證來源：basic / ldap / custom 皆可
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
     algorithm: HS256
     secret: 0123456789-0123456789-0123456789-secret  # 至少 32 位元組，請以環境變數注入
     expiration-seconds: 3600
     login-uri: /api/login
 ```
 
-RS256（公私鑰）：
+LDAP + JWT（RS256）—— 登入走 LDAP 驗證，驗成功後發 RS256 token：
 
 ```yaml
 security:
   enable: true
-  verification-type: jwt
+  verification-type: ldap        # 登入以 LDAP 驗帳密
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true
     algorithm: RS256
     private-key-location: classpath:keys/jwt-private.pem
     public-key-location: classpath:keys/jwt-public.pem
     expiration-seconds: 3600
+  ldap:
+    ip: 192.168.1.100
+    domain: corp.example.com
+    port: 389
+    dn: DC=corp,DC=example,DC=com
 ```
 
-:::note JWT 模式不使用表單登入與 session
-`verification-type=jwt` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），未通過驗證的請求回傳 401。
+:::note JWT 啟用時不使用表單登入與 session
+`security.jwt.enabled=true` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM；未通過驗證的請求回傳 401。
+:::
+
+:::warning LDAP / CUSTOM + JWT 的權限查詢
+JWT 每次請求以 token 內的 username 透過 `UserDetailsService` 查權限。`LdapUserDetailsService` 與一般 CUSTOM `AuthenticationProvider` 需要密碼、無法僅以 username 查詢，因此 `verification-type=ldap|custom` 搭配 JWT 時，請覆寫 `basicUserServiceImpl` Bean，提供可依 username 載入權限的 `UserDetailsService`，否則一般使用者帶 token 的請求會因查無使用者而被拒（登入本身仍正常）。
 :::
 
 ### 含稽核日誌的完整範例
@@ -7860,15 +7875,16 @@ LDAP 驗證流程中，`LdapUserDetailsService` 會以 `sAMAccountName` 搜尋�
 
 ---
 
-### 範例八：JWT 模式——登入取得 token 並存取受保護資源
+### 範例八：JWT 無狀態登入——取得 token 並存取受保護資源
 
-**application.yml（業務專案）：**
+**application.yml（業務專案）：** JWT 與 `verification-type` 正交，以下示範 BASIC + JWT。
 
 ```yaml
 security:
-  verification-type: jwt
+  verification-type: basic       # 憑證來源：basic / ldap / custom
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
     secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
     expiration-seconds: 3600
     login-uri: /api/login
@@ -7897,17 +7913,19 @@ curl http://localhost:8080/whoami \
 
 未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
 
-:::note 權限查詢與即時撤銷
-token 內僅存放 username，`JwtAuthenticationFilter` 於**每次請求**透過 `UserDetailsService.loadUserByUsername()` 取得最新權限。因此停用帳號或調整權限可立即生效，無需等待 token 過期。預設驗帳密與查權限均使用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub），生產環境請覆寫（見下個範例）。
+:::note 登入驗證來源與權限查詢
+**登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
+
+**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
 :::
 
-### 範例九：JWT 模式覆寫內建端點與驗證來源
+### 範例九：覆寫 JWT 內建端點與查權限來源
 
 JWT 相關 Bean 皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫。
 
 **覆寫登入端點（自訂回應格式 / 路徑）：** 宣告自己的 `JwtLoginController`（沿用方法簽章 `login(JwtLoginRequest)` 回傳 `ResponseEntity<JwtLoginResponse>`），或直接宣告 `@RestController` 接管登入路徑。
 
-**改以資料庫帳號驗證並填入權限：** 覆寫 `AuthenticationManager` 與查權限用的 `UserDetailsService`（以 `BasicUserServiceImpl` 型別覆寫）：
+**覆寫查權限用的 UserDetailsService（LDAP/CUSTOM + JWT 必要）：** 登入驗證已由 `verification-type` 處理，通常只需提供可依 username 載入權限的 `UserDetailsService`（以 `basicUserServiceImpl` 型別覆寫）。若還想完全接管登入驗證，再額外覆寫 `AuthenticationManager`：
 
 ```java
 // 業務專案：config/JwtBeanConfig.java
@@ -8050,17 +8068,17 @@ security:
 ## logon-spring-boot-starter
 
 
-`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組支援四種驗證類型：BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`），以及 JWT（無狀態 token 登入），透過 `security.verification-type` 屬性切換，無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
+`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組以**兩個正交的軸**設定：**憑證來源**透過 `security.verification-type` 切換 BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`）三種；**登入後狀態策略**則透過 `security.jwt.enabled` 決定要走傳統 session 表單登入，或疊加 JWT 無狀態 token 登入。兩軸獨立，因此可組合出「LDAP 驗證 + JWT」「CUSTOM 驗證 + JWT」等情境，皆無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
 
 ## 功能概述
 
-模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。JWT 模式（`verification-type=JWT`）則切換到無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager` 驗帳密後由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
+模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。設定 `security.jwt.enabled=true` 時，模組改用無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager`（**重用上述 verification-type 的 provider 選擇邏輯**）驗帳密後，由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
 
 ## 主要特性
 
-- **多種驗證類型**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）、`JWT`（無狀態 token）可切換。
+- **多種憑證來源**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）可由 `security.verification-type` 切換。
 - **表單登入**：內建標準的 Spring Security 表單登入流程，支援自訂或預設登入頁。
-- **JWT 無狀態登入**：內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
+- **JWT 無狀態登入（正交疊加）**：設定 `security.jwt.enabled=true` 即在**任一** verification-type 之上改用 JWT；內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
 - **LDAP 整合**：自動補全網域、JNDI 連線 AD/LDAP，驗證後解析 `sAMAccountName`。
 - **ADMIN 動態密碼**：帳號 `admin` 以當日日期（`yyyyMMdd`）作為動態密碼，便於維護期間緊急登入。
 - **登入 Handler**：`LoginSuccessHandler`（還原原始請求 URL）、`LoginFailureHandler`（伺服器端 forward）、`LogoutSuccessHandler`（清理 Session）。
@@ -8108,7 +8126,7 @@ security:
 | `UserInfoUtil` | `util` | 靜態工具，`loginUserId()` 從 `SecurityContextHolder` 取得當前帳號 |
 | `SecurityBaseService` | `base/service` | 業務 Service 基底，封裝 Session 存取，`fetchLoginUser()` 回傳 `SysUserVO` |
 | `SysUserVO` | `vo` | 儲存於 `HttpSession` 的使用者 VO（`userId` / `loginTime`） |
-| `VerificationTypeEnum` | `enums` | 驗證模式列舉：`BASIC` / `LDAP` / `CUSTOM` / `JWT` |
+| `VerificationTypeEnum` | `enums` | 憑證來源列舉：`BASIC` / `LDAP` / `CUSTOM`（JWT 為正交設定，非此列舉值） |
 | `UserEnum` | `enums` | 特殊使用者列舉：`SYSTEM` / `ADMIN` |
 | `LdapUser` | `model` | LDAP 驗證後的資料傳輸物件 |
 
@@ -8122,7 +8140,7 @@ security:
 :::tip 驗證類型選擇建議
 - 組織已建置 AD / LDAP → 使用 `ldap` 驗證
 - 帳號自管於資料庫 → 使用 `custom` 驗證，實作 `CommonLoginProcess.verifyNormalUser()`
-- 前後端分離 / 行動 App / 無狀態 API → 使用 `jwt` 驗證，以 token 取代 session
+- 前後端分離 / 行動 App / 無狀態 API → 在上述任一憑證來源加上 `security.jwt.enabled: true`，以 token 取代 session
 - 快速開發 / 測試環境 → 使用 `basic`（注意：預設帳密為 `admin/admin`，上線前必須切換）
 :::
 
@@ -8293,15 +8311,16 @@ security:
 
 詳細實作步驟請參閱[使用範例](./examples.md)。
 
-## JWT 模式快速設定
+## JWT 無狀態登入快速設定
 
-前後端分離、行動 App 或無狀態 API 場景，改用 JWT token 登入：
+前後端分離、行動 App 或無狀態 API 場景，在既有 `verification-type` 之上加開 `jwt.enabled`，即以 token 取代 session（此處示範 BASIC + JWT）：
 
 ```yaml
 security:
-  verification-type: jwt
+  verification-type: basic       # 憑證來源照舊：basic / ldap / custom
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入（與 verification-type 正交）
     secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
     expiration-seconds: 3600                          # token 有效秒數
     login-uri: /api/login                             # 內建登入端點（預設值）
@@ -8313,8 +8332,8 @@ security:
 2. 後續請求帶標頭 `Authorization: Bearer <token>` 即可存取受保護資源。
 3. 未帶或 token 無效時回傳 `401 Unauthorized`。
 
-:::note JWT 模式與表單登入互斥
-`verification-type=jwt` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；驗帳密預設沿用 BASIC 的 `admin/admin` stub，生產環境請覆寫 `basicUserServiceImpl` 或 `AuthenticationManager` Bean。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
+:::note JWT 啟用時與表單登入互斥
+`security.jwt.enabled=true` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；帳密驗證仍依 `verification-type`（basic/ldap/custom）。BASIC 預設沿用 `admin/admin` stub；LDAP/CUSTOM + JWT 時請覆寫 `basicUserServiceImpl` 提供查權限用的 `UserDetailsService`。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
 :::
 
 :::warning CSRF 設定

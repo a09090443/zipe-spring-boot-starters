@@ -168,15 +168,16 @@ security:
 
 詳細實作步驟請參閱[使用範例](./examples.md)。
 
-## JWT 模式快速設定
+## JWT 無狀態登入快速設定
 
-前後端分離、行動 App 或無狀態 API 場景，改用 JWT token 登入：
+前後端分離、行動 App 或無狀態 API 場景，在既有 `verification-type` 之上加開 `jwt.enabled`，即以 token 取代 session（此處示範 BASIC + JWT）：
 
 ```yaml
 security:
-  verification-type: jwt
+  verification-type: basic       # 憑證來源照舊：basic / ldap / custom
   allow-uris: /static/**,/public/**
   jwt:
+    enabled: true                # 啟用 JWT 無狀態登入（與 verification-type 正交）
     secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
     expiration-seconds: 3600                          # token 有效秒數
     login-uri: /api/login                             # 內建登入端點（預設值）
@@ -188,8 +189,8 @@ security:
 2. 後續請求帶標頭 `Authorization: Bearer <token>` 即可存取受保護資源。
 3. 未帶或 token 無效時回傳 `401 Unauthorized`。
 
-:::note JWT 模式與表單登入互斥
-`verification-type=jwt` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；驗帳密預設沿用 BASIC 的 `admin/admin` stub，生產環境請覆寫 `basicUserServiceImpl` 或 `AuthenticationManager` Bean。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
+:::note JWT 啟用時與表單登入互斥
+`security.jwt.enabled=true` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；帳密驗證仍依 `verification-type`（basic/ldap/custom）。BASIC 預設沿用 `admin/admin` stub；LDAP/CUSTOM + JWT 時請覆寫 `basicUserServiceImpl` 提供查權限用的 `UserDetailsService`。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
 :::
 
 :::warning CSRF 設定

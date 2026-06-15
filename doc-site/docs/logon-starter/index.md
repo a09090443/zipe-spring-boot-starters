@@ -7,17 +7,17 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 
 # logon-spring-boot-starter
 
-`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組支援四種驗證類型：BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`），以及 JWT（無狀態 token 登入），透過 `security.verification-type` 屬性切換，無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
+`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組以**兩個正交的軸**設定：**憑證來源**透過 `security.verification-type` 切換 BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`）三種；**登入後狀態策略**則透過 `security.jwt.enabled` 決定要走傳統 session 表單登入，或疊加 JWT 無狀態 token 登入。兩軸獨立，因此可組合出「LDAP 驗證 + JWT」「CUSTOM 驗證 + JWT」等情境，皆無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
 
 ## 功能概述
 
-模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。JWT 模式（`verification-type=JWT`）則切換到無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager` 驗帳密後由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
+模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。設定 `security.jwt.enabled=true` 時，模組改用無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager`（**重用上述 verification-type 的 provider 選擇邏輯**）驗帳密後，由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
 
 ## 主要特性
 
-- **多種驗證類型**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）、`JWT`（無狀態 token）可切換。
+- **多種憑證來源**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）可由 `security.verification-type` 切換。
 - **表單登入**：內建標準的 Spring Security 表單登入流程，支援自訂或預設登入頁。
-- **JWT 無狀態登入**：內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
+- **JWT 無狀態登入（正交疊加）**：設定 `security.jwt.enabled=true` 即在**任一** verification-type 之上改用 JWT；內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
 - **LDAP 整合**：自動補全網域、JNDI 連線 AD/LDAP，驗證後解析 `sAMAccountName`。
 - **ADMIN 動態密碼**：帳號 `admin` 以當日日期（`yyyyMMdd`）作為動態密碼，便於維護期間緊急登入。
 - **登入 Handler**：`LoginSuccessHandler`（還原原始請求 URL）、`LoginFailureHandler`（伺服器端 forward）、`LogoutSuccessHandler`（清理 Session）。
@@ -65,7 +65,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 | `UserInfoUtil` | `util` | 靜態工具，`loginUserId()` 從 `SecurityContextHolder` 取得當前帳號 |
 | `SecurityBaseService` | `base/service` | 業務 Service 基底，封裝 Session 存取，`fetchLoginUser()` 回傳 `SysUserVO` |
 | `SysUserVO` | `vo` | 儲存於 `HttpSession` 的使用者 VO（`userId` / `loginTime`） |
-| `VerificationTypeEnum` | `enums` | 驗證模式列舉：`BASIC` / `LDAP` / `CUSTOM` / `JWT` |
+| `VerificationTypeEnum` | `enums` | 憑證來源列舉：`BASIC` / `LDAP` / `CUSTOM`（JWT 為正交設定，非此列舉值） |
 | `UserEnum` | `enums` | 特殊使用者列舉：`SYSTEM` / `ADMIN` |
 | `LdapUser` | `model` | LDAP 驗證後的資料傳輸物件 |
 
@@ -79,6 +79,6 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 :::tip 驗證類型選擇建議
 - 組織已建置 AD / LDAP → 使用 `ldap` 驗證
 - 帳號自管於資料庫 → 使用 `custom` 驗證，實作 `CommonLoginProcess.verifyNormalUser()`
-- 前後端分離 / 行動 App / 無狀態 API → 使用 `jwt` 驗證，以 token 取代 session
+- 前後端分離 / 行動 App / 無狀態 API → 在上述任一憑證來源加上 `security.jwt.enabled: true`，以 token 取代 session
 - 快速開發 / 測試環境 → 使用 `basic`（注意：預設帳密為 `admin/admin`，上線前必須切換）
 :::

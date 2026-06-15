@@ -20,7 +20,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(
         classes = JwtItApplication.class,
         properties = {
-                "security.verification-type=JWT",
+                "security.verification-type=basic",
+                "security.jwt.enabled=true",
                 "security.jwt.secret=0123456789-0123456789-0123456789-secret",
                 "security.allow-uris=/public/**",
                 "security.login-uri="
