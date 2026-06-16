@@ -39,7 +39,11 @@ public class DataSourcePropertyConfig {
     /** 預設（主要）資料來源的名稱，對應 {@code dataSourceMap} 中的 key。 */
     private String primary;
 
-    /** JPA Entity 掃描的基礎套件路徑，用於多資料來源時限定各資料來源管轄的實體範圍。 */
+    /**
+     * JPA Entity 掃描的基礎套件路徑，用於多資料來源時限定各資料來源管轄的實體範圍。
+     * <p>可以逗號分隔指定多個套件（例如 {@code com.example,com.zipe.entity}），
+     * 以便同時管理跨模組的 Entity（如併用 iam-starter 時）。</p>
+     */
     private String entityScan;
 
     /** 是否對資料來源的連線密碼進行加解密處理，預設為 {@code false}（不加密）。 */

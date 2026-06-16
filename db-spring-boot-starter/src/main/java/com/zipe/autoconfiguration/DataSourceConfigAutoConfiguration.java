@@ -27,6 +27,7 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -177,6 +178,10 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
      * <p>以 {@link DynamicDataSource} 作為資料來源，掃描 {@code data-source.properties}
      * 中指定的 Entity 套件，並套用 {@link #additionalProperties()} 中的 Hibernate 附加屬性。</p>
      *
+     * <p>{@code dynamic.entity-scan} 支援以逗號分隔指定多個套件（例如同時使用
+     * db-starter 與 iam-starter 時填入 {@code com.example,com.zipe.entity}），
+     * 以便由同一個 {@code EntityManagerFactory} 一併管理跨模組的 Entity。</p>
+     *
      * @param dataSource 已配置好的動態資料來源（由 {@link #dataSource()} 提供）
      * @return 初始化完成的 {@link LocalContainerEntityManagerFactoryBean}
      */
@@ -184,7 +189,10 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     public LocalContainerEntityManagerFactoryBean multiEntityManager(@Qualifier("dataSource") DataSource dataSource) {
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
-        factory.setPackagesToScan(dynamicDataSource.getEntityScan());
+        // entity-scan 以逗號分隔可指定多個套件，去除空白後逐一掃描（單一套件亦相容）
+        factory.setPackagesToScan(
+                StringUtils.trimArrayElements(
+                        StringUtils.commaDelimitedListToStringArray(dynamicDataSource.getEntityScan())));
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factory.setJpaProperties(this.additionalProperties());
         factory.afterPropertiesSet();
