@@ -14,8 +14,8 @@ spring:
     hibernate:
       ddl-auto: none # service 啟動時 database 自動建立機制 (create, create-drop, update, validate)
     show-sql: false # 顯示 Sql 語法
-    base:
-      packages: com.example # Jpa repository package
+    # 註：JPA repository 掃描由 @EnableJpaRepositories 決定（見 Application.java），
+    #     非 Spring Boot 內建屬性的 spring.jpa.base.packages（該屬性無效、不被任何程式讀取）。
   h2:
     console:
       enabled: true
