@@ -215,7 +215,7 @@ application.yml
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
   ├── security.*            → logon-starter ← LogonLogRecord.java
-  └── iam.*                 → iam-starter  ← 共用 db-starter EMF（dynamic.entity-scan）/ IamDemoController
+  └── iam.*                 → iam-starter  ← Entity 由 db-starter EMF 自動併入（@EntityScan）/ IamDemoController
 ```
 
 `base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
@@ -230,7 +230,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
-7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity 由 db-starter 的 `EntityManagerFactory` 一併掃描（`dynamic.entity-scan` 含 `com.zipe.entity`）。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity（`com.zipe.entity`）以 `@EntityScan` 宣告，由 db-starter 的 `EntityManagerFactory` 自動併入掃描，無須額外設定。
 
 ## 完整的啟動與測試步驟
 

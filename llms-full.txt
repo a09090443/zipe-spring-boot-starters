@@ -2006,7 +2006,7 @@ db-spring-boot-starter/
 | 方法 | 回傳型別 | 說明 |
 |---|---|---|
 | `dataSource()` | `DataSource` | 主要工廠方法，建立所有 HikariDataSource 並組裝 DynamicDataSource |
-| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件（支援逗號分隔多套件） |
+| `multiEntityManager(DataSource, BeanFactory)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描套件＝`dynamic.entity-scan`（逗號分隔多套件）＋所有 `@EntityScan` 註冊的套件（自動併入） |
 | `transactionManager(...)` | `PlatformTransactionManager` | 建立 `@Primary JpaTransactionManager` |
 | `jdbcTemplate(DataSource)` | `JdbcTemplate` | 供需要直接使用 JdbcTemplate 的程式碼注入 |
 | `namedParameterJdbcDaoSupport(DataSource)` | `NamedParameterJdbcDaoSupport` | `BaseJDBC` 內部使用的具名參數 JDBC 支援 |
@@ -2097,7 +2097,7 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
-| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件） |
+| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件；另自動併入 `@EntityScan` 註冊的套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 
@@ -2786,7 +2786,7 @@ String cacheKey = resource.toString() + resource.fileName()
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
-| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可以逗號分隔指定多個套件（如併用 iam-starter 時填 `com.example,com.zipe.entity`） |
+| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可逗號分隔指定多個套件。另外，所有以 `@EntityScan` 註冊的套件（如併用 iam-starter 的 `com.zipe.entity`）會自動併入，無須在此重複設定 |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
 
@@ -4104,7 +4104,7 @@ public class OrderController {
 | `db-spring-boot-starter` | 多資料來源動態切換、JDBC 封裝 | `spring.jpa.*`、`data-source.properties` |
 | `job-spring-boot-starter` | Quartz 排程管理 | `spring.quartz.*`、`quartz-jobs.properties` |
 | `logon-spring-boot-starter` | Spring Security 登入認證 | `security.*` |
-| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`、`dynamic.entity-scan` |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`（Entity 由 db-starter 自動併入掃描） |
 | `web-service-spring-boot-starter` | Apache CXF SOAP WebService | `web.service.*` |
 | `web-spring-boot-starter` | JSP / Thymeleaf 前端視圖 | `web.*` |
 
@@ -4696,7 +4696,7 @@ application.yml
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
   ├── security.*            → logon-starter ← LogonLogRecord.java
-  └── iam.*                 → iam-starter  ← 共用 db-starter EMF（dynamic.entity-scan）/ IamDemoController
+  └── iam.*                 → iam-starter  ← Entity 由 db-starter EMF 自動併入（@EntityScan）/ IamDemoController
 ```
 
 `base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
@@ -4711,7 +4711,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
-7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity 由 db-starter 的 `EntityManagerFactory` 一併掃描（`dynamic.entity-scan` 含 `com.zipe.entity`）。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity（`com.zipe.entity`）以 `@EntityScan` 宣告，由 db-starter 的 `EntityManagerFactory` 自動併入掃描，無須額外設定。
 
 ## 完整的啟動與測試步驟
 
@@ -4784,17 +4784,17 @@ cd starters_example
 
 ## 關鍵整合點：與 db-starter 共用 EntityManagerFactory
 
-這是本情境**最重要**的設定。`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。因此 iam 的 `@EntityScan("com.zipe.entity")` 不會生效，必須改由 db-starter 的 `entityManagerFactory` 一併掃描 iam 的 Entity 套件。
+`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。為了讓引入的 starter 不必感知彼此，db-starter 的 `EntityManagerFactory` 在組裝掃描套件時，會**自動併入容器中所有以 `@EntityScan` 註冊的套件**。
 
-做法：在 `data-source.properties` 的 `dynamic.entity-scan` 以**逗號分隔**加入 `com.zipe.entity`：
+iam 的 `IamAutoConfiguration` 已標註 `@EntityScan("com.zipe.entity")`，因此**引入 iam 後無須任何額外設定**——`data-source.properties` 只需照舊列出自身的 Entity 套件即可：
 
 ```properties
-# entity package 位置（逗號分隔可指定多個套件；含 iam-starter 的 com.zipe.entity）
-dynamic.entity-scan=com.example,com.zipe.entity
+# entity package 位置（僅需列自身 Entity；iam 等以 @EntityScan 宣告的套件會自動併入）
+dynamic.entity-scan=com.example
 ```
 
-:::info db-starter 4.0.0.1 起支援多套件
-`dynamic.entity-scan` 自此版本起支援逗號分隔的多個套件，正是為了讓 db-starter 的 `EntityManagerFactory` 能同時管理業務模組與 iam 的 Entity。iam 的 Repository（`com.zipe.repository`）會自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
+:::info db-starter 4.0.0.1 起自動併入 @EntityScan
+db-starter 的 `EntityManagerFactory` 會合併 `dynamic.entity-scan`（仍支援逗號分隔多套件，作為明確指定的選項）與所有 `@EntityScan` 註冊的套件。因此 iam 的 Entity（`com.zipe.entity`）會自動納入管理，其 Repository（`com.zipe.repository`）也自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
 :::
 
 ## 引入依賴

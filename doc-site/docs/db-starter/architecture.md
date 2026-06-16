@@ -107,7 +107,7 @@ db-spring-boot-starter/
 | 方法 | 回傳型別 | 說明 |
 |---|---|---|
 | `dataSource()` | `DataSource` | 主要工廠方法，建立所有 HikariDataSource 並組裝 DynamicDataSource |
-| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件（支援逗號分隔多套件） |
+| `multiEntityManager(DataSource, BeanFactory)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描套件＝`dynamic.entity-scan`（逗號分隔多套件）＋所有 `@EntityScan` 註冊的套件（自動併入） |
 | `transactionManager(...)` | `PlatformTransactionManager` | 建立 `@Primary JpaTransactionManager` |
 | `jdbcTemplate(DataSource)` | `JdbcTemplate` | 供需要直接使用 JdbcTemplate 的程式碼注入 |
 | `namedParameterJdbcDaoSupport(DataSource)` | `NamedParameterJdbcDaoSupport` | `BaseJDBC` 內部使用的具名參數 JDBC 支援 |
@@ -198,7 +198,7 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
-| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件） |
+| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件；另自動併入 `@EntityScan` 註冊的套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 

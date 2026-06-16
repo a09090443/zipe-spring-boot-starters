@@ -10,10 +10,12 @@ import com.zipe.base.model.DynamicDataSourceConfig;
 import com.zipe.util.crypto.Base64Util;
 import com.zipe.util.crypto.CryptoUtil;
 import org.hibernate.cfg.AvailableSettings;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.hibernate.autoconfigure.HibernateProperties;
+import org.springframework.boot.persistence.autoconfigure.EntityScanPackages;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -30,11 +32,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * 資料來源自動配置類別。
@@ -175,28 +180,54 @@ public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
     /**
      * 建立 JPA {@code EntityManagerFactory} Bean。
      *
-     * <p>以 {@link DynamicDataSource} 作為資料來源，掃描 {@code data-source.properties}
-     * 中指定的 Entity 套件，並套用 {@link #additionalProperties()} 中的 Hibernate 附加屬性。</p>
+     * <p>以 {@link DynamicDataSource} 作為資料來源，掃描 Entity 套件，並套用
+     * {@link #additionalProperties()} 中的 Hibernate 附加屬性。</p>
      *
-     * <p>{@code dynamic.entity-scan} 支援以逗號分隔指定多個套件（例如同時使用
-     * db-starter 與 iam-starter 時填入 {@code com.example,com.zipe.entity}），
-     * 以便由同一個 {@code EntityManagerFactory} 一併管理跨模組的 Entity。</p>
+     * <p>掃描的 Entity 套件由兩個來源合併而成：</p>
+     * <ol>
+     *   <li>{@code data-source.properties} 的 {@code dynamic.entity-scan}（支援逗號分隔多套件）。</li>
+     *   <li>容器中所有以 {@code @EntityScan} 註冊的套件（{@link EntityScanPackages}）。因 db-starter
+     *       自建此 {@code EntityManagerFactory} 會使 Spring Boot 預設 JPA 自動配置退讓，連帶讓
+     *       {@code @EntityScan} 失效；此處主動併入，讓引入如 iam-starter 等以 {@code @EntityScan}
+     *       宣告 Entity 套件的 starter 時，<b>無須在 {@code dynamic.entity-scan} 重複設定</b>其套件。</li>
+     * </ol>
      *
-     * @param dataSource 已配置好的動態資料來源（由 {@link #dataSource()} 提供）
+     * @param dataSource  已配置好的動態資料來源（由 {@link #dataSource()} 提供）
+     * @param beanFactory 容器，用於讀取 {@link EntityScanPackages} 的 {@code @EntityScan} 套件
      * @return 初始化完成的 {@link LocalContainerEntityManagerFactoryBean}
      */
     @Bean(name = "entityManagerFactory")
-    public LocalContainerEntityManagerFactoryBean multiEntityManager(@Qualifier("dataSource") DataSource dataSource) {
+    public LocalContainerEntityManagerFactoryBean multiEntityManager(@Qualifier("dataSource") DataSource dataSource,
+                                                                     BeanFactory beanFactory) {
         LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
-        // entity-scan 以逗號分隔可指定多個套件，去除空白後逐一掃描（單一套件亦相容）
-        factory.setPackagesToScan(
-                StringUtils.trimArrayElements(
-                        StringUtils.commaDelimitedListToStringArray(dynamicDataSource.getEntityScan())));
+        factory.setPackagesToScan(resolveEntityScanPackages(beanFactory));
         factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factory.setJpaProperties(this.additionalProperties());
         factory.afterPropertiesSet();
         return factory;
+    }
+
+    /**
+     * 解析 EntityManagerFactory 要掃描的 Entity 套件清單。
+     *
+     * <p>合併 {@code dynamic.entity-scan}（逗號分隔，去除空白）與容器中所有
+     * {@code @EntityScan} 註冊的套件，並去除重複、保留加入順序。</p>
+     *
+     * @param beanFactory 容器，用於取得 {@link EntityScanPackages}
+     * @return 去重後的 Entity 掃描套件陣列
+     */
+    private String[] resolveEntityScanPackages(BeanFactory beanFactory) {
+        Set<String> packages = new LinkedHashSet<>();
+        // 1) 明確設定的 dynamic.entity-scan（逗號分隔可指定多個套件，單一套件亦相容）
+        if (StringUtils.hasText(dynamicDataSource.getEntityScan())) {
+            Collections.addAll(packages,
+                    StringUtils.trimArrayElements(
+                            StringUtils.commaDelimitedListToStringArray(dynamicDataSource.getEntityScan())));
+        }
+        // 2) 併入所有以 @EntityScan 註冊的套件（如 iam-starter 的 com.zipe.entity）
+        packages.addAll(EntityScanPackages.get(beanFactory).getPackageNames());
+        return packages.toArray(new String[0]);
     }
 
     /**

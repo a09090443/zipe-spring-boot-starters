@@ -23,17 +23,17 @@ description: 使用 db + logon + iam Starter 建構資料庫帳號／群組／�
 
 ## 關鍵整合點：與 db-starter 共用 EntityManagerFactory
 
-這是本情境**最重要**的設定。`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。因此 iam 的 `@EntityScan("com.zipe.entity")` 不會生效，必須改由 db-starter 的 `entityManagerFactory` 一併掃描 iam 的 Entity 套件。
+`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。為了讓引入的 starter 不必感知彼此，db-starter 的 `EntityManagerFactory` 在組裝掃描套件時，會**自動併入容器中所有以 `@EntityScan` 註冊的套件**。
 
-做法：在 `data-source.properties` 的 `dynamic.entity-scan` 以**逗號分隔**加入 `com.zipe.entity`：
+iam 的 `IamAutoConfiguration` 已標註 `@EntityScan("com.zipe.entity")`，因此**引入 iam 後無須任何額外設定**——`data-source.properties` 只需照舊列出自身的 Entity 套件即可：
 
 ```properties
-# entity package 位置（逗號分隔可指定多個套件；含 iam-starter 的 com.zipe.entity）
-dynamic.entity-scan=com.example,com.zipe.entity
+# entity package 位置（僅需列自身 Entity；iam 等以 @EntityScan 宣告的套件會自動併入）
+dynamic.entity-scan=com.example
 ```
 
-:::info db-starter 4.0.0.1 起支援多套件
-`dynamic.entity-scan` 自此版本起支援逗號分隔的多個套件，正是為了讓 db-starter 的 `EntityManagerFactory` 能同時管理業務模組與 iam 的 Entity。iam 的 Repository（`com.zipe.repository`）會自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
+:::info db-starter 4.0.0.1 起自動併入 @EntityScan
+db-starter 的 `EntityManagerFactory` 會合併 `dynamic.entity-scan`（仍支援逗號分隔多套件，作為明確指定的選項）與所有 `@EntityScan` 註冊的套件。因此 iam 的 Entity（`com.zipe.entity`）會自動納入管理，其 Repository（`com.zipe.repository`）也自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
 :::
 
 ## 引入依賴

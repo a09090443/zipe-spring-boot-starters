@@ -29,7 +29,7 @@ description: 了解如何組合不同 Starter 建構實際應用系統
 | `db-spring-boot-starter` | 多資料來源動態切換、JDBC 封裝 | `spring.jpa.*`、`data-source.properties` |
 | `job-spring-boot-starter` | Quartz 排程管理 | `spring.quartz.*`、`quartz-jobs.properties` |
 | `logon-spring-boot-starter` | Spring Security 登入認證 | `security.*` |
-| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`、`dynamic.entity-scan` |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`（Entity 由 db-starter 自動併入掃描） |
 | `web-service-spring-boot-starter` | Apache CXF SOAP WebService | `web.service.*` |
 | `web-spring-boot-starter` | JSP / Thymeleaf 前端視圖 | `web.*` |
 

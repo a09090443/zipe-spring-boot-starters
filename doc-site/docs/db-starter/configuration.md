@@ -19,7 +19,7 @@ sidebar_position: 3
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
-| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可以逗號分隔指定多個套件（如併用 iam-starter 時填 `com.example,com.zipe.entity`） |
+| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可逗號分隔指定多個套件。另外，所有以 `@EntityScan` 註冊的套件（如併用 iam-starter 的 `com.zipe.entity`）會自動併入，無須在此重複設定 |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
 
