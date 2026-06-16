@@ -91,6 +91,7 @@ const sidebars = {
         'integration/scenario-db',
         'integration/scenario-job',
         'integration/scenario-webservice',
+        'integration/scenario-iam',
         'integration/scenario-full',
       ],
     },

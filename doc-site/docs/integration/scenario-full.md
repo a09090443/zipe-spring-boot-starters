@@ -1,15 +1,15 @@
 ---
 id: scenario-full
-title: 情境五：全功能整合
-sidebar_position: 6
+title: 情境六：全功能整合
+sidebar_position: 7
 description: 整合所有 Starter 建構完整的企業應用系統
 ---
 
-# 情境五：全功能整合
+# 情境六：全功能整合
 
 ## 情境說明
 
-本情境是前述四種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入六個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
+本情境是前述五種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入七個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、身分授權、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
 
 ## 完整的 pom.xml 設定
 
@@ -19,7 +19,7 @@ description: 整合所有 Starter 建構完整的企業應用系統
 </properties>
 
 <dependencies>
-    <!-- 六個自製 Starter -->
+    <!-- 七個自製 Starter -->
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
@@ -48,6 +48,11 @@ description: 整合所有 Starter 建構完整的企業應用系統
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
+        <version>${zipe.spring.starter.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>iam-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
 
@@ -209,10 +214,11 @@ application.yml
   ├── spring.quartz.*       → job-starter ← quartz-jobs.properties / quartz-datasource.properties
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
-  └── security.*            → logon-starter ← LogonLogRecord.java
+  ├── security.*            → logon-starter ← LogonLogRecord.java
+  └── iam.*                 → iam-starter  ← 共用 db-starter EMF（dynamic.entity-scan）/ IamDemoController
 ```
 
-`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB，於啟動流程中最後生效。
+`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
 
 ## Spring Boot 啟動時的自動配置順序
 
@@ -224,6 +230,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity 由 db-starter 的 `EntityManagerFactory` 一併掃描（`dynamic.entity-scan` 含 `com.zipe.entity`）。
 
 ## 完整的啟動與測試步驟
 
@@ -272,5 +279,5 @@ cd starters_example
 :::
 
 :::info 從全功能拆解到單一情境
-若你的系統只需要部分能力，不必照搬全部六個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境四](./scenario-webservice.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+若你的系統只需要部分能力，不必照搬全部七個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境五](./scenario-iam.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
 :::

@@ -24,7 +24,8 @@ This file contains links to documentation sections following the llmstxt.org sta
 - [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter/quickstart.md): 從引入依賴到以資料庫帳號登入並以權限保護端點的最短路徑
 - [整合範例教學](https://a09090443.github.io/zipe-spring-boot-starters/integration.md): 了解如何組合不同 Starter 建構實際應用系統
 - [情境二：多資料來源應用](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-db.md): 使用 base + db Starter 建構動態切換資料來源的應用
-- [情境五：全功能整合](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-full.md): 整合所有 Starter 建構完整的企業應用系統
+- [情境六：全功能整合](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-full.md): 整合所有 Starter 建構完整的企業應用系統
+- [情境五：身分與授權管理](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-iam.md): 使用 db + logon + iam Starter 建構資料庫帳號／群組／權限的身分授權系統
 - [情境三：排程任務應用](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-job.md): 使用 base + job Starter 建構 Quartz 排程系統
 - [情境一：Web 應用含認證](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-web-auth.md): 使用 base + web + logon Starter 建構具登入認證的 Web 應用
 - [情境四：SOAP WebService](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-webservice.md): 使用 base + web-service Starter 發布 CXF SOAP 服務

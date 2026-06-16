@@ -2006,7 +2006,7 @@ db-spring-boot-starter/
 | 方法 | 回傳型別 | 說明 |
 |---|---|---|
 | `dataSource()` | `DataSource` | 主要工廠方法，建立所有 HikariDataSource 並組裝 DynamicDataSource |
-| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件 |
+| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件（支援逗號分隔多套件） |
 | `transactionManager(...)` | `PlatformTransactionManager` | 建立 `@Primary JpaTransactionManager` |
 | `jdbcTemplate(DataSource)` | `JdbcTemplate` | 供需要直接使用 JdbcTemplate 的程式碼注入 |
 | `namedParameterJdbcDaoSupport(DataSource)` | `NamedParameterJdbcDaoSupport` | `BaseJDBC` 內部使用的具名參數 JDBC 支援 |
@@ -2097,7 +2097,7 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
-| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑 |
+| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 
@@ -2786,7 +2786,7 @@ String cacheKey = resource.toString() + resource.fileName()
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
-| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example` |
+| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可以逗號分隔指定多個套件（如併用 iam-starter 時填 `com.example,com.zipe.entity`） |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
 
@@ -4086,12 +4086,13 @@ public class OrderController {
 
 ## starters_example 專案簡介
 
-`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon` 六個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
+`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon`、`iam` 七個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
 
 - 以 JSP 與 Thymeleaf 同時提供前端頁面（依視圖名稱前綴路由）
 - 以 RESTful API 與 WebFlux SSE 串流提供資料介面
 - 以 Spring Security 提供登入認證，並透過策略模式注入自訂登入日誌
 - 以動態多資料來源連接多個資料庫，支援 `@DS` 與程式化兩種切換方式
+- 以 iam 的帳號／群組／權限模型提供身分與授權資料，並由同一個 `EntityManagerFactory` 與 db-starter 共管 Entity
 - 以 Quartz 提供三種不同模式的排程任務
 - 以 Apache CXF 發布 SOAP WebService 端點
 
@@ -4103,18 +4104,20 @@ public class OrderController {
 | `db-spring-boot-starter` | 多資料來源動態切換、JDBC 封裝 | `spring.jpa.*`、`data-source.properties` |
 | `job-spring-boot-starter` | Quartz 排程管理 | `spring.quartz.*`、`quartz-jobs.properties` |
 | `logon-spring-boot-starter` | Spring Security 登入認證 | `security.*` |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`、`dynamic.entity-scan` |
 | `web-service-spring-boot-starter` | Apache CXF SOAP WebService | `web.service.*` |
 | `web-spring-boot-starter` | JSP / Thymeleaf 前端視圖 | `web.*` |
 
 ## 五種組合情境快速導覽
 
-為了讓你能依需求挑選合適的 Starter 組合，本章節整理出五種典型情境，由淺入深：
+為了讓你能依需求挑選合適的 Starter 組合，本章節整理出六種典型情境，由淺入深：
 
 1. [情境一：Web 應用含認證](./scenario-web-auth.md) — `base + web + logon`，適合需要登入保護的管理後台。
 2. [情境二：多資料來源應用](./scenario-db.md) — `base + db`，適合需要連接多個資料庫的系統。
 3. [情境三：排程任務應用](./scenario-job.md) — `base + job`（可選 `db`），適合需要定時執行任務的系統。
 4. [情境四：SOAP WebService](./scenario-webservice.md) — `base + web-service`，適合需要對接 SOAP 協議的企業系統。
-5. [情境五：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
+5. [情境五：身分與授權管理](./scenario-iam.md) — `db + logon + iam`，適合需要資料庫帳號／群組／權限的系統。
+6. [情境六：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
 
 ## 專案目錄結構說明
 
@@ -4128,6 +4131,7 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
+│   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/iam-demo/authorities/{username}）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
@@ -4156,6 +4160,7 @@ starters_example/
 │   ├── quartz-datasource.properties        # Quartz JDBC 模式資料來源（備用）
 │   ├── init/schema.sql                     # 建表（user_main / user_detail，application.yml 實際引用）
 │   ├── init/data.sql                       # 初始資料（application.yml 實際引用）
+│   ├── init/iam-demo.sql                   # iam 示範建表與種子資料（手動套用至主資料源）
 │   ├── init/h2/schema.sql                  # H2 建表（TBL_EMPLOYEES，備用）
 │   ├── init/h2/data.sql                    # H2 初始資料（備用）
 │   ├── jasperreport/*.jrxml                # JasperReport 報表模板
@@ -4200,6 +4205,8 @@ cd starters_example
 | Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
 | H2 Console | `http://localhost:8080/example/h2-console` |
 
@@ -4478,12 +4485,12 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
 
 ---
 
-## 情境五：全功能整合
+## 情境六：全功能整合
 
 
 ## 情境說明
 
-本情境是前述四種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入六個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
+本情境是前述五種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入七個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、身分授權、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
 
 ## 完整的 pom.xml 設定
 
@@ -4493,7 +4500,7 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
 </properties>
 
 <dependencies>
-    <!-- 六個自製 Starter -->
+    <!-- 七個自製 Starter -->
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
@@ -4522,6 +4529,11 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
+        <version>${zipe.spring.starter.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>iam-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
 
@@ -4683,10 +4695,11 @@ application.yml
   ├── spring.quartz.*       → job-starter ← quartz-jobs.properties / quartz-datasource.properties
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
-  └── security.*            → logon-starter ← LogonLogRecord.java
+  ├── security.*            → logon-starter ← LogonLogRecord.java
+  └── iam.*                 → iam-starter  ← 共用 db-starter EMF（dynamic.entity-scan）/ IamDemoController
 ```
 
-`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB，於啟動流程中最後生效。
+`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
 
 ## Spring Boot 啟動時的自動配置順序
 
@@ -4698,6 +4711,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity 由 db-starter 的 `EntityManagerFactory` 一併掃描（`dynamic.entity-scan` 含 `com.zipe.entity`）。
 
 ## 完整的啟動與測試步驟
 
@@ -4746,7 +4760,136 @@ cd starters_example
 :::
 
 :::info 從全功能拆解到單一情境
-若你的系統只需要部分能力，不必照搬全部六個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境四](./scenario-webservice.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+若你的系統只需要部分能力，不必照搬全部七個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境五](./scenario-iam.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+:::
+
+---
+
+## 情境五：身分與授權管理
+
+
+## 情境說明
+
+本情境示範如何讓系統具備**資料庫帳號管理與權限控管**能力。`iam-spring-boot-starter` 提供帳號（Account）—群組（Group）—權限（Permission）三層模型並以 JPA 持久化，再透過 logon 的 `GrantedAuthoritiesResolver` 擴充點，把使用者的 Spring Security authorities 直接由資料庫的群組與權限展開——三種驗證模式（BASIC／LDAP／CUSTOM）皆共用同一套授權來源。
+
+`starters_example` 將 iam 與既有的 db、logon 一起裝配，重點在於 iam 的 Entity 如何與 db-starter 的動態資料來源**共用同一個 `EntityManagerFactory`**。
+
+## 使用的 Starters
+
+| Starter | 在本情境的角色 |
+|---|---|
+| `db-spring-boot-starter` | 提供動態資料來源與 `EntityManagerFactory`，並一併管理 iam 的 Entity |
+| `logon-spring-boot-starter` | 提供登入認證與 `GrantedAuthoritiesResolver` SPI |
+| `iam-spring-boot-starter` | 提供帳號／群組／權限模型、Service、內建 REST API 與 `DbGrantedAuthoritiesResolver` |
+
+## 關鍵整合點：與 db-starter 共用 EntityManagerFactory
+
+這是本情境**最重要**的設定。`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。因此 iam 的 `@EntityScan("com.zipe.entity")` 不會生效，必須改由 db-starter 的 `entityManagerFactory` 一併掃描 iam 的 Entity 套件。
+
+做法：在 `data-source.properties` 的 `dynamic.entity-scan` 以**逗號分隔**加入 `com.zipe.entity`：
+
+```properties
+# entity package 位置（逗號分隔可指定多個套件；含 iam-starter 的 com.zipe.entity）
+dynamic.entity-scan=com.example,com.zipe.entity
+```
+
+:::info db-starter 4.0.0.1 起支援多套件
+`dynamic.entity-scan` 自此版本起支援逗號分隔的多個套件，正是為了讓 db-starter 的 `EntityManagerFactory` 能同時管理業務模組與 iam 的 Entity。iam 的 Repository（`com.zipe.repository`）會自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
+:::
+
+## 引入依賴
+
+於 `starters_example/pom.xml` 在 logon 之後加入 iam：
+
+```xml
+<dependency>
+  <groupId>io.github.a09090443</groupId>
+  <artifactId>logon-spring-boot-starter</artifactId>
+  <version>${zipe.spring.starter.version}</version>
+</dependency>
+<dependency>
+  <groupId>io.github.a09090443</groupId>
+  <artifactId>iam-spring-boot-starter</artifactId>
+  <version>${zipe.spring.starter.version}</version>
+</dependency>
+```
+
+## 設定
+
+`iam.*` 全部採用預設值即可（總開關啟用、內建 API 啟用、群組前綴 `ROLE_`），故 `application.yml` **無須新增 iam 區塊**。僅需在 `security.allow-uris` 放行示範端點：
+
+```yaml
+security:
+  # …
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 放行 iam 整合示範端點
+```
+
+## 建立資料表與種子資料
+
+範例的 `spring.sql.init.mode` 為 `never`、Hibernate `ddl-auto` 為 `none`，故 iam 的資料表不會自動建立。請於**主資料源**（`example1`）手動套用範例附的 `init/iam-demo.sql`（已含建表與種子資料）：
+
+```bash
+mysql -u user1 -p example1 < src/main/resources/init/iam-demo.sql
+```
+
+種子資料建立了一條最小授權鏈：
+
+| 帳號 | 群組（角色） | 展開後的 authorities |
+|---|---|---|
+| `alice` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` |
+| `bob` | `USER` | `ROLE_USER`、`ORDER_EXPORT` |
+
+> 群組 `code` 套用 `iam.group.role-prefix`（預設 `ROLE_`）；權限 `code` 原樣作為 authority。
+
+## 示範程式
+
+`com.example.controller.IamDemoController` 注入 iam 的 `AccountService` 與被 iam 覆寫的 `GrantedAuthoritiesResolver`，示範內建 API 看不到的「授權解析結果」：
+
+```java
+@RestController
+@RequestMapping("/iam-demo")
+public class IamDemoController {
+
+    private final AccountService accountService;
+    private final GrantedAuthoritiesResolver authoritiesResolver;
+
+    public IamDemoController(AccountService accountService,
+                             GrantedAuthoritiesResolver authoritiesResolver) {
+        this.accountService = accountService;
+        this.authoritiesResolver = authoritiesResolver;
+    }
+
+    @GetMapping("/accounts")
+    public Page<AccountVO> accounts(Pageable pageable) {
+        return accountService.listAccounts(pageable);
+    }
+
+    @GetMapping("/authorities/{username}")
+    public List<String> authorities(@PathVariable String username) {
+        return authoritiesResolver.resolve(username).stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+    }
+}
+```
+
+## 驗證端點
+
+啟動後（需主資料源 MySQL 已就緒並套用 `iam-demo.sql`）：
+
+| 功能 | 端點 | 預期結果 |
+|---|---|---|
+| 解析 alice 的權限 | `GET /example/iam-demo/authorities/alice` | `["ROLE_ADMIN","ORDER_EXPORT","USER_MANAGE"]` |
+| 解析 bob 的權限 | `GET /example/iam-demo/authorities/bob` | `["ROLE_USER","ORDER_EXPORT"]` |
+| iam 帳號分頁查詢 | `GET /example/iam-demo/accounts` | 含 alice／bob 的分頁 JSON |
+| iam 內建帳號 API | `GET /example/api/iam/accounts` | iam 內建 CRUD（受 security 保護，需登入） |
+
+## 以 iam 帳號表登入（選用）
+
+範例預設為 `custom` 登入模式（`DbAuthProvider` 走 `user_login` 表）。若要改由 **iam 帳號表**驗證登入，將 `security.verification-type` 改為 `basic`：此時 iam 的 `IamUserDetailsService` 會自動取代 logon 內建的 `admin/admin` stub，登入帳號改讀 `iam_account`（需在 `iam-demo.sql` 為帳號填入真實 BCrypt 密碼雜湊）。授權部分無論哪種模式都由 `DbGrantedAuthoritiesResolver` 提供。
+
+:::note 執行期需求
+本情境的執行期與整個 `starters_example` 一致，需主資料源（MySQL `example1`）就緒。程式與設定可獨立以 `mvn -o test-compile` 編譯驗證；完整啟動驗證請備妥 MySQL 並先套用 `iam-demo.sql`。
 :::
 
 ---
