@@ -14,7 +14,8 @@
 | [base-spring-boot-starter](base-spring-boot-starter/README.md) | 4.0.0.1 | 基礎工具（加解密、文件、郵件等） |
 | [db-spring-boot-starter](db-spring-boot-starter/README.md) | 4.0.0.1 | 動態多資料來源切換 |
 | [job-spring-boot-starter](job-spring-boot-starter/README.md) | 4.0.0.1 | Quartz 排程任務管理 |
-| [logon-spring-boot-starter](logon-spring-boot-starter/README.md) | 4.0.0.1 | Spring Security 登入認證 |
+| [logon-spring-boot-starter](logon-spring-boot-starter/README.md) | 4.0.0.1 | Spring Security 登入認證（表單 / LDAP / JWT） |
+| [iam-spring-boot-starter](iam-spring-boot-starter/README.md) | 4.0.0.1 | 帳號／群組／權限身分與授權管理（整合 logon） |
 | [web-spring-boot-starter](web-spring-boot-starter/README.md) | 4.0.0.1 | JSP / Thymeleaf 視圖整合 |
 | [web-service-spring-boot-starter](web-service-spring-boot-starter/README.md) | 4.0.0.1 | Apache CXF SOAP WebService |
 | [keycloak-spring-boot-starter](keycloak-spring-boot-starter/README.md) | 2.4.4.1 | 嵌入式 Keycloak OAuth 伺服器 |
@@ -55,6 +56,7 @@ base-spring-boot-starter（基礎層）
         ├── db-spring-boot-starter
         ├── job-spring-boot-starter
         ├── logon-spring-boot-starter
+        │       └── iam-spring-boot-starter（相依 logon，覆寫授權解析 SPI）
         ├── web-spring-boot-starter
         ├── web-service-spring-boot-starter
         └── keycloak-spring-boot-starter

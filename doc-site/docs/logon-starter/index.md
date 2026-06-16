@@ -24,6 +24,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 - **登入日誌介面**：實作 `CustomLogonLogRecord` 並設定 `security.record-log-enable: true` 即可記錄登入稽核軌跡。
 - **靜態工具**：`UserInfoUtil.loginUserId()` 從 `SecurityContextHolder` 取得當前登入者 ID。
 - **安全開關**：`security.enable: false` 可全路徑放行，適合開發測試環境。
+- **授權解析擴充點**：`GrantedAuthoritiesResolver` SPI 為「帳號→authorities」的解析接點，預設回空集合（保留現行行為）；三種驗證模式（含 LDAP）登入後皆透過此接點取得權限，可由 [iam-spring-boot-starter](../iam-starter/index.md) 以資料庫群組／權限覆寫。
 
 ## Maven 依賴引入
 
@@ -54,6 +55,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 | `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`（hardcoded stub，僅適合開發測試） |
 | `LdapUserDetailsService` | `service` | LDAP 模式，繼承 `CommonLoginProcess`，與 AD/LDAP 互動 |
 | `CustomLogonLogRecord` | `service` | 稽核日誌回呼介面，業務專案自行實作 |
+| `GrantedAuthoritiesResolver` | `security` | 「帳號→authorities」解析 SPI，預設回空集合，可由 iam-starter 等覆寫 |
 | `JwtProperties` | `jwt` | 屬性綁定（prefix: `security.jwt`），持有 JWT 演算法、金鑰與 token 設定 |
 | `JwtTokenProvider` | `jwt` | JWT 簽發與驗證核心，支援 HS256 / RS256 |
 | `JwtAuthenticationFilter` | `jwt` | 解析 `Authorization: Bearer` token，查權限寫入 `SecurityContext` |

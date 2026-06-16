@@ -51,6 +51,17 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'iam-spring-boot-starter',
+      link: { type: 'doc', id: 'iam-starter/index' },
+      items: [
+        'iam-starter/quickstart',
+        'iam-starter/configuration',
+        'iam-starter/examples',
+        'iam-starter/architecture',
+      ],
+    },
+    {
+      type: 'category',
       label: 'web-service-spring-boot-starter',
       link: { type: 'doc', id: 'web-service-starter/index' },
       items: [

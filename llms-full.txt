@@ -1,6 +1,6 @@
 # Zipe Spring Boot Starters
 
-> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、WebService、前端視圖等常用功能的自動配置模組。
+> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、帳號群組權限管理、WebService、前端視圖等常用功能的自動配置模組。
 
 This file contains all documentation content in a single document following the llmstxt.org standard.
 
@@ -3481,6 +3481,604 @@ public class ReportService {
 
 ---
 
+## 架構與開發指南(Iam-starter)
+
+
+本文件面向需要維護、擴充或深入理解 `iam-spring-boot-starter` 的開發人員，涵蓋套件結構、資料模型、與 logon-starter 的整合機制、自動配置原理，以及擴充時的步驟與陷阱。
+
+---
+
+## 1. 模組定位與設計理念
+
+### 定位
+
+`iam-spring-boot-starter` 是一個 **Spring Boot Auto-Configuration 模組**，提供可儲存於資料庫的帳號／群組／權限模型，並透過 logon-starter 的擴充點接上登入流程，讓業務系統獲得集中式的身分與授權管理能力。
+
+### 設計理念
+
+| 理念 | 說明 |
+|---|---|
+| **核心精簡、客製必備** | 核心僅帳號／群組／權限三組 Service；內建 REST Controller 為可選成品，所有環節皆可覆寫 |
+| **授權與認證分離** | 認證（誰來驗帳密）交由 logon 的 verification-type 決定；授權（有哪些權限）統一由 iam 的 `GrantedAuthoritiesResolver` 提供 |
+| **泛用具名權限** | 權限是抽象授權點（`code`），不綁定 HTTP method／URL，由開發者自行決定使用方式 |
+| **DTO 邊界** | 服務層一律回傳 VO，不外漏 JPA 實體與 lazy proxy |
+| **Bean 覆寫友善** | 所有 `@Bean` 均 `@ConditionalOnMissingBean`，宣告同型別 Bean 即可覆寫，不需 `spring.main.allow-bean-definition-overriding` |
+
+### 與 logon-starter 的依賴方向
+
+依賴方向為 **iam → logon**（單向）。logon 定義授權解析的 SPI 介面 `GrantedAuthoritiesResolver` 並提供預設空實作以保持向後相容；iam 相依 logon 並以 `DbGrantedAuthoritiesResolver` 覆寫之。logon 不知道 iam 的存在，未引入 iam 時行為與現況完全一致。
+
+---
+
+## 2. 套件結構
+
+```
+iam-spring-boot-starter/
+└── src/main/java/com/zipe/
+    ├── autoconfiguration/
+    │   └── IamAutoConfiguration.java     # @AutoConfiguration 唯一入口（含巢狀 Controller 配置）
+    ├── config/
+    │   └── IamProperties.java            # iam.* 屬性綁定
+    ├── entity/
+    │   ├── Account.java                  # iam_account，與 Group 多對多
+    │   ├── Group.java                    # iam_group，與 Permission 多對多
+    │   └── Permission.java               # iam_permission
+    ├── repository/
+    │   ├── AccountRepository.java        # findByUsername 回 Optional
+    │   ├── GroupRepository.java
+    │   └── PermissionRepository.java
+    ├── service/
+    │   ├── AccountService.java / AccountServiceImpl.java
+    │   ├── GroupService.java / GroupServiceImpl.java
+    │   └── PermissionService.java / PermissionServiceImpl.java
+    ├── security/
+    │   ├── DbGrantedAuthoritiesResolver.java  # 實作 logon SPI
+    │   └── IamUserDetailsService.java         # 繼承 logon BasicUserServiceImpl
+    ├── controller/
+    │   ├── AccountController.java
+    │   ├── GroupController.java
+    │   └── PermissionController.java
+    └── vo/
+        ├── AccountVO / GroupVO / PermissionVO
+        ├── CreateAccountRequest / UpdateAccountRequest
+        └── CreateGroupRequest / CreatePermissionRequest
+└── src/main/resources/
+    ├── schema-iam.sql                    # 五張 iam_ 表 DDL
+    └── META-INF/spring/
+        └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+---
+
+## 3. 資料模型
+
+帳號（Account）─群組（Group，即角色）─權限（Permission）三層模型，兩兩多對多：
+
+```
+Account ──< iam_account_group >── Group ──< iam_group_permission >── Permission
+```
+
+- **Account**：登入帳號核心資料（username、BCrypt password、enabled、locked、稽核時間），與 Group 多對多。
+- **Group**：即「角色」，`code` 全表唯一，套 `role-prefix` 後成為 `ROLE_*` authority；持有多個 Permission。
+- **Permission**：泛用具名授權點，`code` 全表唯一、原樣作為 authority。
+
+實體的 `equals`／`hashCode` 以資料庫 `id` 比較，並以 `Hibernate.getClass()` 區分代理類別與真實類別，避免 Hibernate Proxy 誤判（與 `starters_example` 既有實體一致）。
+
+---
+
+## 4. 與 logon-starter 的整合機制
+
+這是本模組的核心。logon 在 `com.zipe.security` 套件定義 SPI：
+
+```java
+public interface GrantedAuthoritiesResolver {
+    Collection<? extends GrantedAuthority> resolve(String username);
+}
+```
+
+logon 於 `SecurityConfiguration` 提供預設 `@Bean`（`@ConditionalOnMissingBean`），回傳 `username -> Collections.emptyList()`，保留「無權限」的現行行為。`LdapUserDetailsService` 的 `buildAuthenticatedToken(principal)` 改以此 resolver 解析 authorities。
+
+iam 在兩個接點覆寫 logon 預設：
+
+| 接點 | logon 預設 | iam 覆寫 | 效果 |
+|---|---|---|---|
+| **授權** `GrantedAuthoritiesResolver` | 回空集合 | `DbGrantedAuthoritiesResolver` | 三種驗證模式（BASIC／LDAP／CUSTOM）皆由 DB 取得 authorities |
+| **認證** `BasicUserServiceImpl` | 寫死 `admin/admin` stub | `IamUserDetailsService`（繼承之） | BASIC／JWT 模式登入帳號改由 `iam_account` 表提供 |
+
+兩者皆以 `@ConditionalOnMissingBean` 註冊：iam 的 Bean 以**父型別／介面型別**宣告（`BasicUserServiceImpl`、`GrantedAuthoritiesResolver`），使 logon 同型別的預設 Bean 自動退讓。
+
+### 授權解析流程
+
+```
+登入成功 → resolver.resolve(username)
+        → AccountRepository.findByUsername
+        → 帳號的每個 Group：加入 SimpleGrantedAuthority(role-prefix + group.code)
+        → 每個 Group 的每個 Permission：加入 SimpleGrantedAuthority(permission.code)
+        → 去重（LinkedHashSet）回傳
+```
+
+解析以 `@Transactional(readOnly = true)` 包覆，於交易內讀取 lazy 關聯以避免 `LazyInitializationException`；查無帳號回空集合（不回 `null`）。
+
+---
+
+## 5. 自動配置原理
+
+`IamAutoConfiguration` 標註：
+
+- `@AutoConfiguration` + `META-INF/spring/...AutoConfiguration.imports` 註冊，引入即生效。
+- `@EnableConfigurationProperties(IamProperties.class)`：綁定 `iam.*`。
+- `@ConditionalOnProperty(prefix="iam", name="enabled", havingValue="true", matchIfMissing=true)`：`iam.enabled=false` 時整組停用。
+- `@EntityScan("com.zipe.entity")` + `@EnableJpaRepositories("com.zipe.repository")`：掃描 starter 套件，業務專案無須自行設定掃描路徑。
+
+各 `@Bean`（`AccountService`／`GroupService`／`PermissionService`／`GrantedAuthoritiesResolver`／`BasicUserServiceImpl`）皆 `@ConditionalOnMissingBean`，以建構子注入對應 Repository；`PasswordEncoder` 由方法參數注入（取 logon 容器提供的 Bean）。
+
+內建 Controller 置於巢狀靜態 `@Configuration`（`IamControllerConfiguration`），以 `@ConditionalOnProperty(prefix="iam.api", name="enabled", matchIfMissing=true)` 控制整組裝配，並對每個 Controller `@Bean` 標 `@ConditionalOnMissingBean`。Controller 的路由前綴採類別層級 `@RequestMapping("${iam.api.base-path:/api/iam}/...")` 屬性佔位符，於 handler 註冊時由 Environment 解析，使 `iam.api.base-path` 真正生效。
+
+:::caution Spring Boot 4.0.0 套件位置
+本專案執行於 Spring Boot 4.0.0，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
+:::
+
+---
+
+## 6. 擴充指南
+
+| 需求 | 做法 |
+|---|---|
+| 調整帳號→authorities 規則 | 宣告 `GrantedAuthoritiesResolver` Bean，覆寫 `DbGrantedAuthoritiesResolver` |
+| 帳號來源非 iam 表 | 宣告 `BasicUserServiceImpl` Bean（繼承之、覆寫 `loadUserByUsername`），authorities 仍可用 resolver |
+| 客製某個 Service 行為 | 宣告同型別 `AccountService`／`GroupService`／`PermissionService` Bean |
+| 替換／關閉內建 API | 覆寫對應 Controller Bean，或 `iam.api.enabled=false` 後自行實作 |
+| 調整 API 路徑 | 設定 `iam.api.base-path` |
+| 群組前綴非 `ROLE_` | 設定 `iam.group.role-prefix` |
+
+---
+
+## 7. 測試
+
+starter 的測試（`src/test`）涵蓋四個面向，皆於 H2／記憶體環境離線執行：
+
+1. **Repository 層**：`@SpringBootTest` + H2，驗證帳號／群組／權限 CRUD 與多對多關聯查詢（`findByUsername`、帳號取群組與權限）。
+2. **DbGrantedAuthoritiesResolver 單元測試**：以 Mockito 驗證 authorities 展開規則（群組帶前綴、權限原樣、共用權限去重、查無帳號回空）。
+3. **整合測試**：`@SpringBootTest` 驗證 `IamUserDetailsService` 由 iam 帳號表載入 `UserDetails`，及覆寫 `GrantedAuthoritiesResolver` Bean 時 iam 預設退讓（`ApplicationContextRunner`）。
+4. **logon 增補**：以 stub resolver 驗證 `LdapUserDetailsService.buildAuthenticatedToken` 會把 authorities 注入已認證 token（不需真連 LDAP）。
+
+---
+
+## 配置參考(Iam-starter)
+
+
+`iam-spring-boot-starter` 的所有設定皆以 `iam.*` 前綴綁定至 `IamProperties`。各屬性皆有合理預設值，**最小設定可不填任何屬性**即引入生效。
+
+## 設定屬性
+
+| 屬性鍵 | 預設值 | 說明 |
+|---|---|---|
+| `iam.enabled` | `true` | iam 模組總開關。設為 `false` 則不裝配任何 iam Bean（含 Service 與 Controller）。 |
+| `iam.api.enabled` | `true` | 是否裝配內建 REST Controller。設為 `false` 可整組關閉，僅保留 Service 供業務程式注入。 |
+| `iam.api.base-path` | `/api/iam` | 內建 REST API 的路由前綴。例如預設下帳號端點為 `/api/iam/accounts`。 |
+| `iam.group.role-prefix` | `ROLE_` | 群組 `code` 轉為 Spring Security authority 時套用的前綴。權限 `code` 不套前綴、原樣作為 authority。 |
+| `iam.ddl.init` | `false` | 是否由 starter 的 `schema-iam.sql` 自動建表。預設關閉，建議交由 Flyway／Liquibase 或手動建表掌控。 |
+
+## application.yml 範例
+
+```yaml
+iam:
+  enabled: true
+  api:
+    enabled: true
+    base-path: /api/iam
+  group:
+    role-prefix: ROLE_
+  ddl:
+    init: false
+```
+
+:::tip role-prefix 與 @PreAuthorize 的對應
+群組 `code` 為 `ADMIN`、`role-prefix` 為預設 `ROLE_` 時，產生的 authority 為 `ROLE_ADMIN`。此時：
+
+- 以 `hasRole('ADMIN')` 比對（`hasRole` 會自動補上 `ROLE_` 前綴）。
+- 權限 `code` 為 `ORDER_EXPORT` 時，authority 即為 `ORDER_EXPORT`，以 `hasAuthority('ORDER_EXPORT')` 比對（不補前綴）。
+:::
+
+## 資料表結構
+
+iam 採用五張表（含兩張多對多關聯表），表名與欄位均以 `iam_` 前綴。完整 DDL 位於 starter 的 `src/main/resources/schema-iam.sql`，相容 H2 / MySQL / PostgreSQL。
+
+### iam_account（帳號）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `username` | `VARCHAR(100)` NOT NULL UNIQUE | 登入帳號，全表唯一 |
+| `password` | `VARCHAR(200)` | BCrypt 密碼雜湊；LDAP 來源帳號此欄不使用 |
+| `display_name` | `VARCHAR(100)` | 顯示名稱 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用，停用即不可登入 |
+| `locked` | `BOOLEAN` NOT NULL DEFAULT FALSE | 是否鎖定 |
+| `created_at` | `TIMESTAMP` | 建立時間 |
+| `updated_at` | `TIMESTAMP` | 最後更新時間 |
+
+### iam_group（群組／角色）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `code` | `VARCHAR(100)` NOT NULL UNIQUE | 群組代碼，套 `role-prefix` 後作為 authority |
+| `name` | `VARCHAR(100)` | 群組名稱 |
+| `description` | `VARCHAR(255)` | 說明 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用 |
+
+### iam_permission（權限）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `code` | `VARCHAR(100)` NOT NULL UNIQUE | 權限代碼，原樣作為 authority |
+| `name` | `VARCHAR(100)` | 權限名稱 |
+| `description` | `VARCHAR(255)` | 說明 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用 |
+
+### iam_account_group / iam_group_permission（關聯表）
+
+| 表 | 欄位 | 說明 |
+|---|---|---|
+| `iam_account_group` | `account_id` + `group_id`（複合 PK） | 帳號↔群組多對多 |
+| `iam_group_permission` | `group_id` + `permission_id`（複合 PK） | 群組↔權限多對多 |
+
+:::note 建表時機
+`iam.ddl.init` 預設為 `false`，starter 不會自動執行 `schema-iam.sql`。正式環境建議以 Flyway／Liquibase 管理 schema；測試環境可改用 Hibernate `spring.jpa.hibernate.ddl-auto=create-drop` 搭配 H2 自動建表。
+:::
+
+---
+
+## 使用範例(Iam-starter)
+
+
+本頁示範 iam-starter 常見的整合與客製化情境。所有覆寫皆基於 `@ConditionalOnMissingBean`：業務專案宣告同型別 Bean 即自動取代 starter 預設，**不需 `spring.main.allow-bean-definition-overriding`**。
+
+## 範例 1：注入 Service 自行管理帳號
+
+關閉內建 REST API，改在業務程式中直接使用三組 Service：
+
+```yaml
+iam:
+  api:
+    enabled: false   # 關閉內建 Controller，僅保留 Service
+```
+
+```java
+@Service
+public class OnboardingService {
+
+    private final AccountService accountService;
+    private final GroupService groupService;
+
+    public OnboardingService(AccountService accountService, GroupService groupService) {
+        this.accountService = accountService;
+        this.groupService = groupService;
+    }
+
+    /** 建立新進員工帳號並指派到「一般使用者」群組。 */
+    public AccountVO onboard(String username, String rawPassword, Long defaultGroupId) {
+        CreateAccountRequest req = new CreateAccountRequest();
+        req.setUsername(username);
+        req.setPassword(rawPassword);          // 服務層會 BCrypt 編碼
+        AccountVO account = accountService.createAccount(req);
+        return accountService.addToGroup(account.getId(), defaultGroupId);
+    }
+}
+```
+
+## 範例 2：以權限保護任意業務邏輯
+
+權限是泛用具名授權點，不限於 REST API。可在任何方法上以 `@PreAuthorize` 比對：
+
+```java
+@Service
+public class ReportService {
+
+    // 群組 code = MANAGER → authority ROLE_MANAGER
+    @PreAuthorize("hasRole('MANAGER')")
+    public Report monthlySummary() { ... }
+
+    // 權限 code = REPORT_EXPORT → authority REPORT_EXPORT（無前綴）
+    @PreAuthorize("hasAuthority('REPORT_EXPORT')")
+    public byte[] exportPdf(Long reportId) { ... }
+
+    // 也可組合條件
+    @PreAuthorize("hasRole('MANAGER') and hasAuthority('REPORT_EXPORT')")
+    public byte[] exportConfidential(Long reportId) { ... }
+}
+```
+
+也可在程式中直接讀取當前登入者的 authorities 自行判斷：
+
+```java
+Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+boolean canExport = auth.getAuthorities().stream()
+        .anyMatch(a -> a.getAuthority().equals("REPORT_EXPORT"));
+```
+
+## 範例 3：覆寫授權解析規則（GrantedAuthoritiesResolver）
+
+若希望調整「帳號 → authorities」的展開邏輯（例如加上自訂的全域 authority，或從外部系統補充權限），宣告一個 `GrantedAuthoritiesResolver` Bean 即可覆寫 iam 的 `DbGrantedAuthoritiesResolver`：
+
+```java
+@Configuration
+public class CustomAuthoritiesConfig {
+
+    @Bean
+    public GrantedAuthoritiesResolver grantedAuthoritiesResolver(AccountRepository accountRepository,
+                                                                 IamProperties iamProperties) {
+        DbGrantedAuthoritiesResolver delegate =
+                new DbGrantedAuthoritiesResolver(accountRepository, iamProperties);
+        return username -> {
+            // 在 DB 權限之外，為所有登入者補上一個基礎 authority
+            Set<GrantedAuthority> merged = new LinkedHashSet<>(delegate.resolve(username));
+            merged.add(new SimpleGrantedAuthority("ROLE_USER"));
+            return merged;
+        };
+    }
+}
+```
+
+:::tip 此擴充點對三種驗證模式皆生效
+`GrantedAuthoritiesResolver` 是 logon-starter 定義的 SPI。BASIC、LDAP、CUSTOM 三種驗證模式的登入流程都會呼叫它解析 authorities，因此覆寫一處即同時影響所有模式。
+:::
+
+## 範例 4：LDAP 驗證 + iam 授權
+
+組織以 AD／LDAP 驗證帳號密碼，但權限改由 iam 資料庫集中管理：
+
+```yaml
+security:
+  verification-type: ldap
+  ldap:
+    ip: 10.0.0.10
+    port: "389"
+    domain: corp.example.com
+    dn: DC=corp,DC=example,DC=com
+
+iam:
+  enabled: true
+  ddl:
+    init: false
+```
+
+只要在 `iam_account` 建立與 LDAP 同名的帳號（`password` 欄可留空）並指派群組，使用者以 AD 帳密登入後，`LdapUserDetailsService` 即透過 `GrantedAuthoritiesResolver` 由 iam 取得群組／權限。**不需在 iam 維護密碼**。
+
+## 範例 5：覆寫內建 Controller
+
+保留內建 API 但替換其中一個 Controller 的行為（例如帳號建立要額外發送通知）：
+
+```java
+@RestController
+@RequestMapping("${iam.api.base-path:/api/iam}/accounts")
+public class CustomAccountController {
+
+    private final AccountService accountService;
+    private final NotificationService notificationService;
+
+    public CustomAccountController(AccountService accountService,
+                                   NotificationService notificationService) {
+        this.accountService = accountService;
+        this.notificationService = notificationService;
+    }
+
+    @PostMapping
+    public ResponseEntity<AccountVO> create(@RequestBody CreateAccountRequest request) {
+        AccountVO account = accountService.createAccount(request);
+        notificationService.welcome(account.getUsername());
+        return ResponseEntity.ok(account);
+    }
+
+    // 其餘端點可委派 accountService 比照內建實作補齊……
+}
+```
+
+由於 starter 的 `accountController` Bean 標註 `@ConditionalOnMissingBean`，宣告同型別 Bean 後內建版本自動退讓。
+
+## 範例 6：完全自管帳號來源
+
+若帳號資料不存於 iam 表（例如來自既有的人事系統），可保留 iam 的群組／權限模型，僅覆寫 `BasicUserServiceImpl` 的來源：
+
+```java
+@Bean
+public BasicUserServiceImpl iamUserDetailsService(PasswordEncoder passwordEncoder,
+                                                  HrAccountGateway hrGateway,
+                                                  GrantedAuthoritiesResolver authoritiesResolver) {
+    return new HrBackedUserDetailsService(passwordEncoder, hrGateway, authoritiesResolver);
+}
+```
+
+`HrBackedUserDetailsService` 繼承 `BasicUserServiceImpl`、覆寫 `loadUserByUsername`，密碼與狀態取自人事系統，authorities 仍由 `GrantedAuthoritiesResolver` 提供——iam 的授權模型與外部帳號來源可自由組合。
+
+---
+
+## iam-spring-boot-starter
+
+
+`iam-spring-boot-starter` 提供一套可儲存於資料庫的**帳號（Account）— 群組（Group）— 權限（Permission）**身分與授權模型，讓引入的業務系統具備完整的帳號管理與權限控管能力。模組以 JPA 持久化資料，並透過 logon-starter 的 `GrantedAuthoritiesResolver` 擴充點接上登入流程：登入成功後，使用者的 Spring Security authorities 直接由資料庫的群組與權限展開而來，可搭配 `@PreAuthorize`、`hasRole()`、`hasAuthority()` 等標準機制使用。
+
+模組維持「核心精簡、客製必備」的設計：核心為帳號／群組／權限三組 Service（必備），內建的 REST CRUD Controller 則為可選、可關閉、可覆寫的成品。所有對外 Bean 皆以 `@ConditionalOnMissingBean` 註冊，業務專案宣告同型別 Bean 即可覆寫任一環節。
+
+## 功能概述
+
+模組以 `IamAutoConfiguration`（`@AutoConfiguration`）為唯一入口，透過 `@EntityScan` 與 `@EnableJpaRepositories` 掃描 starter 套件，引入即生效。核心持久層由 `Account`、`Group`、`Permission` 三個 JPA 實體與對應 Repository 組成，帳號↔群組、群組↔權限皆為多對多關聯（`iam_account_group`、`iam_group_permission` 關聯表）。
+
+與 logon-starter 的整合是本模組的關鍵：
+
+- **授權（Authorization）**：`DbGrantedAuthoritiesResolver` 實作 logon 的 `GrantedAuthoritiesResolver` SPI，以 `GrantedAuthoritiesResolver` 型別註冊，覆寫 logon 的預設空實作。**LDAP、BASIC、CUSTOM 三種驗證模式皆共用此同一套授權來源**——無論帳號密碼由誰驗證，權限一律由 iam 資料庫的群組／權限展開。
+- **認證（Authentication，BASIC／JWT 模式）**：`IamUserDetailsService` 繼承 logon 的 `BasicUserServiceImpl`，以 `BasicUserServiceImpl` 型別註冊，使 logon 寫死 `admin/admin` 的預設 stub 自動退讓，登入帳號改由 iam 帳號表提供（密碼為 BCrypt 雜湊）。
+
+## 主要特性
+
+- **資料庫帳號模型**：帳號／群組／權限三層模型，群組即角色、群組持有多個權限，帳號加入多個群組。
+- **泛用具名權限**：權限是抽象的「具名授權點」（如 `ORDER_EXPORT`、`USER_MANAGE`），**不綁定 HTTP method 或 URL**——開發者依自身程式邏輯決定如何使用，不限於 API 授權。
+- **與 logon 無縫整合**：透過 `GrantedAuthoritiesResolver` SPI 接上登入流程，三種驗證模式共用 DB 授權；BASIC／JWT 模式另以資料庫帳號取代內建 stub。
+- **內建 REST CRUD（可選）**：提供帳號／群組／權限的 REST 端點，預設啟用、路由前綴可設定，並以 `iam.api.enabled=false` 整組關閉或逐一覆寫。
+- **全面可覆寫**：所有 Service、Resolver、UserDetailsService 與 Controller 皆 `@ConditionalOnMissingBean`，客製化不需 `spring.main.allow-bean-definition-overriding`。
+- **DTO 邊界**：服務層一律回傳 VO，不外漏 JPA 實體與 lazy proxy；帳號視圖不含密碼雜湊。
+- **建表策略可控**：附 `schema-iam.sql`（相容 H2／MySQL／PostgreSQL），預設不自動執行，交由業務專案以 Flyway／Liquibase 或手動掌控。
+
+## Maven 依賴引入
+
+```xml
+<dependency>
+    <groupId>io.github.a09090443</groupId>
+    <artifactId>iam-spring-boot-starter</artifactId>
+    <version>4.0.0.1</version>
+</dependency>
+```
+
+:::note 安裝前置作業
+`iam-spring-boot-starter` 相依於 `logon-spring-boot-starter`。引入前請先於專案根目錄執行 `mvn clean install`，將 logon 與 iam 模組一併安裝至本地 Maven Repository。
+:::
+
+:::tip 核心 Service 必備、Controller 可選
+引入 starter 後，帳號／群組／權限三組 Service 即自動裝配（必備能力）。內建 REST Controller 預設啟用，可用 `iam.api.enabled=false` 關閉；關閉後三組 Service 仍可注入到業務程式中自行使用。
+:::
+
+## 主要類別
+
+| 類別 | 套件 | 職責 |
+|---|---|---|
+| `IamAutoConfiguration` | `autoconfiguration` | `@AutoConfiguration` 唯一入口，裝配所有 Service／Resolver／UserDetailsService 與 Controller |
+| `IamProperties` | `config` | 屬性綁定（prefix: `iam`），持有啟用、API、群組前綴與建表設定 |
+| `Account` | `entity` | 帳號實體，對應 `iam_account`，與 `Group` 多對多 |
+| `Group` | `entity` | 群組（角色）實體，對應 `iam_group`，與 `Permission` 多對多 |
+| `Permission` | `entity` | 權限實體，對應 `iam_permission`，泛用具名授權點 |
+| `AccountRepository` | `repository` | 帳號資料存取，含 `findByUsername` 回 `Optional` |
+| `GroupRepository` / `PermissionRepository` | `repository` | 群組／權限資料存取 |
+| `AccountService` | `service` | 帳號建立／查詢／更新／停用／改密碼／群組指派 |
+| `GroupService` | `service` | 群組 CRUD 與群組／權限掛卸 |
+| `PermissionService` | `service` | 權限 CRUD 與查詢 |
+| `DbGrantedAuthoritiesResolver` | `security` | 實作 logon SPI，由 DB 展開帳號→群組→權限為 authorities |
+| `IamUserDetailsService` | `security` | 繼承 `BasicUserServiceImpl`，由 iam 帳號表提供 `UserDetails` |
+| `AccountController` / `GroupController` / `PermissionController` | `controller` | 內建可選 REST CRUD 端點 |
+| `AccountVO` / `GroupVO` / `PermissionVO` | `vo` | 服務層對外回傳的資料視圖 |
+| `CreateAccountRequest` / `UpdateAccountRequest` 等 | `vo` | 建立／更新的請求物件 |
+
+## 快速導航
+
+- [快速開始](./quickstart.md)：建表、建帳號、接上登入並以權限保護端點。
+- [配置參考](./configuration.md)：`iam.*` 所有屬性說明與資料表結構。
+- [使用範例](./examples.md)：權限保護、覆寫 Resolver、自訂帳號來源的完整範例。
+- [架構與開發指南](./architecture.md)：套件結構、與 logon 的整合機制、擴充指南。
+
+:::tip 與 logon-starter 的搭配
+- 已建置 AD／LDAP 驗證 → 帳號密碼由 LDAP 驗，**權限由 iam 群組／權限提供**。
+- 帳號自管於資料庫 → 使用 BASIC（或加 JWT），帳號與權限皆由 iam 提供。
+- 兩者皆透過同一個 `GrantedAuthoritiesResolver` 接點，無需修改 logon 程式碼。
+:::
+
+---
+
+## 快速開始(Iam-starter)
+
+
+本頁示範如何在數步內讓業務系統具備「資料庫帳號登入 + 群組／權限授權」能力。
+
+## 1. 引入依賴
+
+```xml
+<dependency>
+    <groupId>io.github.a09090443</groupId>
+    <artifactId>iam-spring-boot-starter</artifactId>
+    <version>4.0.0.1</version>
+</dependency>
+```
+
+`iam-spring-boot-starter` 已相依 `logon-spring-boot-starter` 與 `spring-boot-starter-data-jpa`，無須額外宣告 Spring Security 與 JPA。請於專案根目錄先執行 `mvn clean install` 安裝模組至本地 Repository。
+
+## 2. 設定資料來源與建表
+
+iam 以 JPA 持久化，需提供資料來源。以下以 H2 為例（正式環境請改為 MySQL／PostgreSQL）：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:iam;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+iam:
+  ddl:
+    init: false
+```
+
+建表方式擇一：
+
+- **正式環境（建議）**：以 Flyway／Liquibase 套用 starter 的 `schema-iam.sql`（五張 `iam_` 表）。
+- **快速試用**：將 `spring.jpa.hibernate.ddl-auto` 設為 `update` 或 `create`，由 Hibernate 依實體自動建表。
+
+## 3. 建立權限、群組與帳號
+
+啟動後即可透過內建 REST API（預設啟用，前綴 `/api/iam`）建立資料。以下用 `curl` 示範一條最小授權鏈：
+
+```bash
+# 建立一個權限（泛用具名授權點）
+curl -X POST http://localhost:8080/api/iam/permissions \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"ORDER_EXPORT","name":"匯出訂單","description":"允許匯出訂單報表"}'
+
+# 建立一個群組（角色），假設回傳 id=1
+curl -X POST http://localhost:8080/api/iam/groups \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"ADMIN","name":"系統管理員"}'
+
+# 將權限（id=1）掛到群組（id=1）
+curl -X POST http://localhost:8080/api/iam/groups/1/permissions/1
+
+# 建立帳號（密碼為明文，服務層會 BCrypt 編碼），假設回傳 id=1
+curl -X POST http://localhost:8080/api/iam/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"secret","displayName":"Alice"}'
+
+# 將帳號（id=1）加入群組（id=1）
+curl -X POST http://localhost:8080/api/iam/accounts/1/groups/1
+```
+
+此時帳號 `alice` 將擁有 authorities：`ROLE_ADMIN`（群組 code 套 `role-prefix`）與 `ORDER_EXPORT`（權限 code 原樣）。
+
+## 4. 以資料庫帳號登入
+
+iam 自動接上 logon 的登入流程，**不需額外設定**：
+
+- **BASIC／JWT 模式**：`IamUserDetailsService` 已取代 logon 內建的 `admin/admin` stub，登入帳號改由 `iam_account` 表提供。以 `alice / secret` 即可登入。
+- **LDAP 模式**：帳號密碼仍由 LDAP 驗證，但登入成功後的 authorities 由 iam 群組／權限提供（需在 `iam_account` 建立同名帳號並指派群組）。
+
+## 5. 以權限保護端點
+
+在業務應用啟用方法層級安全，並以標準註解比對 iam 產生的 authorities：
+
+```java
+@Configuration
+@EnableMethodSecurity
+public class MethodSecurityConfig {
+}
+```
+
+```java
+@RestController
+public class OrderController {
+
+    @PreAuthorize("hasRole('ADMIN')")          // 對應群組 code = ADMIN
+    @GetMapping("/orders")
+    public List<Order> list() { ... }
+
+    @PreAuthorize("hasAuthority('ORDER_EXPORT')") // 對應權限 code = ORDER_EXPORT
+    @GetMapping("/orders/export")
+    public Resource export() { ... }
+}
+```
+
+至此，業務系統已具備資料庫帳號登入與群組／權限授權能力。進一步的客製化（覆寫帳號來源、調整授權規則）請見[使用範例](./examples.md)。
+
+---
+
 ## 整合範例教學
 
 
@@ -4865,7 +5463,8 @@ CXF 會根據介面與實作上的 JAX-WS 注解（`@WebService`、`@WebMethod`�
 | **base-spring-boot-starter** | 基本工具功能（郵件、加解密、文件處理、HTTP 等） | [前往文件](./base-starter/index.md) |
 | **db-spring-boot-starter** | 資料庫動態連接與多資料來源切換 | [前往文件](./db-starter/index.md) |
 | **job-spring-boot-starter** | 基於 Quartz 的排程管理 | [前往文件](./job-starter/index.md) |
-| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP） | [前往文件](./logon-starter/index.md) |
+| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP / JWT） | [前往文件](./logon-starter/index.md) |
+| **iam-spring-boot-starter** | 帳號／群組／權限身分與授權管理（與 logon 整合） | [前往文件](./iam-starter/index.md) |
 | **web-service-spring-boot-starter** | 基於 Apache CXF 的 SOAP WebService | [前往文件](./web-service-starter/index.md) |
 | **web-spring-boot-starter** | 前端顯示（JSP / Thymeleaf） | [前往文件](./web-starter/index.md) |
 
@@ -4917,7 +5516,7 @@ cd base-spring-boot-starter
 若您需要同時使用多個 Starter，可在專案根目錄一次性安裝所有模組。建議搭配 CI/CD 流程，於建構前自動執行各 Starter 的 `mvnw clean install`，確保版本一致。
 
 ```bash
-for module in base db job logon web web-service keycloak; do
+for module in base db job logon iam web web-service keycloak; do
   (cd ${module}-spring-boot-starter && ./mvnw clean install -DskipTests)
 done
 ```
@@ -8085,6 +8684,7 @@ security:
 - **登入日誌介面**：實作 `CustomLogonLogRecord` 並設定 `security.record-log-enable: true` 即可記錄登入稽核軌跡。
 - **靜態工具**：`UserInfoUtil.loginUserId()` 從 `SecurityContextHolder` 取得當前登入者 ID。
 - **安全開關**：`security.enable: false` 可全路徑放行，適合開發測試環境。
+- **授權解析擴充點**：`GrantedAuthoritiesResolver` SPI 為「帳號→authorities」的解析接點，預設回空集合（保留現行行為）；三種驗證模式（含 LDAP）登入後皆透過此接點取得權限，可由 [iam-spring-boot-starter](../iam-starter/index.md) 以資料庫群組／權限覆寫。
 
 ## Maven 依賴引入
 
@@ -8115,6 +8715,7 @@ security:
 | `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`（hardcoded stub，僅適合開發測試） |
 | `LdapUserDetailsService` | `service` | LDAP 模式，繼承 `CommonLoginProcess`，與 AD/LDAP 互動 |
 | `CustomLogonLogRecord` | `service` | 稽核日誌回呼介面，業務專案自行實作 |
+| `GrantedAuthoritiesResolver` | `security` | 「帳號→authorities」解析 SPI，預設回空集合，可由 iam-starter 等覆寫 |
 | `JwtProperties` | `jwt` | 屬性綁定（prefix: `security.jwt`），持有 JWT 演算法、金鑰與 token 設定 |
 | `JwtTokenProvider` | `jwt` | JWT 簽發與驗證核心，支援 HS256 / RS256 |
 | `JwtAuthenticationFilter` | `jwt` | 解析 `Authorization: Bearer` token，查權限寫入 `SecurityContext` |

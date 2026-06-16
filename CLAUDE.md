@@ -9,6 +9,7 @@
 - [db-spring-boot-starter](.claude/rules/db-starter.md)
 - [job-spring-boot-starter](.claude/rules/job-starter.md)
 - [logon-spring-boot-starter](.claude/rules/logon-starter.md)
+- [iam-spring-boot-starter](.claude/rules/iam-starter.md)
 - [web-service-spring-boot-starter](.claude/rules/web-service-starter.md)
 - [web-spring-boot-starter](.claude/rules/web-starter.md)
 - [keycloak-spring-boot-starter](.claude/rules/keycloak-starter.md)

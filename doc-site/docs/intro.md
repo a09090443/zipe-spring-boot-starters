@@ -19,7 +19,8 @@ sidebar_position: 1
 | **base-spring-boot-starter** | 基本工具功能（郵件、加解密、文件處理、HTTP 等） | [前往文件](./base-starter/index.md) |
 | **db-spring-boot-starter** | 資料庫動態連接與多資料來源切換 | [前往文件](./db-starter/index.md) |
 | **job-spring-boot-starter** | 基於 Quartz 的排程管理 | [前往文件](./job-starter/index.md) |
-| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP） | [前往文件](./logon-starter/index.md) |
+| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP / JWT） | [前往文件](./logon-starter/index.md) |
+| **iam-spring-boot-starter** | 帳號／群組／權限身分與授權管理（與 logon 整合） | [前往文件](./iam-starter/index.md) |
 | **web-service-spring-boot-starter** | 基於 Apache CXF 的 SOAP WebService | [前往文件](./web-service-starter/index.md) |
 | **web-spring-boot-starter** | 前端顯示（JSP / Thymeleaf） | [前往文件](./web-starter/index.md) |
 
@@ -71,7 +72,7 @@ cd base-spring-boot-starter
 若您需要同時使用多個 Starter，可在專案根目錄一次性安裝所有模組。建議搭配 CI/CD 流程，於建構前自動執行各 Starter 的 `mvnw clean install`，確保版本一致。
 
 ```bash
-for module in base db job logon web web-service keycloak; do
+for module in base db job logon iam web web-service keycloak; do
   (cd ${module}-spring-boot-starter && ./mvnw clean install -DskipTests)
 done
 ```
