@@ -136,6 +136,10 @@ iam 在兩個接點覆寫 logon 預設：
 
 內建 Controller 置於巢狀靜態 `@Configuration`（`IamControllerConfiguration`），以 `@ConditionalOnProperty(prefix="iam.api", name="enabled", matchIfMissing=true)` 控制整組裝配，並對每個 Controller `@Bean` 標 `@ConditionalOnMissingBean`。Controller 的路由前綴採類別層級 `@RequestMapping("${iam.api.base-path:/api/iam}/...")` 屬性佔位符，於 handler 註冊時由 Environment 解析，使 `iam.api.base-path` 真正生效。
 
+:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
+`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。解法是在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
+:::
+
 :::caution Spring Boot 4.0.0 套件位置
 本專案執行於 Spring Boot 4.0.0，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
 :::

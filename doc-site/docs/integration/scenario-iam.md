@@ -63,13 +63,33 @@ security:
   allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 放行 iam 整合示範端點
 ```
 
+:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
+iam 的 `IamAutoConfiguration` 帶有自己的 `@EnableJpaRepositories("com.zipe.repository")`。Spring Boot 的規則是：**一旦容器中出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後，自己的 Repository（如 `com.example.repository`）會註冊失敗、啟動報「No qualifying bean of type ...Repository」。
+
+解法：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories`，與 iam 的各自獨立掃描：
+
+```java
+@SpringBootApplication
+@EnableJpaRepositories(basePackages = "com.example.repository")
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+```
+:::
+
 ## 建立資料表與種子資料
 
 範例的 `spring.sql.init.mode` 為 `never`、Hibernate `ddl-auto` 為 `none`，故 iam 的資料表不會自動建立。請於**主資料源**（`example1`）手動套用範例附的 `init/iam-demo.sql`（已含建表與種子資料）：
 
 ```bash
-mysql -u user1 -p example1 < src/main/resources/init/iam-demo.sql
+mysql --default-character-set=utf8mb4 -u user1 -p example1 < src/main/resources/init/iam-demo.sql
 ```
+
+:::tip 種子資料含中文，載入時請指定 utf8mb4
+`iam-demo.sql` 的 `display_name` 含中文，匯入時務必加上 `--default-character-set=utf8mb4`（或以支援 UTF-8 的客戶端載入），否則 `display_name` 會出現亂碼。
+:::
 
 種子資料建立了一條最小授權鏈：
 
