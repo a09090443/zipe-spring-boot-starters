@@ -9,6 +9,7 @@ import com.zipe.jwt.JwtAuthenticationFilter;
 import com.zipe.jwt.JwtLoginController;
 import com.zipe.jwt.JwtProperties;
 import com.zipe.jwt.JwtTokenProvider;
+import com.zipe.security.GrantedAuthoritiesResolver;
 import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.util.ApplicationContextHelper;
@@ -451,18 +452,35 @@ public class SecurityConfiguration {
     }
 
     /**
-     * 建立並回傳 LDAP 使用者詳細資料服務，注入容器中的密碼編碼器 Bean 與 Security 設定屬性。
+     * 建立並回傳 LDAP 使用者詳細資料服務，注入容器中的密碼編碼器、Security 設定屬性與授權解析器。
      *
      * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。
-     * 密碼編碼器以方法參數注入，確保取得容器中的 Bean（含使用者覆寫版）。</p>
+     * 密碼編碼器與授權解析器以方法參數注入，確保取得容器中的 Bean（含使用者或 iam-starter 覆寫版）。</p>
      *
-     * @param passwordEncoder 密碼編碼器（容器 Bean，含使用者覆寫版）
+     * @param passwordEncoder     密碼編碼器（容器 Bean，含使用者覆寫版）
+     * @param authoritiesResolver 帳號→authorities 解析器（容器 Bean，預設回傳空集合，可覆寫）
      * @return {@link LdapUserDetailsService} 實例
      */
     @Bean
     @ConditionalOnMissingBean
-    public LdapUserDetailsService ldapUserDetailsService(PasswordEncoder passwordEncoder) {
-        return new LdapUserDetailsService(passwordEncoder, securityPropertyConfig);
+    public LdapUserDetailsService ldapUserDetailsService(PasswordEncoder passwordEncoder,
+                                                         GrantedAuthoritiesResolver authoritiesResolver) {
+        return new LdapUserDetailsService(passwordEncoder, securityPropertyConfig, authoritiesResolver);
+    }
+
+    /**
+     * 建立並回傳預設的 {@link GrantedAuthoritiesResolver}，回傳空 authorities 集合。
+     *
+     * <p>標註 {@link ConditionalOnMissingBean}，作為「帳號→authorities」解析的預設實作，
+     * 完全保留 logon-starter 現行行為（未引入 iam-starter 時 LDAP 登入仍為空權限）。
+     * 當容器中存在其他同型別 Bean（如 iam-starter 的 DB 解析器）時，預設實作自動退讓。</p>
+     *
+     * @return 回傳空集合的預設 {@link GrantedAuthoritiesResolver} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public GrantedAuthoritiesResolver grantedAuthoritiesResolver() {
+        return username -> java.util.Collections.emptyList();
     }
 
     /**
