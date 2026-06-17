@@ -19,6 +19,7 @@ sidebar_position: 3
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
+| `dynamic.base-packages` | String | 無 | 否 | 需掃描並註冊 Spring Data JPA Repository 的套件路徑，可逗號分隔多個。等同宣告 `@EnableJpaRepositories(basePackages = ...)`，但改由設定檔驅動。**僅在引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後需要**，用以重新啟用應用自身 Repository 的掃描；未設定時維持 Spring Boot 預設行為。詳見下方〈以設定檔啟用 JPA Repository 掃描〉 |
 | `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可逗號分隔指定多個套件。另外，所有以 `@EntityScan` 註冊的套件（如併用 iam-starter 的 `com.zipe.entity`）會自動併入，無須在此重複設定 |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
@@ -40,6 +41,21 @@ sidebar_position: 3
 密碼欄位名稱為 `pa55word`（數字 `5` 取代字母 `s`），這是刻意設計以避開自動安全掃描工具。若誤寫為 `password`，屬性綁定會靜默失敗，密碼為空字串，連線時拋出認證錯誤。
 
 :::
+
+## 以設定檔啟用 JPA Repository 掃描（`dynamic.base-packages`）
+
+db-starter 自建 `entityManagerFactory`，會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時，Spring Boot 仍會自動掃描應用主套件下的 Repository，無須額外設定。
+
+但若再引入**自帶 `@EnableJpaRepositories` 的模組**（例如 iam-starter 帶有 `@EnableJpaRepositories("com.zipe.repository")`），依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓**，導致應用自身的 Repository 註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+此時只要在 `data-source.properties` 設定 `dynamic.base-packages`，db-starter 的 `DynamicJpaRepositoriesRegistrar` 便會依此掃描並註冊對應套件下的 Repository，效果等同於宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別：
+
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個），與 iam 的 com.zipe.repository 各自獨立掃描、互不影響
+dynamic.base-packages=com.example.repository
+```
+
+未設定 `dynamic.base-packages` 時，此機制不介入，維持 Spring Boot 既有掃描行為（向後相容）。
 
 ## HikariCP 連線池設定
 

@@ -63,20 +63,19 @@ security:
   allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 放行 iam 整合示範端點
 ```
 
-:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
+:::tip 引入 iam 後，以 `dynamic.base-packages` 重新啟用自身 Repository 掃描
 iam 的 `IamAutoConfiguration` 帶有自己的 `@EnableJpaRepositories("com.zipe.repository")`。Spring Boot 的規則是：**一旦容器中出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後，自己的 Repository（如 `com.example.repository`）會註冊失敗、啟動報「No qualifying bean of type ...Repository」。
 
-解法：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories`，與 iam 的各自獨立掃描：
+由於本範例同時引入 db-starter，**只需在 `data-source.properties` 設定 `dynamic.base-packages`**，db-starter 即會依此掃描並註冊應用自身的 Repository（等同宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響）：
 
-```java
-@SpringBootApplication
-@EnableJpaRepositories(basePackages = "com.example.repository")
-public class Application {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-}
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個）
+dynamic.base-packages=com.example.repository
 ```
+
+故範例的 `Application` 維持單純的 `@SpringBootApplication`，無須再加 `@EnableJpaRepositories`。
+
+> 若未引入 db-starter，則仍以傳統做法在啟動類別宣告 `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
 :::
 
 ## 建立資料表與種子資料

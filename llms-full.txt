@@ -1941,7 +1941,8 @@ db-spring-boot-starter/
     ├── java/com/zipe/
     │   ├── autoconfiguration/                         # Spring Boot AutoConfiguration 入口
     │   │   ├── DataSourceAspectAutoConfiguration.java # 向容器註冊 DynamicDataSourceAspect Bean
-    │   │   └── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   ├── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   └── DynamicJpaRepositoriesRegistrar.java   # 依 dynamic.base-packages 程式化註冊 JPA Repository
     │   ├── base/
     │   │   ├── annotation/                            # 自訂 Annotation
     │   │   │   ├── DS.java                            # @DS：指定方法/類別使用的資料來源 key
@@ -1999,7 +2000,7 @@ db-spring-boot-starter/
 
 #### `DataSourceConfigAutoConfiguration`
 
-繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。
+繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。另以 `@Import(DynamicJpaRepositoriesRegistrar.class)` 掛入設定檔驅動的 JPA Repository 註冊機制。
 
 **關鍵 Bean 方法：**
 
@@ -2022,6 +2023,18 @@ db-spring-boot-starter/
 #### `DataSourceAspectAutoConfiguration`
 
 單純將 `DynamicDataSourceAspect` 以 `@Bean` 方式登錄到 Spring 容器，讓 AOP 可以正常運作。
+
+#### `DynamicJpaRepositoriesRegistrar`
+
+實作 `ImportBeanDefinitionRegistrar`（並 `EnvironmentAware`、`ResourceLoaderAware`），由 `DataSourceConfigAutoConfiguration` 以 `@Import` 掛入。其職責是**依設定檔屬性 `dynamic.base-packages` 程式化掃描並註冊 Spring Data JPA Repository**，效果等同 `@EnableJpaRepositories(basePackages = ...)`，但套件清單來自設定檔而非寫死於原始碼。
+
+| 運作步驟 | 說明 |
+|---|---|
+| 1. 讀取屬性 | 以 `Binder` 自 `Environment` 取得 `dynamic.base-packages`（逗號分隔、去空白）。未設定則直接 return，不介入，維持 Spring Boot 預設掃描行為（向後相容） |
+| 2. 建構 ConfigurationSource | 以一個僅帶預設值的 `@EnableJpaRepositories` 骨架類別 introspect 出註解屬性，再以匿名子類覆寫 `getBasePackages()` 回傳設定檔解析後的套件清單（因註解屬性本身不解析 `${}` placeholder、不切逗號） |
+| 3. 註冊 Repository | 以 `RepositoryConfigurationDelegate.registerRepositoriesIn(registry, new JpaRepositoryConfigExtension())` 完成掃描與註冊 |
+
+**為何需要它**：db-starter 自建 `entityManagerFactory` 會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時 Boot 仍會自動掃描應用主套件。但引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後，依 Spring Boot 規則，容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓，導致應用自身 Repository 註冊失敗。此註冊器讓應用只需在設定檔加一行 `dynamic.base-packages` 即可重新啟用掃描，無須改動啟動類別。詳見 [配置參考 — 以設定檔啟用 JPA Repository 掃描](./configuration.md#以設定檔啟用-jpa-repository-掃描dynamicbase-packages)。
 
 ---
 
@@ -2097,6 +2110,7 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
+| `basePackages` | `dynamic.base-packages` | `String` | 無 | JPA Repository 掃描套件路徑（可逗號分隔多套件），由 `DynamicJpaRepositoriesRegistrar` 讀取；引入自帶 `@EnableJpaRepositories` 的模組後用以重新啟用自身 Repository 掃描 |
 | `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件；另自動併入 `@EntityScan` 註冊的套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
@@ -2247,6 +2261,9 @@ Spring Boot 啟動
   → transactionManager(...)        → 建立 @Primary JpaTransactionManager
   → jdbcTemplate(dataSource)       → 建立 JdbcTemplate
   → namedParameterJdbcDaoSupport() → 建立 NamedParameterJdbcDaoSupport
+  → DynamicJpaRepositoriesRegistrar（@Import）
+      → 讀取 dynamic.base-packages（未設定則略過）
+      → 程式化註冊各套件下的 Spring Data JPA Repository
 
   → DataSourceAspectAutoConfiguration 被載入
   → getDynamicDataSourceAspect() → 建立 DynamicDataSourceAspect Bean
@@ -2786,6 +2803,7 @@ String cacheKey = resource.toString() + resource.fileName()
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
+| `dynamic.base-packages` | String | 無 | 否 | 需掃描並註冊 Spring Data JPA Repository 的套件路徑，可逗號分隔多個。等同宣告 `@EnableJpaRepositories(basePackages = ...)`，但改由設定檔驅動。**僅在引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後需要**，用以重新啟用應用自身 Repository 的掃描；未設定時維持 Spring Boot 預設行為。詳見下方〈以設定檔啟用 JPA Repository 掃描〉 |
 | `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可逗號分隔指定多個套件。另外，所有以 `@EntityScan` 註冊的套件（如併用 iam-starter 的 `com.zipe.entity`）會自動併入，無須在此重複設定 |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
@@ -2807,6 +2825,21 @@ String cacheKey = resource.toString() + resource.fileName()
 密碼欄位名稱為 `pa55word`（數字 `5` 取代字母 `s`），這是刻意設計以避開自動安全掃描工具。若誤寫為 `password`，屬性綁定會靜默失敗，密碼為空字串，連線時拋出認證錯誤。
 
 :::
+
+## 以設定檔啟用 JPA Repository 掃描（`dynamic.base-packages`）
+
+db-starter 自建 `entityManagerFactory`，會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時，Spring Boot 仍會自動掃描應用主套件下的 Repository，無須額外設定。
+
+但若再引入**自帶 `@EnableJpaRepositories` 的模組**（例如 iam-starter 帶有 `@EnableJpaRepositories("com.zipe.repository")`），依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓**，導致應用自身的 Repository 註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+此時只要在 `data-source.properties` 設定 `dynamic.base-packages`，db-starter 的 `DynamicJpaRepositoriesRegistrar` 便會依此掃描並註冊對應套件下的 Repository，效果等同於宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別：
+
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個），與 iam 的 com.zipe.repository 各自獨立掃描、互不影響
+dynamic.base-packages=com.example.repository
+```
+
+未設定 `dynamic.base-packages` 時，此機制不介入，維持 Spring Boot 既有掃描行為（向後相容）。
 
 ## HikariCP 連線池設定
 
@@ -3269,6 +3302,7 @@ public class OrderService {
 |---|---|---|
 | `DataSourceConfigAutoConfiguration` | `autoconfiguration` | 資料來源自動配置入口，建立所有 HikariDataSource / JPA / JDBC Beans |
 | `DataSourceAspectAutoConfiguration` | `autoconfiguration` | 向 Spring 容器登錄 AOP 切面 Bean |
+| `DynamicJpaRepositoriesRegistrar` | `autoconfiguration` | 依 `dynamic.base-packages` 設定程式化掃描並註冊 Spring Data JPA Repository |
 | `DS` | `base.annotation` | 指定資料來源的方法／類別 Annotation，`value()` 對應 `dynamic.data-source-map` 中的 key |
 | `DynamicDS` | `base.annotation` | `DS` 的執行期實作，供反射替換 Annotation 使用 |
 | `AnnotationHelper` | `base.annotation` | 利用反射在執行期修改類別上的 Annotation 值 |
@@ -3614,8 +3648,13 @@ iam 在兩個接點覆寫 logon 預設：
 
 內建 Controller 置於巢狀靜態 `@Configuration`（`IamControllerConfiguration`），以 `@ConditionalOnProperty(prefix="iam.api", name="enabled", matchIfMissing=true)` 控制整組裝配，並對每個 Controller `@Bean` 標 `@ConditionalOnMissingBean`。Controller 的路由前綴採類別層級 `@RequestMapping("${iam.api.base-path:/api/iam}/...")` 屬性佔位符，於 handler 註冊時由 Environment 解析，使 `iam.api.base-path` 真正生效。
 
-:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
-`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。解法是在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
+:::tip 引入 iam 後，如何保留應用自身的 Repository 掃描
+`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+- **併用 db-starter（建議）**：在 `data-source.properties` 設定 `dynamic.base-packages=你的.repository.套件`（可逗號分隔多個），db-starter 的 `DynamicJpaRepositoriesRegistrar` 會依此掃描並註冊，等同宣告 `@EnableJpaRepositories` 但改由設定檔驅動、無須改動啟動類別。
+- **未用 db-starter**：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
+
+兩種做法都與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
 :::
 
 :::caution Spring Boot 4.0.0 套件位置
@@ -4828,20 +4867,19 @@ security:
   allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 放行 iam 整合示範端點
 ```
 
-:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
+:::tip 引入 iam 後，以 `dynamic.base-packages` 重新啟用自身 Repository 掃描
 iam 的 `IamAutoConfiguration` 帶有自己的 `@EnableJpaRepositories("com.zipe.repository")`。Spring Boot 的規則是：**一旦容器中出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後，自己的 Repository（如 `com.example.repository`）會註冊失敗、啟動報「No qualifying bean of type ...Repository」。
 
-解法：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories`，與 iam 的各自獨立掃描：
+由於本範例同時引入 db-starter，**只需在 `data-source.properties` 設定 `dynamic.base-packages`**，db-starter 即會依此掃描並註冊應用自身的 Repository（等同宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響）：
 
-```java
-@SpringBootApplication
-@EnableJpaRepositories(basePackages = "com.example.repository")
-public class Application {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-}
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個）
+dynamic.base-packages=com.example.repository
 ```
+
+故範例的 `Application` 維持單純的 `@SpringBootApplication`，無須再加 `@EnableJpaRepositories`。
+
+> 若未引入 db-starter，則仍以傳統做法在啟動類別宣告 `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
 :::
 
 ## 建立資料表與種子資料

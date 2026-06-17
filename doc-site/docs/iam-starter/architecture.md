@@ -136,8 +136,13 @@ iam 在兩個接點覆寫 logon 預設：
 
 內建 Controller 置於巢狀靜態 `@Configuration`（`IamControllerConfiguration`），以 `@ConditionalOnProperty(prefix="iam.api", name="enabled", matchIfMissing=true)` 控制整組裝配，並對每個 Controller `@Bean` 標 `@ConditionalOnMissingBean`。Controller 的路由前綴採類別層級 `@RequestMapping("${iam.api.base-path:/api/iam}/...")` 屬性佔位符，於 handler 註冊時由 Environment 解析，使 `iam.api.base-path` 真正生效。
 
-:::warning 引入 iam 後，應用須自行宣告 @EnableJpaRepositories
-`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。解法是在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
+:::tip 引入 iam 後，如何保留應用自身的 Repository 掃描
+`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+- **併用 db-starter（建議）**：在 `data-source.properties` 設定 `dynamic.base-packages=你的.repository.套件`（可逗號分隔多個），db-starter 的 `DynamicJpaRepositoriesRegistrar` 會依此掃描並註冊，等同宣告 `@EnableJpaRepositories` 但改由設定檔驅動、無須改動啟動類別。
+- **未用 db-starter**：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
+
+兩種做法都與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
 :::
 
 :::caution Spring Boot 4.0.0 套件位置

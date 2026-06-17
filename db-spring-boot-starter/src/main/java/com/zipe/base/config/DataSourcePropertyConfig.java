@@ -40,6 +40,16 @@ public class DataSourcePropertyConfig {
     private String primary;
 
     /**
+     * 需掃描並註冊 Spring Data JPA Repository 的基礎套件路徑。
+     * <p>可以逗號分隔指定多個套件（例如 {@code com.example.repository,com.foo.repository}）。
+     * 由 {@code DynamicJpaRepositoriesRegistrar} 讀取，等同於宣告
+     * {@code @EnableJpaRepositories(basePackages = ...)}，但改由設定檔指定、無須寫死於原始碼。</p>
+     * <p>主要用於引入自帶 {@code @EnableJpaRepositories} 的模組（如 iam-starter）後，
+     * 重新啟用應用自身 Repository 的掃描；未設定時維持 Spring Boot 預設行為。</p>
+     */
+    private String basePackages;
+
+    /**
      * JPA Entity 掃描的基礎套件路徑，用於多資料來源時限定各資料來源管轄的實體範圍。
      * <p>可以逗號分隔指定多個套件（例如 {@code com.example,com.zipe.entity}），
      * 以便同時管理跨模組的 Entity（如併用 iam-starter 時）。</p>
@@ -67,6 +77,7 @@ public class DataSourcePropertyConfig {
         // 建立新實例並逐一複製屬性，確保 Bean 與當前設定物件相互獨立
         DataSourcePropertyConfig dataSourcePropertyConfig = new DataSourcePropertyConfig();
         dataSourcePropertyConfig.setPrimary(primary);
+        dataSourcePropertyConfig.setBasePackages(basePackages);
         dataSourcePropertyConfig.setEntityScan(entityScan);
         dataSourcePropertyConfig.setIsEncrypt(isEncrypt);
         dataSourcePropertyConfig.setDataSourceMap(dataSourceMap);

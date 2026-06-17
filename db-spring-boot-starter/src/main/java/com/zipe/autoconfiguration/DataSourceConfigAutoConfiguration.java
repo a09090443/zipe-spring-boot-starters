@@ -18,10 +18,10 @@ import org.springframework.boot.hibernate.autoconfigure.HibernateProperties;
 import org.springframework.boot.persistence.autoconfigure.EntityScanPackages;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcDaoSupport;
 import org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException;
@@ -51,6 +51,10 @@ import java.util.Set;
  * {@link org.springframework.jdbc.core.JdbcTemplate} 及
  * {@link org.springframework.jdbc.core.namedparam.NamedParameterJdbcDaoSupport} 等 Bean。</p>
  *
+ * <p>另透過 {@link DynamicJpaRepositoriesRegistrar} 支援以 {@code dynamic.base-packages}
+ * 設定檔屬性驅動 JPA Repository 掃描，免去引入自帶 {@code @EnableJpaRepositories} 的模組
+ * （如 iam-starter）後，須在啟動類別手動補宣告 {@code @EnableJpaRepositories} 的負擔。</p>
+ *
  * <p>僅在 {@link DataSourcePropertyConfig} 類別存在於 classpath 時才會生效。</p>
  *
  * @author : Gary Tsai
@@ -60,6 +64,7 @@ import java.util.Set;
 @PropertySource({"classpath:data-source.properties"})
 @ConditionalOnClass(DataSourcePropertyConfig.class)
 @EnableConfigurationProperties(DataSourcePropertyConfig.class)
+@Import(DynamicJpaRepositoriesRegistrar.class)
 public class DataSourceConfigAutoConfiguration extends BaseDataSourceConfig {
 
     /** Hibernate DDL 與方言等附加屬性，由 Spring Boot 自動注入。 */

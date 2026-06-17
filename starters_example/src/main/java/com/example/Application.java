@@ -2,7 +2,6 @@ package com.example;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
  * 應用程式進入點。
@@ -11,15 +10,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * 元件掃描、自動配置與 Spring Boot 全部預設功能，整合所有 zipe-spring-boot-starters
  * 模組的範例情境。</p>
  *
- * <p>顯式宣告 {@link EnableJpaRepositories} 掃描自身的 {@code com.example.repository}：
- * 因 iam-starter 帶有自己的 {@code @EnableJpaRepositories}，會使 Spring Boot 對應用主套件的
- * JPA Repository 自動掃描退讓；故本應用須自行宣告，與 iam 的 {@code com.zipe.repository}
- * 各自獨立掃描、互不影響。</p>
+ * <p>本應用自身的 JPA Repository（{@code com.example.repository}）改由 db-starter 的
+ * {@code dynamic.base-packages} 設定（見 {@code data-source.properties}）驅動掃描，無須在此
+ * 宣告 {@code @EnableJpaRepositories}。因 iam-starter 自帶 {@code @EnableJpaRepositories}
+ * 會使 Spring Boot 對應用主套件的 Repository 自動掃描退讓，故以該設定重新啟用，與 iam 的
+ * {@code com.zipe.repository} 各自獨立掃描、互不影響。</p>
  *
  * @author Gary.tsai
  */
 @SpringBootApplication
-@EnableJpaRepositories(basePackages = "com.example.repository")
 public class Application {
 
     /**
