@@ -39,6 +39,9 @@ security.verification-type=BASIC
 # 自訂登入頁面（選填）
 security.login-uri=/login
 
+# 登出路徑（選填，預設 /logout）。切勿設為 /login，否則會與表單登入處理路徑相撞而使登入失效
+# security.logout-uri=/logout
+
 # 不需認證的 URI 白名單
 security.allow-uris=/public/**,/static/**
 

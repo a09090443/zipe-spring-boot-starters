@@ -114,9 +114,9 @@ logon-spring-boot-starter/
 | 方法 | 說明 |
 |---|---|
 | `filterChain(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder, SessionRegistry, LoginSuccessHandler, LoginFailureHandler, LogoutSuccessHandler)` | 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，可被業務專案整鏈覆寫。依 `security.login-uri` 是否有值，分派至 `customLoginConfigure()` 或 `basicLoginConfigure()`。Handler、`SessionRegistry`、`PasswordEncoder` 等相依**以方法參數注入容器 Bean**（含使用者覆寫版），不再以 `this.xxx()` 直接 new |
-| `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
-| `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
-| `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider 掛載至 `http` |
+| `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。登出路徑取自 `security.logout-uri`（預設 `/logout`，**不可與表單登入處理路徑 `/login` 相同**，否則 LogoutFilter 會搶先攔截登入）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。登出路徑同取自 `security.logout-uri`。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider，以 `ProviderManager` 包成本 chain 的 `AuthenticationManager` 並透過 `http.authenticationManager(...)` **明確指定**。確保表單登入與 HTTP Basic 一致採用此 provider；避免容器存在多個 `AuthenticationProvider` Bean（如 CUSTOM provider 與 `ldapUserDetailsService`）時，Spring Boot 放棄組裝全域 `AuthenticationManager`、使 HTTP Basic 落到預設 `DaoAuthenticationProvider` |
 | `resolveAuthenticationProvider(BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 依 `VerificationTypeEnum` 回傳 provider：`LDAP` 回傳 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取指定 Bean；`BASIC`（預設 / null）以 `BasicUserServiceImpl` + `PasswordEncoder` 組 `DaoAuthenticationProvider`。**同時供表單登入與 JWT 的 `AuthenticationManager` 重用**，確保兩種狀態策略憑證來源一致 |
 | `switchSecurity()` | `security.enable=false` 時回傳 `["/**"]`（全路徑放行）；否則回傳 `allow-uris` 切分後的陣列 |
 | `passwordEncoder()` | `@Bean @ConditionalOnMissingBean`，回傳 `BCryptPasswordEncoder` |
@@ -530,32 +530,32 @@ public OtpUserDetailsService otpUserDetailsService(PasswordEncoder passwordEncod
     return new OtpUserDetailsService(passwordEncoder, otpClient);
 }
 
-// 2. 在 authenticationProvider() 的 switch 新增 case
-//    （otpUserDetailsService 一併以 filterChain → authenticationProvider 的方法參數傳入）
-private void authenticationProvider(HttpSecurity http,
-                                    BasicUserServiceImpl basicUserService,
-                                    LdapUserDetailsService ldapUserService,
-                                    PasswordEncoder passwordEncoder,
-                                    OtpUserDetailsService otpUserService) throws Exception {
-    switch (VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType())) {
-        case LDAP:
-            http.authenticationProvider(ldapUserService);
-            break;
-        case OTP:
-            http.authenticationProvider(otpUserService);  // 新增
-            break;
-        case CUSTOM:
-            String beanName = securityPropertyConfig.getCustomBeanName();
-            if (beanName == null) throw new IllegalArgumentException(
-                    "verification-type=otp 時必須設定 custom-bean-name");
-            http.authenticationProvider(
-                    applicationContext.getBean(beanName, AuthenticationProvider.class));
-            break;
-        default:  // BASIC
-            DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
-            provider.setPasswordEncoder(passwordEncoder);
-            http.authenticationProvider(provider);
+// 2. 在 resolveAuthenticationProvider() 的判斷新增 OTP 分支，回傳對應 provider
+//    （otpUserDetailsService 一併以 filterChain → authenticationProvider →
+//      resolveAuthenticationProvider 的方法參數傳入）。
+//    authenticationProvider() 不需改動——它一律把回傳的 provider 包成
+//    new ProviderManager(provider) 並以 http.authenticationManager(...) 明確指定，
+//    表單登入與 HTTP Basic 因此共用同一 provider。
+private AuthenticationProvider resolveAuthenticationProvider(BasicUserServiceImpl basicUserService,
+                                                             LdapUserDetailsService ldapUserService,
+                                                             PasswordEncoder passwordEncoder,
+                                                             OtpUserDetailsService otpUserService) {
+    VerificationTypeEnum type = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+    if (type == VerificationTypeEnum.LDAP) {
+        return ldapUserService;
     }
+    if (type == VerificationTypeEnum.OTP) {   // 新增
+        return otpUserService;
+    }
+    if (type == VerificationTypeEnum.CUSTOM) {
+        String beanName = securityPropertyConfig.getCustomBeanName();
+        if (beanName == null) throw new IllegalArgumentException(
+                "verification-type=custom 時必須設定 custom-bean-name");
+        return (AuthenticationProvider) ApplicationContextHelper.getBean(beanName);
+    }
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+    provider.setPasswordEncoder(passwordEncoder);
+    return provider;
 }
 ```
 

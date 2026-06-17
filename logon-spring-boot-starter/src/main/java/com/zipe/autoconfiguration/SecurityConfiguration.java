@@ -250,7 +250,7 @@ public class SecurityConfiguration {
                 .formLogin(formLogin -> formLogin.permitAll()
                         .successHandler(loginSuccessHandler)
                         .failureHandler(loginFailureHandler))
-                .logout(logout -> logout.logoutUrl("/login")
+                .logout(logout -> logout.logoutUrl(securityPropertyConfig.getLogoutUri())
                         .deleteCookies("JSESSIONID")
                         .clearAuthentication(true)
                         .invalidateHttpSession(true)
@@ -300,7 +300,7 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                         .successHandler(loginSuccessHandler)
                         .failureHandler(loginFailureHandler))
-                .logout(logout -> logout
+                .logout(logout -> logout.logoutUrl(securityPropertyConfig.getLogoutUri())
                         .deleteCookies("JSESSIONID")
                         .clearAuthentication(true)
                         .invalidateHttpSession(true)
@@ -327,6 +327,14 @@ public class SecurityConfiguration {
      * </ul>
      * </p>
      *
+     * <p>解析出的 provider 以 {@link ProviderManager} 包成本 filter chain 的
+     * {@link AuthenticationManager} 並透過 {@link HttpSecurity#authenticationManager} 明確指定，
+     * 使表單登入與 HTTP Basic 一致採用此 provider。若僅以
+     * {@link HttpSecurity#authenticationProvider} 註冊，當容器存在多個
+     * {@link AuthenticationProvider} Bean（例如 CUSTOM 的 provider 與 {@code ldapUserDetailsService}）
+     * 時，Spring Boot 會放棄組裝全域 {@link AuthenticationManager}，導致 HTTP Basic 落到預設的
+     * {@link DaoAuthenticationProvider}（產生隨機密碼的內建使用者）而非本模組選定的 provider。</p>
+     *
      * @param http             {@link HttpSecurity} 設定建構器
      * @param basicUserService BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
      * @param ldapUserService  LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
@@ -344,8 +352,9 @@ public class SecurityConfiguration {
             http.csrf(AbstractHttpConfigurer::disable);
         }
 
-        http.authenticationProvider(
-                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder));
+        // 明確指定本 chain 的 AuthenticationManager，避免多個 provider Bean 時退讓為全域預設 provider
+        http.authenticationManager(new ProviderManager(
+                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder)));
     }
 
     /**
