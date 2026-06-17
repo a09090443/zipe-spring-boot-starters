@@ -56,7 +56,7 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
-│   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/iam-demo/authorities/{username}）
+│   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/authorities/{username}、@PreAuthorize 保護的 /orders/export、/users/manage）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
@@ -131,6 +131,7 @@ cd starters_example
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
 | iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
 | iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
 | H2 Console | `http://localhost:8080/example/h2-console` |

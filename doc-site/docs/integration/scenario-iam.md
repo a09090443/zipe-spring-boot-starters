@@ -92,12 +92,15 @@ mysql --default-character-set=utf8mb4 -u user1 -p example1 < src/main/resources/
 
 種子資料建立了一條最小授權鏈：
 
-| 帳號 | 群組（角色） | 展開後的 authorities |
-|---|---|---|
-| `alice` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` |
-| `bob` | `USER` | `ROLE_USER`、`ORDER_EXPORT` |
+| 帳號 | 群組（角色） | 展開後的 authorities | 用途 |
+|---|---|---|---|
+| `alice` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | 供 `/iam-demo/authorities/{username}` 展示授權解析 |
+| `bob` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | 同上 |
+| `user01` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | 對應 custom 登入帳號 `user01/1234`，登入後帶此授權 |
+| `user02` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | 對應 custom 登入帳號 `user02/abcd`，登入後帶此授權 |
 
 > 群組 `code` 套用 `iam.group.role-prefix`（預設 `ROLE_`）；權限 `code` 原樣作為 authority。
+> `user01`／`user02` 的 `username` 刻意對齊 `user_login` 的登入帳號，使其登入後能依帳號解析出 iam 授權（見下節）。
 
 ## 示範程式
 
@@ -131,6 +134,39 @@ public class IamDemoController {
 }
 ```
 
+## 以 iam 權限保護端點
+
+光是「解析得到 authorities」還不夠——要讓權限真正生效，需要兩件事：
+
+**1. 登入後的使用者要帶上 iam 授權。** 範例**預設為 `basic` 模式**（帳密 `admin/admin`，保留既有示範）；要體驗權限端點，請依 [情境一](scenario-web-auth.md) 把 `security.verification-type` 改為 `custom`（`custom-bean-name` 已預先指向 `dbAuthProvider`）。custom 模式下 logon 把驗證委派給 `DbAuthProvider`，而 **CUSTOM 模式下框架不會自動套用 `GrantedAuthoritiesResolver`**（僅 BASIC／JWT 的 `IamUserDetailsService`、LDAP 的 `LdapUserDetailsService` 會自動套用）。因此 `DbAuthProvider` 在帳密驗證成功後**自行呼叫 resolver**，把 iam 的群組／權限放進已認證的 token——示範「**認證來源用自家 `user_login`，授權來源用 iam**」的解耦：
+
+```java
+@Override
+protected UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
+    UserLogin userLogin = userLoginRepository.findByLoginId(loginId);
+    // …帳密比對（略）…
+    // 帳密由 user_login 驗證（authn），群組／權限改由 iam 解析（authz）
+    var authorities = authoritiesResolver.resolve(loginId);
+    return new UsernamePasswordAuthenticationToken(loginId, null, authorities);
+}
+```
+
+**2. 在端點上宣告所需權限。** logon 的 `SecurityConfiguration` 已標註 `@EnableMethodSecurity(prePostEnabled = true)`，故 `@PreAuthorize` 開箱即用。`IamDemoController` 加了兩個差異化保護的端點：
+
+```java
+@GetMapping("/orders/export")
+@PreAuthorize("hasAuthority('ORDER_EXPORT')")   // user01、user02 皆可
+public String exportOrders() {
+    return "訂單已匯出";
+}
+
+@GetMapping("/users/manage")
+@PreAuthorize("hasAuthority('USER_MANAGE')")     // 僅 user02（ADMIN）
+public String manageUsers() {
+    return "已進入使用者管理";
+}
+```
+
 ## 驗證端點
 
 啟動後（需主資料源 MySQL 已就緒並套用 `iam-demo.sql`）：
@@ -139,8 +175,18 @@ public class IamDemoController {
 |---|---|---|
 | 解析 alice 的權限 | `GET /example/iam-demo/authorities/alice` | `["ROLE_ADMIN","ORDER_EXPORT","USER_MANAGE"]` |
 | 解析 bob 的權限 | `GET /example/iam-demo/authorities/bob` | `["ROLE_USER","ORDER_EXPORT"]` |
-| iam 帳號分頁查詢 | `GET /example/iam-demo/accounts` | 含 alice／bob 的分頁 JSON |
+| iam 帳號分頁查詢 | `GET /example/iam-demo/accounts` | 含 alice／bob／user01／user02 的分頁 JSON |
 | iam 內建帳號 API | `GET /example/api/iam/accounts` | iam 內建 CRUD（受 security 保護，需登入） |
+
+權限保護端點需**先以 custom 登入**（表單登入 `/example/login`，取得帶 iam 授權的 session）後再存取：
+
+| 登入帳號 | 群組 | `GET /example/iam-demo/orders/export`（需 `ORDER_EXPORT`） | `GET /example/iam-demo/users/manage`（需 `USER_MANAGE`） |
+|---|---|---|---|
+| `user01/1234` | `USER` | ✅ `訂單已匯出` | ⛔ HTTP 403 |
+| `user02/abcd` | `ADMIN` | ✅ `訂單已匯出` | ✅ `已進入使用者管理` |
+| 未登入 | — | 導向登入頁 | 導向登入頁 |
+
+> 雖然 `/iam-demo/**` 在 `security.allow-uris` 中（URL 層放行），但 `@PreAuthorize` 是**方法層**授權、獨立於 URL 規則之外，因此仍會依登入者的 authorities 把關。
 
 ## 以 iam 帳號表登入（選用）
 
