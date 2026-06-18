@@ -114,8 +114,8 @@ logon-spring-boot-starter/
 | 方法 | 說明 |
 |---|---|
 | `filterChain(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder, SessionRegistry, LoginSuccessHandler, LoginFailureHandler, LogoutSuccessHandler)` | 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，可被業務專案整鏈覆寫。依 `security.login-uri` 是否有值，分派至 `customLoginConfigure()` 或 `basicLoginConfigure()`。Handler、`SessionRegistry`、`PasswordEncoder` 等相依**以方法參數注入容器 Bean**（含使用者覆寫版），不再以 `this.xxx()` 直接 new |
-| `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。登出路徑取自 `security.logout-uri`（預設 `/logout`，**不可與表單登入處理路徑 `/login` 相同**，否則 LogoutFilter 會搶先攔截登入）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
-| `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。登出路徑同取自 `security.logout-uri`。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。授權規則以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手，**放行 `FORWARD`（JSP / view render）與 `ERROR`（錯誤頁派發）兩種 dispatcher type**，再接 `allow-uris` 放行與 `anyRequest().authenticated()`（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。登出路徑取自 `security.logout-uri`（預設 `/logout`，**不可與表單登入處理路徑 `/login` 相同**，否則 LogoutFilter 會搶先攔截登入）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。授權規則同樣以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手。登出路徑同取自 `security.logout-uri`。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
 | `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider，以 `ProviderManager` 包成本 chain 的 `AuthenticationManager` 並透過 `http.authenticationManager(...)` **明確指定**。確保表單登入與 HTTP Basic 一致採用此 provider；避免容器存在多個 `AuthenticationProvider` Bean（如 CUSTOM provider 與 `ldapUserDetailsService`）時，Spring Boot 放棄組裝全域 `AuthenticationManager`、使 HTTP Basic 落到預設 `DaoAuthenticationProvider` |
 | `resolveAuthenticationProvider(BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 依 `VerificationTypeEnum` 回傳 provider：`LDAP` 回傳 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取指定 Bean；`BASIC`（預設 / null）以 `BasicUserServiceImpl` + `PasswordEncoder` 組 `DaoAuthenticationProvider`。**同時供表單登入與 JWT 的 `AuthenticationManager` 重用**，確保兩種狀態策略憑證來源一致 |
 | `switchSecurity()` | `security.enable=false` 時回傳 `["/**"]`（全路徑放行）；否則回傳 `allow-uris` 切分後的陣列 |
@@ -143,7 +143,7 @@ logon-spring-boot-starter/
 
 | Bean 名稱 | 型別 | 條件 | 說明 |
 |---|---|---|---|
-| `jwtSecurityFilterChain` | `SecurityFilterChain` | `@ConditionalOnProperty(jwt.enabled)` | JWT 無狀態過濾鏈：停用 CSRF、`STATELESS` session、401 entry point，並於 `UsernamePasswordAuthenticationFilter` 前插入 `JwtAuthenticationFilter`。**先於預設 `filterChain` 註冊，使其 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓** |
+| `jwtSecurityFilterChain` | `SecurityFilterChain` | `@ConditionalOnProperty(jwt.enabled)` | JWT 無狀態過濾鏈：授權規則以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手，停用 CSRF、`STATELESS` session、401 entry point，並於 `UsernamePasswordAuthenticationFilter` 前插入 `JwtAuthenticationFilter`。**先於預設 `filterChain` 註冊，使其 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓** |
 | `jwtTokenProvider` | `JwtTokenProvider` | `@ConditionalOnProperty(jwt.enabled)` + missing | token 簽發 / 驗證核心，由 Spring 觸發 `@PostConstruct init()` |
 | `jwtAuthenticationFilter` | `JwtAuthenticationFilter` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以具體型別注入 `BasicUserServiceImpl` 作為查權限的 `UserDetailsService`（預設；LDAP/CUSTOM + JWT 須覆寫），避免多個 `UserDetailsService` Bean 歧義 |
 | `jwtAuthenticationManager` | `AuthenticationManager` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以 `resolveAuthenticationProvider(...)` 依 `verification-type` 取得 provider 後組成 `ProviderManager`，登入驗帳密因此與表單登入一致（BASIC/LDAP/CUSTOM） |
@@ -166,7 +166,7 @@ logon-spring-boot-starter/
 | `allow-uris` | String | 無 | 逗號分隔的免驗證路徑，如 `/static/**,/public/**` |
 | `login-uri` | String | 無 | 自訂登入頁路徑；設定此值則採用 `customLoginConfigure` |
 | `login-success-uri` | String | `/` | 登入成功後的導向路徑 |
-| `login-failure-uri` | String | `/error` | 登入失敗後的轉送路徑（伺服器端 forward，非 redirect） |
+| `login-failure-uri` | String | `/error` | 登入失敗後的導向路徑（redirect，非 forward；搭配預設登入頁設 `/login`，勿用 `/login?error`，見注意 7） |
 | `custom-bean-name` | String | 無 | `verification-type=custom` 時必填，指定 AuthenticationProvider Bean 名稱 |
 | `csrf-enabled` | Boolean | `true` | CSRF 保護開關 |
 | `ldap` | LdapPropertyConfig | 巢狀物件 | LDAP 子設定群組 |
@@ -223,7 +223,7 @@ logon-spring-boot-starter/
 
 **LoginFailureHandler（繼承 `SimpleUrlAuthenticationFailureHandler`）：**
 
-- `useForward=true`：登入失敗採用**伺服器端 forward**（非 redirect），瀏覽器 URL 不改變
+- `useForward=false`：登入失敗採用 **redirect**（而非 forward）導向 `login-failure-uri`。**不可使用 forward**——Spring Security 6/7 會對 `FORWARD` 派發套用 filter chain，若 `login-failure-uri` 與表單登入處理路徑（預設 `/login`）相同，forward 會把失敗的 `POST /login` 再次送進認證 filter，重新驗證、再失敗、再 forward……無限轉發直至 `StackOverflowError`（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。redirect 以 GET 重新請求失敗頁，不再進入認證 filter，對任何 `login-failure-uri` 皆安全
 - 依 `AuthenticationException` 子型別輸出對應 warn 日誌：`UsernameNotFoundException` / `DisabledException` / `BadCredentialsException` / `LdapException` / 其他
 - `record-log-enable=true` 時呼叫 `customLogonLogRecord.recordFailureLog(loginId)`
 
@@ -335,7 +335,7 @@ sequenceDiagram
     else 認證失敗
         AM->>SH: onAuthenticationFailure()
         SH->>LR: recordFailureLog(userId)（若 recordLogEnable=true）
-        SH->>B: forward to loginFailureUri（伺服器端轉送）
+        SH->>B: redirect to loginFailureUri（302，瀏覽器以 GET 重新請求）
     end
 ```
 
@@ -789,6 +789,40 @@ throw new IllegalArgumentException(
 #### 注意 5：所有 Bean 無條件建立
 
 無論 `verification-type` 為何，`ldapUserDetailsService` Bean 都會被建立。若未設定 LDAP 相關屬性（`ip` / `port` / `dn` 為空），建立 Bean 時不報錯，但實際驗證請求到來時 `LdapUtil` 建構子會因無法連線而拋出 `CommunicationException`。效能影響極小，但需留意啟動期無 LDAP 設定警告。
+
+#### 注意 6：授權規則須放行 FORWARD / ERROR 派發（否則錯誤頁／JSP render 會卡死）
+
+Spring Security 6/7 的 `authorizeHttpRequests` 預設**對所有 dispatcher type 套用授權**（不再只過濾最初的 `REQUEST`），包含 `FORWARD`（JSP / view render 的內部 forward）與 `ERROR`（容器錯誤頁派發）。若授權規則未放行這兩種派發，會出現：
+
+- 任何 `@PreAuthorize` 或 URL 授權拒絕 → 容器 `ERROR` 派發至 `/error` → Security 又攔截 `/error`（此時 SecurityContext 為 anonymous）→ `/error` 不在 `allow-uris` → 判定需登入 → 再觸發錯誤派發…**錯誤頁與授權互相觸發、forward 一層層巢狀疊上**，最終 `getSession` 沿 request wrapper 鏈無限遞迴拋出 `StackOverflowError`。
+
+因此 `basicLoginConfigure` / `customLoginConfigure` / `jwtSecurityFilterChain` 的授權規則皆以下列起手：
+
+```java
+.authorizeHttpRequests(auth -> auth
+    .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
+    .requestMatchers(switchSecurity()).permitAll()
+    .anyRequest().authenticated())
+```
+
+放行 `FORWARD` 使 JSP / Thymeleaf 的內部 forward 不被重複授權；放行 `ERROR` 使 `/error` 錯誤頁能正常 render，避免上述遞迴。此放行僅針對「容器內部派發」，不影響外部請求（`REQUEST`）的授權判斷，安全性不受影響。
+
+#### 注意 7：登入失敗一律用 redirect，不可 forward 回 `/login` 處理路徑
+
+承注意 6 的同一根因（Spring Security 6/7 過濾 `FORWARD` 派發）：`LoginFailureHandler` 一旦以 `setUseForward(true)` 把失敗的 `POST /login` **forward** 回 `login-failure-uri`，而該 URI 又等於表單登入處理路徑（預設 `/login`）時，forward 的目標路徑仍是 `/login`（查詢字串不影響路徑比對），於是再次進入 `UsernamePasswordAuthenticationFilter` → 再次驗證失敗 → 再 forward……無限轉發直至 `StackOverflowError`。
+
+因此 `LoginFailureHandler` 固定使用 `setUseForward(false)`（redirect）：
+
+```java
+setDefaultFailureUrl(securityPropertyConfig.getLoginFailureUri());
+setUseForward(false);  // 不可改為 true，否則 failure-uri 撞 /login 時無限轉發
+```
+
+失敗以 302 redirect 導向 `login-failure-uri`，瀏覽器改以 GET 重新請求，不再進入認證 filter。
+
+> **失敗頁建議設為 `/login`（而非 `/login?error`）**：本模組以自訂 `LoginFailureHandler` 取代 formLogin 內建的失敗 URL，因此 `DefaultLoginPageGeneratingFilter` 只會產生 `/login`、**不認得 `/login?error`**。若把 `login-failure-uri` 設為 `/login?error`，該路徑不會被產生器 render——未放行時被導回 `/login`，一旦放行（如加進 `allow-uris`）則直接落到 DispatcherServlet 靜態資源處理器拋 `NoResourceFoundException`（404）。需要在失敗頁顯示錯誤訊息時，請改提供**自訂登入頁**（設定 `security.login-uri` 指向自家頁面，於該頁讀取錯誤狀態），而非依賴預設產生器的 `?error`。
+
+> 此陷阱與[注意 1（logout-uri 不可與 /login 相同）](#7-維護注意事項與常見陷阱)同屬「URL 與登入處理路徑碰撞」家族：登入成功（`LoginSuccessHandler` 用 redirect）、登出（`logout-uri` 預設 `/logout`）、登入失敗（redirect）三者都須避免與 `POST /login` 處理路徑相撞。
 
 ### 執行緒安全摘要
 

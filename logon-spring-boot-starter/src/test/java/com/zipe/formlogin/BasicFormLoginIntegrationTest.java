@@ -26,6 +26,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       此請求會被當成登出而無法認證）。</li>
  *   <li>HTTP Basic 採用本模組選定的 provider（而非多 provider Bean 時退讓的全域預設
  *       {@code DaoAuthenticationProvider}），故 {@code admin/admin} 可通過 Basic 驗證。</li>
+ *   <li>登入失敗採 <b>redirect</b>（而非 forward）：避免 {@code login-failure-uri} 與
+ *       {@code POST /login} 處理路徑相同時，forward 在 Spring Security 6/7「過濾所有
+ *       dispatcher type」下無限轉發回認證 filter，造成 {@link StackOverflowError}。
+ *       故失敗請求應回 3xx redirect 而非 forward。</li>
  * </ol>
  */
 @SpringBootTest(
@@ -53,12 +57,15 @@ class BasicFormLoginIntegrationTest {
     }
 
     @Test
-    void formLogin_withWrongPassword_isUnauthenticated() throws Exception {
+    void formLogin_withWrongPassword_isUnauthenticatedAndRedirects() throws Exception {
+        // 失敗須以 redirect（3xx）導向 login-failure-uri，而非 forward；
+        // 若改回 setUseForward(true)，此處會是 forward 而非 3xx，藉此守護迴圈缺陷不再復發
         mockMvc.perform(post("/login")
                         .param("username", "admin")
                         .param("password", "wrong-password")
                         .with(csrf()))
-                .andExpect(unauthenticated());
+                .andExpect(unauthenticated())
+                .andExpect(status().is3xxRedirection());
     }
 
     @Test

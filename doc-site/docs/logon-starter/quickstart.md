@@ -45,7 +45,7 @@ security:
   verification-type: basic       # basic | ldap | custom
   login-uri: /login              # 自訂登入頁路徑；若移除此設定則使用 Spring Security 預設登入頁
   login-success-uri: /dashboard  # 登入成功後的導向路徑
-  login-failure-uri: /login      # 登入失敗後的轉送路徑（伺服器端 forward）
+  login-failure-uri: /login        # 登入失敗後的導向路徑（redirect 回登入頁；勿用 /login?error，見 configuration.md）
   allow-uris: /static/**,/public/**  # 免驗證放行的路徑（逗號分隔）
   csrf-enabled: false            # 是否啟用 CSRF 保護
 ```

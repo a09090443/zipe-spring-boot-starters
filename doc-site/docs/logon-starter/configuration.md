@@ -20,7 +20,7 @@ sidebar_position: 3
 | `security.verification-type` | String | `basic` | 憑證來源（怎麼驗帳密）：`basic` / `ldap` / `custom`（大小寫不敏感）。與 `security.jwt.enabled`（登入後狀態策略）正交 |
 | `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
 | `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
-| `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
+| `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用 redirect）。搭配預設登入頁請設 `/login`（**勿用 `/login?error`**，自訂 failureHandler 下產生器不認得、會 404）；本模組已固定用 redirect 避免 forward 迴圈，詳見下方說明 |
 | `security.logout-uri` | String | `/logout` | 觸發登出的路徑。**切勿設為 `/login`**（與表單登入處理路徑相同），否則 LogoutFilter 會搶先攔截登入請求、使表單登入失效 |
 | `security.allow-uris` | String | 無 | 免驗證放行的路徑，逗號分隔，支援 Ant 樣式，如 `/static/**,/public/**` |
 | `security.csrf-enabled` | Boolean | `true` | CSRF 保護開關；傳統表單應維持 `true`，純 REST API 視情況可設為 `false` |
@@ -194,12 +194,16 @@ security:
 採用 `customLoginConfigure()` 時 Session 策略為 `STATELESS`，Spring Security 不主動建立 `HttpSession`。若業務邏輯依賴 Session 儲存資料（例如透過 `SecurityBaseService.fetchLoginUser()` 取回 `SysUserVO`），需確保應用層面有另行管理 Session，或改用 `basicLoginConfigure()`（不填 `login-uri`）。
 :::
 
-### security.login-failure-uri 的 forward 行為
+### security.login-failure-uri 的 redirect 行為
 
-`LoginFailureHandler` 設定 `useForward=true`，登入失敗後採**伺服器端 forward** 至 `login-failure-uri`，而非客戶端 redirect。這代表：
+`LoginFailureHandler` 設定 `useForward=false`，登入失敗後採**客戶端 redirect**（302）導向 `login-failure-uri`。這代表：
 
-- 瀏覽器 URL 不會改變（仍顯示登入表單送出的 URL）
-- 可在 `login-failure-uri` 對應的 Controller / View 中存取 `AuthenticationException`，用來顯示錯誤訊息
+- 瀏覽器以 GET 重新請求失敗頁，URL 會變更為 `login-failure-uri`
+- 搭配 Spring Security 預設登入頁時，`login-failure-uri` 請設為 `/login`（即登入頁本身）。**不要設 `/login?error`**：本模組以自訂 `LoginFailureHandler` 取代 formLogin 內建失敗 URL，`DefaultLoginPageGeneratingFilter` 只認得 `/login`、不認得 `/login?error`，後者不會被 render（未放行→被導回 `/login`；放行→落到靜態資源處理器拋 404）。需要在失敗頁顯示錯誤訊息，請改用**自訂登入頁**（`security.login-uri`）
+
+:::danger 不可使用 forward 回 `/login`
+請勿改回 `setUseForward(true)`：Spring Security 6/7 會對 `FORWARD` 派發套用 filter chain，若 `login-failure-uri` 與表單登入處理路徑（預設 `/login`）相同，forward 會把失敗的 `POST /login` 再次送進認證 filter，無限轉發直至 `StackOverflowError`。詳見 [architecture.md 注意 7](./architecture.md)。
+:::
 
 ### ADMIN 帳號動態密碼
 

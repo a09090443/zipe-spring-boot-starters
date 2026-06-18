@@ -62,7 +62,7 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 | `JwtLoginController` | `jwt` | 內建 JWT 登入端點（預設 `/api/login`），可覆寫 |
 | `JwtLoginRequest` / `JwtLoginResponse` | `jwt.vo` | JWT 登入請求 / 回應 DTO |
 | `LoginSuccessHandler` | `handler` | 登入成功處理器，記錄日誌與 IP，導向成功頁 |
-| `LoginFailureHandler` | `handler` | 登入失敗處理器，分類日誌，伺服器端 forward 至失敗頁 |
+| `LoginFailureHandler` | `handler` | 登入失敗處理器，分類日誌，redirect 至失敗頁 |
 | `LogoutSuccessHandler` | `handler` | 登出成功處理器，清理 Session，導向登入頁 |
 | `UserInfoUtil` | `util` | 靜態工具，`loginUserId()` 從 `SecurityContextHolder` 取得當前帳號 |
 | `SecurityBaseService` | `base/service` | 業務 Service 基底，封裝 Session 存取，`fetchLoginUser()` 回傳 `SysUserVO` |

@@ -14,6 +14,7 @@ import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.string.StringConstant;
+import jakarta.servlet.DispatcherType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -95,6 +96,7 @@ public class SecurityConfiguration {
                                                       JwtAuthenticationFilter jwtAuthenticationFilter,
                                                       JwtProperties jwtProperties) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(switchSecurity()).permitAll()
                         .requestMatchers(jwtProperties.getLoginUri()).permitAll()
                         .anyRequest().authenticated())
@@ -244,6 +246,7 @@ public class SecurityConfiguration {
                                      LdapUserDetailsService ldapUserService,
                                      PasswordEncoder passwordEncoder) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(switchSecurity()).permitAll()
                         .anyRequest()
                         .authenticated())
@@ -292,6 +295,7 @@ public class SecurityConfiguration {
                                       LdapUserDetailsService ldapUserService,
                                       PasswordEncoder passwordEncoder) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(switchSecurity()).permitAll()
                         .anyRequest()
                         .authenticated())
