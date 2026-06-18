@@ -138,7 +138,7 @@ public class IamDemoController {
 
 光是「解析得到 authorities」還不夠——要讓權限真正生效，需要兩件事：
 
-**1. 登入後的使用者要帶上 iam 授權。** 範例**預設為 `basic` 模式**（帳密 `admin/admin`，保留既有示範）；要體驗權限端點，請依 [情境一](scenario-web-auth.md) 把 `security.verification-type` 改為 `custom`（`custom-bean-name` 已預先指向 `dbAuthProvider`）。custom 模式下 logon 把驗證委派給 `DbAuthProvider`，而 **CUSTOM 模式下框架不會自動套用 `GrantedAuthoritiesResolver`**（僅 BASIC／JWT 的 `IamUserDetailsService`、LDAP 的 `LdapUserDetailsService` 會自動套用）。因此 `DbAuthProvider` 在帳密驗證成功後**自行呼叫 resolver**，把 iam 的群組／權限放進已認證的 token——示範「**認證來源用自家 `user_login`，授權來源用 iam**」的解耦：
+**1. 登入後的使用者要帶上 iam 授權。** 範例**預設即為 `custom` 模式**（帳密查 `user_login`：`user01/1234`、`user02/abcd`；`custom-bean-name` 已預先指向 `dbAuthProvider`），登入即可體驗權限端點。custom 模式下 logon 把驗證委派給 `DbAuthProvider`，而 **CUSTOM 模式下框架不會自動套用 `GrantedAuthoritiesResolver`**（僅 BASIC／JWT 的 `IamUserDetailsService`、LDAP 的 `LdapUserDetailsService` 會自動套用）。因此 `DbAuthProvider` 在帳密驗證成功後**自行呼叫 resolver**，把 iam 的群組／權限放進已認證的 token——示範「**認證來源用自家 `user_login`，授權來源用 iam**」的解耦：
 
 ```java
 @Override

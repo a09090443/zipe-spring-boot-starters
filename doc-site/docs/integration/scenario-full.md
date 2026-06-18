@@ -139,11 +139,11 @@ web:
 
 security:
   enable: true
-  verification-type: basic
-  custom-bean-name: test
+  verification-type: custom          # 範例預設（帶 iam）；登入查 user_login 表
+  custom-bean-name: dbAuthProvider
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
-  allow-uris: /resources/**,/static/**,/webservice/**
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
   login-success-uri: /jsp
   login-failure-uri: /login
   ldap:
@@ -169,8 +169,8 @@ security:
     │       ▼                                                            │
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
-    │  │   verification-type: basic (admin/admin)                     │ │
-    │  │   白名單: /static/**  /resources/**  /webservice/**          │ │
+    │  │   verification-type: custom (user01/1234、user02/abcd)       │ │
+    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
     │           ▼                                                        │
@@ -253,7 +253,7 @@ cd starters_example
 | 排程（XmlJob） | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
 | 排程（AnnotationJob） | 觀察日誌 | 每 20 秒一筆 `ExampleAnnotationJob` log |
 
-登入頁預設帳密為 `admin/admin`，登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:admin`。
+登入頁預設帳密為 `user01/1234`（或 `user02/abcd`，範例帶 iam、預設 custom 模式），登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:user01`。
 
 ### 整合測試的執行方式
 

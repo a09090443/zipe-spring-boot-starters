@@ -72,7 +72,7 @@ security:
   verification-type: basic          # 使用內建帳密 admin/admin
   allow-uris: /static/**            # 白名單路徑（不需登入）
   login-success-uri: /home          # 登入成功跳轉
-  login-failure-uri: /login         # 登入失敗跳轉
+  login-failure-uri: /login         # 登入失敗 redirect 回登入頁（勿用 /login?error，自訂 failureHandler 下產生器不認得）
   csrf-enabled: false               # 預設為 true；此範例為簡化測試而關閉，正式環境建議維持開啟
   record-log-enable: true           # 啟用登出入事件記錄
   custom-record-log-bean: myLogonLogRecord  # 指向自訂日誌 Bean 名稱
@@ -265,18 +265,18 @@ public class DbAuthProvider extends CommonLoginProcess {
 `data.sql` 寫入的是 BCrypt 雜湊字串（非明文），因此 `verifyNormalUser()` 使用 `passwordEncoder.matches(rawPassword, hashedPassword)` 比對。若你的既有資料庫存的是明文密碼，請改以 `rawPassword.equals(storedPassword)` 等方式，或先將既有資料轉為 BCrypt 雜湊。
 :::
 
-### 步驟三：只改一行即可切換
+### 步驟三：範例預設即為 custom（帶 iam）
 
-`starters_example` 為了保留現有 `admin/admin` 示範，預設仍維持 `verification-type: basic`。要切換到自訂登入，只需把 `application.yml` 的 `verification-type` 由 `basic` 改成 `custom` 一行即可——`custom-bean-name` 已預先指向真實存在的 `dbAuthProvider` Bean：
+`starters_example` 因同時引入 iam-starter，**預設即為 `verification-type: custom`**：登入帳密查 `user_login` 表（`dbAuthProvider`），登入後的群組／權限由 iam 解析，可直接體驗 `/iam-demo` 的權限端點。`custom-bean-name` 已預先指向真實存在的 `dbAuthProvider` Bean：
 
 ```yaml
 security:
   enable: true
-  verification-type: custom          # 由 basic 改為 custom 即切換到自訂登入
+  verification-type: custom          # 範例預設；登入查 user_login 表
   custom-bean-name: dbAuthProvider   # 對應 com.example.config.DbAuthProvider 的 @Component 名稱
 ```
 
-切換後可用的測試帳號：
+可用的測試帳號：
 
 | 帳號 | 密碼 | 驗證方式 |
 |---|---|---|
@@ -284,6 +284,6 @@ security:
 | `user01` | `1234` | `DbAuthProvider.verifyNormalUser()` 查 `user_login` 表 |
 | `user02` | `abcd` | 同上 |
 
-:::tip basic 模式下 dbAuthProvider 不會被使用
-`dbAuthProvider` Bean 始終會被 Spring 建立（`@Component`），但只有在 `verification-type: custom` 時，`SecurityConfiguration` 才會透過 `custom-bean-name` 取出並掛載它。因此預設的 `basic` 模式下，此 Bean 存在卻不會被使用，不影響原本的 `admin/admin` 示範與專案啟動。
+:::warning 帶 iam 時為何不用 basic
+本範例帶 iam，basic 模式下 iam 的 `IamUserDetailsService` 會接管帳號查詢、改查 `iam_account`；而 `iam-demo.sql` 種子資料無 `admin`、其他帳號 password 為 NULL，故 **basic 表單登入無法使用**。因此範例預設改採 custom。若想用 basic，請於 `iam-demo.sql` 為帳號（含 `admin`）填入真實 BCrypt 密碼雜湊，或移除 iam 依賴（純 web+logon 情境下 basic 的 `admin/admin` 仍如上半部所述可用）。
 :::

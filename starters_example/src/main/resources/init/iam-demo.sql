@@ -57,11 +57,11 @@ INSERT INTO iam_group (id, code, name, description) VALUES
     (1, 'ADMIN', '系統管理員', '具備全部權限'),
     (2, 'USER',  '一般使用者', '僅可匯出訂單');
 
--- 帳號（password 欄為 BCrypt）。範例預設 basic 模式（帳密 admin/admin）；
---  切到 custom 模式（verification-type=custom）時，帳密查 user_login、此欄不參與登入。
+-- 帳號（password 欄為 BCrypt）。範例預設 custom 模式（帳密查 user_login，此欄不參與登入）；
 --  alice/bob 供 /iam-demo/authorities/{username} 展示授權解析；
---  user01/user02 對應 user_login 的登入帳號，custom 模式登入後即帶上 iam 權限。
---  若改以 basic 模式由 iam 帳號表登入，請於此欄填入真實 BCrypt 雜湊）
+--  user01/user02 對應 user_login 的登入帳號(user01/1234、user02/abcd)，custom 登入後即帶上 iam 權限。
+--  註：basic 模式下 iam 的 IamUserDetailsService 會改以此表驗證登入，但種子資料 password 皆為 NULL，
+--  故 basic 表單登入無法使用；若要用 basic，請於此欄填入真實 BCrypt 密碼雜湊（並補一個 admin 帳號）。
 INSERT INTO iam_account (id, username, password, display_name, enabled, locked) VALUES
     (1, 'alice',  NULL, 'Alice（管理員）',   TRUE, FALSE),
     (2, 'bob',    NULL, 'Bob（一般使用者）', TRUE, FALSE),
