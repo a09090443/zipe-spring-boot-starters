@@ -1,9 +1,9 @@
 package com.zipe.util.bean;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ser.std.StdSerializer;
 
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -45,11 +45,10 @@ public class DateSerializer extends StdSerializer<Date> {
      *
      * @param date                 要序列化的日期物件
      * @param jsonGenerator        Jackson JSON 輸出產生器
-     * @param serializerProvider   Jackson 序列化提供者（本方法未使用，但為覆寫介面所必要）
-     * @throws IOException 寫入 JSON 時發生 I/O 例外
+     * @param serializationContext Jackson 序列化上下文（本方法未使用，但為覆寫介面所必要）
      */
     @Override
-    public void serialize(Date date, JsonGenerator jsonGenerator, com.fasterxml.jackson.databind.SerializerProvider serializerProvider) throws IOException {
+    public void serialize(Date date, JsonGenerator jsonGenerator, SerializationContext serializationContext) {
         // 將 Date 格式化為字串後直接寫入 JSON，確保輸出格式一致
         jsonGenerator.writeString(dateFormat.format(date));
     }

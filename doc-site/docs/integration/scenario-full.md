@@ -1,25 +1,25 @@
 ---
 id: scenario-full
-title: 情境五：全功能整合
-sidebar_position: 6
+title: 情境六：全功能整合
+sidebar_position: 7
 description: 整合所有 Starter 建構完整的企業應用系統
 ---
 
-# 情境五：全功能整合
+# 情境六：全功能整合
 
 ## 情境說明
 
-本情境是前述四種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入六個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
+本情境是前述五種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入七個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、身分授權、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
 
 ## 完整的 pom.xml 設定
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>3.5.14.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
 </properties>
 
 <dependencies>
-    <!-- 六個自製 Starter -->
+    <!-- 七個自製 Starter -->
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
@@ -48,6 +48,11 @@ description: 整合所有 Starter 建構完整的企業應用系統
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
+        <version>${zipe.spring.starter.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>iam-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
 
@@ -134,11 +139,18 @@ web:
 
 security:
   enable: true
-  verification-type: basic
-  custom-bean-name: test
+  verification-type: basic           # 範例預設（帶 iam）；帳密由 security.basic.users 提供
+  basic:
+    users:
+      - username: user01
+        password: 1234
+        authorities: [ORDER_EXPORT]
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
-  allow-uris: /resources/**,/static/**,/webservice/**
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
   login-success-uri: /jsp
   login-failure-uri: /login
   ldap:
@@ -164,8 +176,8 @@ security:
     │       ▼                                                            │
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
-    │  │   verification-type: basic (admin/admin)                     │ │
-    │  │   白名單: /static/**  /resources/**  /webservice/**          │ │
+    │  │   verification-type: basic.users (user01/1234、user02/abcd)  │ │
+    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
     │           ▼                                                        │
@@ -209,10 +221,11 @@ application.yml
   ├── spring.quartz.*       → job-starter ← quartz-jobs.properties / quartz-datasource.properties
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
-  └── security.*            → logon-starter ← LogonLogRecord.java
+  ├── security.*            → logon-starter ← LogonLogRecord.java
+  └── iam.*                 → iam-starter  ← Entity 由 db-starter EMF 自動併入（@EntityScan）/ IamDemoController
 ```
 
-`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB，於啟動流程中最後生效。
+`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
 
 ## Spring Boot 啟動時的自動配置順序
 
@@ -224,6 +237,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity（`com.zipe.entity`）以 `@EntityScan` 宣告，由 db-starter 的 `EntityManagerFactory` 自動併入掃描，無須額外設定。
 
 ## 完整的啟動與測試步驟
 
@@ -246,7 +260,7 @@ cd starters_example
 | 排程（XmlJob） | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
 | 排程（AnnotationJob） | 觀察日誌 | 每 20 秒一筆 `ExampleAnnotationJob` log |
 
-登入頁預設帳密為 `admin/admin`，登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:admin`。
+登入頁預設帳密為 `user01/1234`（或 `user02/abcd`，範例帶 iam、預設 basic + `security.basic.users` 模式），登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:user01`。
 
 ### 整合測試的執行方式
 
@@ -267,10 +281,10 @@ cd starters_example
 
 :::warning 整合測試需注意的外部依賴
 - `DBExampleServiceTest`、`DynamicDataSourceSwitchTest`、`CrossDbSwitchTest` 均預期連線真實 MySQL（`example1` / `example2`），`CrossDbSwitchTest` 額外需要 PostgreSQL；無對應環境時會失敗。H2 在此扮演開發輔助角色（`sql.init.mode: never` 代表 H2 腳本未自動執行）。
-- Excel 與 JasperReport 測試依賴本機 `D:/tmp/` 目錄的實際檔案，缺檔即失敗，屬本機手動測試性質。
+- Excel 與 JasperReport 測試的輸出檔改寫入 JUnit `@TempDir` 提供的暫存目錄（不再硬編 `D:/tmp/`），可跨平台執行並於測試結束自動清除。
 - `ExampleWebServiceTest` 與 Postman 測試均需應用程式已啟動才能執行。
 :::
 
 :::info 從全功能拆解到單一情境
-若你的系統只需要部分能力，不必照搬全部六個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境四](./scenario-webservice.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+若你的系統只需要部分能力，不必照搬全部七個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境五](./scenario-iam.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
 :::

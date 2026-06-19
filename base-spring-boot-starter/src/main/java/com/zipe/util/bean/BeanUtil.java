@@ -1,7 +1,9 @@
 package com.zipe.util.bean;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 import com.google.gson.FieldNamingStrategy;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -21,7 +23,6 @@ import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 
 import java.beans.PropertyDescriptor;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -148,7 +149,7 @@ public abstract class BeanUtil extends BeanUtils {
     public static Map<String, Object> fromJson(String json) {
         try {
             return (Map)mapper.readValue(json, Map.class);
-        } catch (IOException var2) {
+        } catch (JacksonException var2) {
             logger.error(var2.getMessage());
             return null;
         }
@@ -343,8 +344,8 @@ public abstract class BeanUtil extends BeanUtils {
         module = new SimpleModule();
         module.addSerializer(Date.class, new DateSerializer());
         module.addKeyDeserializer(Object.class, new LowerCaseKeyDeserializer());
-        mapper = new ObjectMapper();
-        mapper.registerModule(module);
+        // Jackson 3 的 mapper 為不可變物件，模組須於 builder 階段注冊
+        mapper = JsonMapper.builder().addModule(module).build();
     }
 
     /**

@@ -5,16 +5,27 @@ import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.handler.LoginFailureHandler;
 import com.zipe.handler.LoginSuccessHandler;
 import com.zipe.handler.LogoutSuccessHandler;
+import com.zipe.jwt.JwtAuthenticationFilter;
+import com.zipe.jwt.JwtLoginController;
+import com.zipe.jwt.JwtProperties;
+import com.zipe.jwt.JwtTokenProvider;
+import com.zipe.security.GrantedAuthoritiesResolver;
 import com.zipe.service.BasicUserServiceImpl;
 import com.zipe.service.LdapUserDetailsService;
 import com.zipe.util.ApplicationContextHelper;
 import com.zipe.util.string.StringConstant;
+import jakarta.servlet.DispatcherType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,8 +36,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -41,7 +56,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @AutoConfiguration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@EnableConfigurationProperties({SecurityPropertyConfig.class})
+@EnableConfigurationProperties({SecurityPropertyConfig.class, JwtProperties.class})
 public class SecurityConfiguration {
 
     /** 開放所有路徑的萬用 URI 樣式，僅在安全性停用時使用。 */
@@ -59,22 +74,152 @@ public class SecurityConfiguration {
         this.securityPropertyConfig = securityPropertyConfig;
     }
 
+    // ============================ JWT 無狀態模式 ============================
+    // 僅當 security.jwt.enabled=true 時生效，與 security.verification-type（憑證來源）正交：
+    // 登入仍依 verification-type（BASIC / LDAP / CUSTOM）驗帳密，驗證成功後改發 JWT。
+    // 本 filter chain 先於預設 filterChain 註冊，使其 @ConditionalOnMissingBean(SecurityFilterChain.class)
+    // 自動退讓。各 Bean 皆標註 @ConditionalOnMissingBean，業務專案可自行覆寫。
+
+    /**
+     * 建立 JWT 無狀態模式的 {@link SecurityFilterChain}。
+     *
+     * <p>停用 CSRF 與 Session（{@link SessionCreationPolicy#STATELESS}），放行登入端點與
+     * {@code security.allow-uris}，其餘請求須通過 {@link JwtAuthenticationFilter} 驗證。</p>
+     *
+     * @param http                   {@link HttpSecurity} 設定建構器
+     * @param jwtAuthenticationFilter JWT 驗證過濾器（容器 Bean）
+     * @param jwtProperties          JWT 設定屬性（容器 Bean）
+     * @return 建置完成的 {@link SecurityFilterChain}
+     * @throws Exception 設定過程發生例外時拋出
+     */
+    @Bean
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
+    public SecurityFilterChain jwtSecurityFilterChain(HttpSecurity http,
+                                                      JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                      JwtProperties jwtProperties) throws Exception {
+        http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
+                        .requestMatchers(switchSecurity()).permitAll()
+                        .requestMatchers(jwtProperties.getLoginUri()).permitAll()
+                        .anyRequest().authenticated())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        configureFrameOptions(http);
+        return http.build();
+    }
+
+    /**
+     * 建立 {@link JwtTokenProvider}，由 Spring 觸發其 {@code @PostConstruct init()}。
+     *
+     * @param jwtProperties JWT 設定屬性（容器 Bean）
+     * @return {@link JwtTokenProvider} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
+    public JwtTokenProvider jwtTokenProvider(JwtProperties jwtProperties) {
+        return new JwtTokenProvider(jwtProperties);
+    }
+
+    /**
+     * 建立 {@link JwtAuthenticationFilter}，負責每次請求驗 token 並查權限。
+     *
+     * <p>查權限以具體型別注入 {@link com.zipe.service.BasicUserServiceImpl}（避免容器多個
+     * {@code UserDetailsService} Bean 歧義）。由於 LDAP / CUSTOM 的驗證需要密碼、無法僅以
+     * username 重新查詢，{@code verification-type=ldap|custom} 搭配 JWT 時，請覆寫
+     * {@code basicUserServiceImpl} Bean，提供可依 username 載入權限的 {@code UserDetailsService}
+     * 實作，否則一般使用者請求會因查無使用者而被拒。</p>
+     *
+     * @param provider         JWT 簽驗核心（容器 Bean）
+     * @param basicUserService 查權限用的使用者服務（容器 Bean，可覆寫）
+     * @param jwtProperties    JWT 設定屬性（容器 Bean）
+     * @return {@link JwtAuthenticationFilter} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider provider,
+                                                           BasicUserServiceImpl basicUserService,
+                                                           JwtProperties jwtProperties) {
+        return new JwtAuthenticationFilter(provider, basicUserService, jwtProperties);
+    }
+
+    /**
+     * 建立 JWT 模式登入用的 {@link AuthenticationManager}。
+     *
+     * <p>重用與表單登入相同的 provider 選擇邏輯（{@link #resolveAuthenticationProvider}），
+     * 因此登入會依 {@code security.verification-type} 走 BASIC / LDAP / CUSTOM 驗帳密，
+     * 而非寫死 BASIC。業務專案可覆寫本 Bean 完全接管登入驗證。</p>
+     *
+     * @param basicUserService BASIC 模式使用者服務（容器 Bean）
+     * @param ldapUserService  LDAP 模式使用者服務（容器 Bean）
+     * @param passwordEncoder  密碼編碼器（容器 Bean）
+     * @return {@link AuthenticationManager} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
+    public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl basicUserService,
+                                                          LdapUserDetailsService ldapUserService,
+                                                          PasswordEncoder passwordEncoder) {
+        return new ProviderManager(
+                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder));
+    }
+
+    /**
+     * 建立內建 JWT 登入端點 {@link JwtLoginController}。
+     *
+     * @param authenticationManager JWT 模式的認證管理器（容器 Bean）
+     * @param provider              JWT 簽驗核心（容器 Bean）
+     * @return {@link JwtLoginController} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true")
+    public JwtLoginController jwtLoginController(AuthenticationManager authenticationManager,
+                                                JwtTokenProvider provider) {
+        return new JwtLoginController(authenticationManager, provider);
+    }
+
+    // ============================ 預設（BASIC / LDAP / CUSTOM）模式 ============================
+
     /**
      * 建立並回傳主要的 {@link SecurityFilterChain}。
      *
      * <p>若設定了自訂登入頁 URI（{@code security.login-uri}），則套用自訂登入流程；
      * 否則使用 Spring Security 預設表單登入流程。</p>
      *
-     * @param http {@link HttpSecurity} 設定建構器
+     * @param http                {@link HttpSecurity} 設定建構器
+     * @param basicUserService    BASIC 模式使用的 {@link BasicUserServiceImpl}（容器 Bean，含使用者覆寫版）
+     * @param ldapUserService     LDAP 模式使用的 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder     密碼編碼器（容器 Bean，含使用者覆寫版）
+     * @param sessionRegistry     Session 登錄表（容器 Bean）
+     * @param loginSuccessHandler 登入成功處理器（容器 Bean）
+     * @param loginFailureHandler 登入失敗處理器（容器 Bean）
+     * @param logoutSuccessHandler 登出成功處理器（容器 Bean）
      * @return 建置完成的 {@link SecurityFilterChain}
      * @throws Exception 設定過程發生例外時拋出
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    @ConditionalOnMissingBean(SecurityFilterChain.class)
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           BasicUserServiceImpl basicUserService,
+                                           LdapUserDetailsService ldapUserService,
+                                           PasswordEncoder passwordEncoder,
+                                           SessionRegistry sessionRegistry,
+                                           LoginSuccessHandler loginSuccessHandler,
+                                           LoginFailureHandler loginFailureHandler,
+                                           LogoutSuccessHandler logoutSuccessHandler) throws Exception {
         if (StringUtils.isNotBlank(securityPropertyConfig.getLoginUri())) {
-            customLoginConfigure(http);
+            customLoginConfigure(http, sessionRegistry, loginSuccessHandler, loginFailureHandler,
+                    logoutSuccessHandler, basicUserService, ldapUserService, passwordEncoder);
         } else {
-            basicLoginConfigure(http);
+            basicLoginConfigure(http, sessionRegistry, loginSuccessHandler, loginFailureHandler,
+                    logoutSuccessHandler, basicUserService, ldapUserService, passwordEncoder);
         }
         return http.build();
     }
@@ -84,31 +229,46 @@ public class SecurityConfiguration {
      *
      * <p>使用內建登入頁面，並設定登入成功/失敗處理器、登出行為與 Session 管理。</p>
      *
-     * @param http {@link HttpSecurity} 設定建構器
+     * @param http                 {@link HttpSecurity} 設定建構器
+     * @param sessionRegistry      Session 登錄表（容器 Bean）
+     * @param loginSuccessHandler  登入成功處理器（容器 Bean）
+     * @param loginFailureHandler  登入失敗處理器（容器 Bean）
+     * @param logoutSuccessHandler 登出成功處理器（容器 Bean）
+     * @param basicUserService     BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
+     * @param ldapUserService      LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder      密碼編碼器（容器 Bean）
      * @throws Exception 設定過程發生例外時拋出
      */
-    private void basicLoginConfigure(HttpSecurity http) throws Exception {
+    private void basicLoginConfigure(HttpSecurity http,
+                                     SessionRegistry sessionRegistry,
+                                     LoginSuccessHandler loginSuccessHandler,
+                                     LoginFailureHandler loginFailureHandler,
+                                     LogoutSuccessHandler logoutSuccessHandler,
+                                     BasicUserServiceImpl basicUserService,
+                                     LdapUserDetailsService ldapUserService,
+                                     PasswordEncoder passwordEncoder) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(switchSecurity()).permitAll()
                         .anyRequest()
                         .authenticated())
                 .formLogin(formLogin -> formLogin.permitAll()
-                        .successHandler(loginSuccessHandler())
-                        .failureHandler(loginFailureHandler()))
-                .logout(logout -> logout.logoutUrl("/login")
+                        .successHandler(loginSuccessHandler)
+                        .failureHandler(loginFailureHandler))
+                .logout(logout -> logout.logoutUrl(securityPropertyConfig.getLogoutUri())
                         .deleteCookies("JSESSIONID")
                         .clearAuthentication(true)
                         .invalidateHttpSession(true)
                         .permitAll()
-                        .logoutSuccessHandler(logoutSuccessHandler()))
+                        .logoutSuccessHandler(logoutSuccessHandler))
                 .httpBasic(withDefaults())
                 .sessionManagement((session) -> session
                         .invalidSessionUrl("/login")
                         .maximumSessions(2)
                         .expiredUrl("/login")
-                        .sessionRegistry(sessionRegistry()));
+                        .sessionRegistry(sessionRegistry));
 
-        authenticationProvider(http);
+        authenticationProvider(http, basicUserService, ldapUserService, passwordEncoder);
 
     }
 
@@ -118,33 +278,48 @@ public class SecurityConfiguration {
      * <p>使用 {@code security.login-uri} 所指定的頁面作為登入頁，
      * 並以 {@link SessionCreationPolicy#STATELESS} 管理 Session，適用於前後端分離或 Token 驗證場景。</p>
      *
-     * @param http {@link HttpSecurity} 設定建構器
+     * @param http                 {@link HttpSecurity} 設定建構器
+     * @param sessionRegistry      Session 登錄表（容器 Bean）
+     * @param loginSuccessHandler  登入成功處理器（容器 Bean）
+     * @param loginFailureHandler  登入失敗處理器（容器 Bean）
+     * @param logoutSuccessHandler 登出成功處理器（容器 Bean）
+     * @param basicUserService     BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
+     * @param ldapUserService      LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder      密碼編碼器（容器 Bean）
      * @throws Exception 設定過程發生例外時拋出
      */
-    private void customLoginConfigure(HttpSecurity http) throws Exception {
+    private void customLoginConfigure(HttpSecurity http,
+                                      SessionRegistry sessionRegistry,
+                                      LoginSuccessHandler loginSuccessHandler,
+                                      LoginFailureHandler loginFailureHandler,
+                                      LogoutSuccessHandler logoutSuccessHandler,
+                                      BasicUserServiceImpl basicUserService,
+                                      LdapUserDetailsService ldapUserService,
+                                      PasswordEncoder passwordEncoder) throws Exception {
         http.authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(switchSecurity()).permitAll()
                         .anyRequest()
                         .authenticated())
                 .formLogin(formLogin -> formLogin.loginPage(securityPropertyConfig.getLoginUri()).permitAll()
                         .usernameParameter("username")
                         .passwordParameter("password")
-                        .successHandler(loginSuccessHandler())
-                        .failureHandler(loginFailureHandler()))
-                .logout(logout -> logout
+                        .successHandler(loginSuccessHandler)
+                        .failureHandler(loginFailureHandler))
+                .logout(logout -> logout.logoutUrl(securityPropertyConfig.getLogoutUri())
                         .deleteCookies("JSESSIONID")
                         .clearAuthentication(true)
                         .invalidateHttpSession(true)
                         .permitAll()
-                        .logoutSuccessHandler(logoutSuccessHandler()))
+                        .logoutSuccessHandler(logoutSuccessHandler))
                 .sessionManagement((session) -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                         .invalidSessionUrl(securityPropertyConfig.getLoginUri())
                         .maximumSessions(2)
                         .expiredUrl(securityPropertyConfig.getLoginUri())
-                        .sessionRegistry(sessionRegistry()));
+                        .sessionRegistry(sessionRegistry));
 
-        authenticationProvider(http);
+        authenticationProvider(http, basicUserService, ldapUserService, passwordEncoder);
     }
 
     /**
@@ -158,10 +333,24 @@ public class SecurityConfiguration {
      * </ul>
      * </p>
      *
-     * @param http {@link HttpSecurity} 設定建構器
+     * <p>解析出的 provider 以 {@link ProviderManager} 包成本 filter chain 的
+     * {@link AuthenticationManager} 並透過 {@link HttpSecurity#authenticationManager} 明確指定，
+     * 使表單登入與 HTTP Basic 一致採用此 provider。若僅以
+     * {@link HttpSecurity#authenticationProvider} 註冊，當容器存在多個
+     * {@link AuthenticationProvider} Bean（例如 CUSTOM 的 provider 與 {@code ldapUserDetailsService}）
+     * 時，Spring Boot 會放棄組裝全域 {@link AuthenticationManager}，導致 HTTP Basic 落到預設的
+     * {@link DaoAuthenticationProvider}（產生隨機密碼的內建使用者）而非本模組選定的 provider。</p>
+     *
+     * @param http             {@link HttpSecurity} 設定建構器
+     * @param basicUserService BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
+     * @param ldapUserService  LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder  密碼編碼器（容器 Bean）
      * @throws Exception 設定過程發生例外，或 CUSTOM 模式未設定 Bean 名稱時拋出
      */
-    private void authenticationProvider(HttpSecurity http) throws Exception {
+    private void authenticationProvider(HttpSecurity http,
+                                        BasicUserServiceImpl basicUserService,
+                                        LdapUserDetailsService ldapUserService,
+                                        PasswordEncoder passwordEncoder) throws Exception {
         // 依設定套用 X-Frame-Options（預設 SAMEORIGIN，保留點擊劫持防護）
         configureFrameOptions(http);
         // 關閉 csrf 功能
@@ -169,26 +358,46 @@ public class SecurityConfiguration {
             http.csrf(AbstractHttpConfigurer::disable);
         }
 
-        VerificationTypeEnum verificationTypeEnum = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
-        log.info("登入模式:{}", verificationTypeEnum.name());
+        // 明確指定本 chain 的 AuthenticationManager，避免多個 provider Bean 時退讓為全域預設 provider
+        http.authenticationManager(new ProviderManager(
+                resolveAuthenticationProvider(basicUserService, ldapUserService, passwordEncoder)));
+    }
 
-        switch (verificationTypeEnum) {
-            case LDAP:
-                http.authenticationProvider(ldapUserDetailsService());
-                break;
-            case CUSTOM:
-                if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
-                    throw new NullPointerException("Please enter value in custom-bean-name");
-                }
-                http.authenticationProvider((AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName()));
-                break;
-            case BASIC:
-            default:
-                DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-                authProvider.setUserDetailsService(basicUserServiceImpl());
-                authProvider.setPasswordEncoder(passwordEncoder());
-                http.authenticationProvider(authProvider);
+    /**
+     * 依 {@code security.verification-type} 解析並回傳對應的 {@link AuthenticationProvider}。
+     *
+     * <p>此方法同時供表單登入 filter chain 與 JWT 模式的 {@code AuthenticationManager} 重用，
+     * 確保兩種狀態策略採用一致的憑證來源：</p>
+     * <ul>
+     *   <li>{@code LDAP}：回傳 {@link LdapUserDetailsService}</li>
+     *   <li>{@code CUSTOM}：回傳 {@code custom-bean-name} 指定的 {@link AuthenticationProvider}（未設定則拋例外）</li>
+     *   <li>{@code BASIC}（預設、或未設定）：以 {@link DaoAuthenticationProvider} 搭配 {@link BasicUserServiceImpl}</li>
+     * </ul>
+     *
+     * @param basicUserService BASIC 模式 {@link BasicUserServiceImpl}（容器 Bean）
+     * @param ldapUserService  LDAP 模式 {@link LdapUserDetailsService}（容器 Bean）
+     * @param passwordEncoder  密碼編碼器（容器 Bean）
+     * @return 對應驗證模式的 {@link AuthenticationProvider}
+     */
+    private AuthenticationProvider resolveAuthenticationProvider(BasicUserServiceImpl basicUserService,
+                                                                 LdapUserDetailsService ldapUserService,
+                                                                 PasswordEncoder passwordEncoder) {
+        VerificationTypeEnum verificationTypeEnum =
+                VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+        log.info("登入模式:{}", verificationTypeEnum == null ? "BASIC(預設)" : verificationTypeEnum.name());
+
+        if (verificationTypeEnum == VerificationTypeEnum.LDAP) {
+            return ldapUserService;
         }
+        if (verificationTypeEnum == VerificationTypeEnum.CUSTOM) {
+            if (StringUtils.isBlank(securityPropertyConfig.getCustomBeanName())) {
+                throw new NullPointerException("Please enter value in custom-bean-name");
+            }
+            return (AuthenticationProvider) ApplicationContextHelper.getBean(securityPropertyConfig.getCustomBeanName());
+        }
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(basicUserService);
+        authProvider.setPasswordEncoder(passwordEncoder);
+        return authProvider;
     }
 
     /**
@@ -232,39 +441,88 @@ public class SecurityConfiguration {
     /**
      * 建立並回傳 BCrypt 密碼編碼器。
      *
-     * @return {@link BCryptPasswordEncoder} 實例
+     * <p>採用 {@link PasswordEncoderFactories#createDelegatingPasswordEncoder()}，依密碼的
+     * {@code {id}} 前綴（如 {@code {bcrypt}}）選擇對應演算法比對，並以 bcrypt 編碼新密碼。
+     * 如此 {@code security.basic.users} 可同時接受明文與帶前綴的預雜湊密碼。</p>
+     *
+     * <p>另以 {@link DelegatingPasswordEncoder#setDefaultPasswordEncoderForMatches} 設定
+     * {@link BCryptPasswordEncoder} 作為「無 {@code {id}} 前綴」時的比對後援，**向後相容既有
+     * 資料庫中無前綴的純 BCrypt 雜湊**（例如 CUSTOM 模式以 {@code passwordEncoder.matches}
+     * 比對舊資料），避免升級後既有帳號無法登入。</p>
+     *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 {@link PasswordEncoder} Bean 即可覆寫。</p>
+     *
+     * @return {@link PasswordEncoder} 委派式編碼器實例
      */
     @Bean
+    @ConditionalOnMissingBean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        DelegatingPasswordEncoder encoder =
+                (DelegatingPasswordEncoder) PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        // 無 {id} 前綴的舊雜湊（如既有 DB 的 $2a$ BCrypt）以 BCrypt 比對，保留向後相容
+        encoder.setDefaultPasswordEncoderForMatches(new BCryptPasswordEncoder());
+        return encoder;
     }
 
     /**
-     * 建立並回傳基本（資料庫）使用者服務實作，注入 BCrypt 密碼編碼器。
+     * 建立並回傳基本（資料庫）使用者服務實作，注入容器中的密碼編碼器 Bean。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。
+     * 密碼編碼器以方法參數注入，確保取得容器中的 Bean（含使用者覆寫版）。</p>
+     *
+     * <p>注入 {@link SecurityPropertyConfig}，使 {@code security.basic.users} 設定的帳號可作為
+     * BASIC 模式的使用者來源；未設定時 fallback 回內建 {@code admin/admin}。</p>
+     *
+     * @param passwordEncoder 密碼編碼器（容器 Bean，含使用者覆寫版）
      * @return {@link BasicUserServiceImpl} 實例
      */
     @Bean
-    public BasicUserServiceImpl basicUserServiceImpl() {
-        return new BasicUserServiceImpl(this.passwordEncoder());
+    @ConditionalOnMissingBean
+    public BasicUserServiceImpl basicUserServiceImpl(PasswordEncoder passwordEncoder) {
+        return new BasicUserServiceImpl(passwordEncoder, securityPropertyConfig);
     }
 
     /**
-     * 建立並回傳 LDAP 使用者詳細資料服務，注入密碼編碼器與 Security 設定屬性。
+     * 建立並回傳 LDAP 使用者詳細資料服務，注入容器中的密碼編碼器、Security 設定屬性與授權解析器。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。
+     * 密碼編碼器與授權解析器以方法參數注入，確保取得容器中的 Bean（含使用者或 iam-starter 覆寫版）。</p>
+     *
+     * @param passwordEncoder     密碼編碼器（容器 Bean，含使用者覆寫版）
+     * @param authoritiesResolver 帳號→authorities 解析器（容器 Bean，預設回傳空集合，可覆寫）
      * @return {@link LdapUserDetailsService} 實例
      */
     @Bean
-    public LdapUserDetailsService ldapUserDetailsService() {
-        return new LdapUserDetailsService(this.passwordEncoder(), securityPropertyConfig);
+    @ConditionalOnMissingBean
+    public LdapUserDetailsService ldapUserDetailsService(PasswordEncoder passwordEncoder,
+                                                         GrantedAuthoritiesResolver authoritiesResolver) {
+        return new LdapUserDetailsService(passwordEncoder, securityPropertyConfig, authoritiesResolver);
+    }
+
+    /**
+     * 建立並回傳預設的 {@link GrantedAuthoritiesResolver}，回傳空 authorities 集合。
+     *
+     * <p>標註 {@link ConditionalOnMissingBean}，作為「帳號→authorities」解析的預設實作，
+     * 完全保留 logon-starter 現行行為（未引入 iam-starter 時 LDAP 登入仍為空權限）。
+     * 當容器中存在其他同型別 Bean（如 iam-starter 的 DB 解析器）時，預設實作自動退讓。</p>
+     *
+     * @return 回傳空集合的預設 {@link GrantedAuthoritiesResolver} 實例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public GrantedAuthoritiesResolver grantedAuthoritiesResolver() {
+        return username -> java.util.Collections.emptyList();
     }
 
     /**
      * 建立並回傳 Session 登錄表，用於追蹤目前有效的 Session 與使用者對應關係。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。</p>
+     *
      * @return {@link SessionRegistryImpl} 實例
      */
     @Bean
+    @ConditionalOnMissingBean
     public SessionRegistry sessionRegistry() {
         return new SessionRegistryImpl();
     }
@@ -272,9 +530,12 @@ public class SecurityConfiguration {
     /**
      * 建立並回傳登入成功處理器，依設定執行成功後的導向或後處理邏輯。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。</p>
+     *
      * @return {@link LoginSuccessHandler} 實例
      */
     @Bean
+    @ConditionalOnMissingBean
     public LoginSuccessHandler loginSuccessHandler() {
         return new LoginSuccessHandler(securityPropertyConfig);
     }
@@ -282,9 +543,12 @@ public class SecurityConfiguration {
     /**
      * 建立並回傳登入失敗處理器，依設定執行失敗後的導向或錯誤記錄邏輯。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。</p>
+     *
      * @return {@link LoginFailureHandler} 實例
      */
     @Bean
+    @ConditionalOnMissingBean
     public LoginFailureHandler loginFailureHandler() {
         return new LoginFailureHandler(securityPropertyConfig);
     }
@@ -292,9 +556,12 @@ public class SecurityConfiguration {
     /**
      * 建立並回傳登出成功處理器，依設定執行登出後的導向邏輯。
      *
+     * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。</p>
+     *
      * @return {@link LogoutSuccessHandler} 實例
      */
     @Bean
+    @ConditionalOnMissingBean
     public LogoutSuccessHandler logoutSuccessHandler() {
         return new LogoutSuccessHandler(securityPropertyConfig);
     }

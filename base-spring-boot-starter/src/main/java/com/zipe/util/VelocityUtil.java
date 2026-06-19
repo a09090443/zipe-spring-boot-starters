@@ -6,7 +6,7 @@ import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 import org.apache.velocity.runtime.resource.loader.FileResourceLoader;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -105,10 +105,10 @@ public class VelocityUtil {
     /**
      * 使用 Web 應用程式資源載入器初始化 Velocity 引擎。
      * <p>
-     * 此模式會將 {@link javax.servlet.ServletContext} 注入至引擎，以便解析 WEB-INF 下的樣板。
+     * 此模式會將 {@link jakarta.servlet.ServletContext} 注入至引擎，以便解析 WEB-INF 下的樣板。
      * 路徑優先順序與 {@link #initFileSystemPath(String)} 相同，預設值為 {@code "/WEB-INF/template/"}。
      *
-     * @param request          目前的 HTTP 請求，用於取得 {@link javax.servlet.ServletContext}
+     * @param request          目前的 HTTP 請求，用於取得 {@link jakarta.servlet.ServletContext}
      * @param templateFilePath 樣板檔案的 Web 根路徑；傳入 {@code null} 或空字串時將自動回退至預設值
      */
     public void initWebPath(HttpServletRequest request, String templateFilePath) {
@@ -202,7 +202,7 @@ public class VelocityUtil {
      * 強制設定輸入與輸出編碼為 UTF-8。
      * 此方法僅在 {@code ve} 尚未初始化時才會建立引擎實例，避免重複初始化。
      * 若為 Web 模式（{@link #request} 不為 {@code null}），
-     * 會將 {@link javax.servlet.ServletContext} 注入引擎以供 WebappLoader 使用。
+     * 會將 {@link jakarta.servlet.ServletContext} 注入引擎以供 WebappLoader 使用。
      *
      * @param p 包含資源載入器設定的 Properties 物件
      */
@@ -215,7 +215,7 @@ public class VelocityUtil {
             this.ve = new VelocityEngine(p);
             if (!Objects.isNull(this.request)) {
                 // Web 模式需將 ServletContext 注入引擎，WebappLoader 才能正確解析樣板路徑
-                this.ve.setApplicationAttribute("javax.servlet.ServletContext", this.request.getSession().getServletContext());
+                this.ve.setApplicationAttribute("jakarta.servlet.ServletContext", this.request.getSession().getServletContext());
             }
 
             this.ve.init();

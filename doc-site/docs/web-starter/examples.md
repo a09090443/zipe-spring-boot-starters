@@ -273,8 +273,8 @@ public class UserController {
 
 `BaseController` 提供 i18n 訊息查找（`getMessage`）與 `Environment` 存取功能。
 
-:::warning `BaseController` 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，在 Spring Boot 3.x 環境下繼承此類別會有編譯錯誤（需改為 `jakarta.servlet.*`）。使用前請確認此問題已修正。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ```java

@@ -10,7 +10,7 @@ sidebar_position: 2
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `job-spring-boot-starter` 安裝至本地 Maven Repository。
 - 若使用 JDBC 模式，需準備一組資料庫並建立 Quartz 資料表。
 
@@ -31,7 +31,7 @@ cd job-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

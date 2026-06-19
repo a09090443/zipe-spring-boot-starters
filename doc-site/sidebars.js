@@ -4,6 +4,7 @@
 const sidebars = {
   docsSidebar: [
     { type: 'doc', id: 'intro', label: '專案總覽' },
+    { type: 'doc', id: 'customization', label: '客製化指南' },
     {
       type: 'category',
       label: 'base-spring-boot-starter',
@@ -50,6 +51,17 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'iam-spring-boot-starter',
+      link: { type: 'doc', id: 'iam-starter/index' },
+      items: [
+        'iam-starter/quickstart',
+        'iam-starter/configuration',
+        'iam-starter/examples',
+        'iam-starter/architecture',
+      ],
+    },
+    {
+      type: 'category',
       label: 'web-service-spring-boot-starter',
       link: { type: 'doc', id: 'web-service-starter/index' },
       items: [
@@ -79,6 +91,7 @@ const sidebars = {
         'integration/scenario-db',
         'integration/scenario-job',
         'integration/scenario-webservice',
+        'integration/scenario-iam',
         'integration/scenario-full',
       ],
     },

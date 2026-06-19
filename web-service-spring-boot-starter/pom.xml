@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.a09090443</groupId>
         <artifactId>zipe-spring-boot-starters</artifactId>
-        <version>3.5.14.1</version>
+        <version>4.0.0.1</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -50,6 +50,12 @@
             <type>pom</type>
         </dependency>
 
+        <!-- Jackson 3 XML 資料格式（XmlUtil 使用，SB4 改用 tools.jackson 命名空間） -->
+        <dependency>
+            <groupId>tools.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+        </dependency>
+
         <!-- Spring boot starters -->
         <dependency>
             <groupId>io.github.a09090443</groupId>
@@ -57,8 +63,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
         </dependency>
 
         <dependency>

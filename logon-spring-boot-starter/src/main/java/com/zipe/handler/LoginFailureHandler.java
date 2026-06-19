@@ -35,8 +35,16 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
     /**
      * 建構 LoginFailureHandler 並初始化失敗轉址設定。
      *
-     * <p>從 {@code securityPropertyConfig} 取得登入失敗後的目標 URI，
-     * 並設定為 Server 端 Forward（而非 Redirect）以便保留請求屬性。
+     * <p>從 {@code securityPropertyConfig} 取得登入失敗後的目標 URI，並以
+     * <b>Redirect（而非 Forward）</b>導向失敗頁面。</p>
+     *
+     * <p>不可使用 Server 端 Forward：Spring Security 6/7 會對所有 dispatcher type
+     * （含 {@code FORWARD}）套用 filter chain。若 {@code login-failure-uri} 與表單登入的
+     * 處理路徑（預設 {@code /login}）相同，forward 會把失敗的 {@code POST /login} 再次
+     * 送進 {@code UsernamePasswordAuthenticationFilter}，重新觸發驗證、再次失敗、再次
+     * forward……形成無限轉發，最終 {@code getSession} 沿 request wrapper 鏈遞迴拋出
+     * {@link StackOverflowError}。改用 Redirect 後，瀏覽器以 GET 重新請求失敗頁，
+     * 不會再進入認證 filter，對任何 {@code login-failure-uri} 設定皆安全。</p>
      *
      * @param securityPropertyConfig Security 屬性設定物件，提供失敗 URI 等組態
      */
@@ -44,7 +52,7 @@ public class LoginFailureHandler extends SimpleUrlAuthenticationFailureHandler {
     public LoginFailureHandler(SecurityPropertyConfig securityPropertyConfig) {
         this.securityPropertyConfig = securityPropertyConfig;
         setDefaultFailureUrl(securityPropertyConfig.getLoginFailureUri());
-        setUseForward(true);
+        setUseForward(false);
     }
 
     /**

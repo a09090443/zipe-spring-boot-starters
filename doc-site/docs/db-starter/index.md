@@ -28,7 +28,7 @@ description: 支援多資料來源動態切換、JDBC 封裝與 SQL 條件建構
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -44,6 +44,7 @@ description: 支援多資料來源動態切換、JDBC 封裝與 SQL 條件建構
 |---|---|---|
 | `DataSourceConfigAutoConfiguration` | `autoconfiguration` | 資料來源自動配置入口，建立所有 HikariDataSource / JPA / JDBC Beans |
 | `DataSourceAspectAutoConfiguration` | `autoconfiguration` | 向 Spring 容器登錄 AOP 切面 Bean |
+| `DynamicJpaRepositoriesRegistrar` | `autoconfiguration` | 依 `dynamic.base-packages` 設定程式化掃描並註冊 Spring Data JPA Repository |
 | `DS` | `base.annotation` | 指定資料來源的方法／類別 Annotation，`value()` 對應 `dynamic.data-source-map` 中的 key |
 | `DynamicDS` | `base.annotation` | `DS` 的執行期實作，供反射替換 Annotation 使用 |
 | `AnnotationHelper` | `base.annotation` | 利用反射在執行期修改類別上的 Annotation 值 |

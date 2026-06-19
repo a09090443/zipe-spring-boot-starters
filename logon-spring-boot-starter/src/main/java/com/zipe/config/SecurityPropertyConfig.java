@@ -53,6 +53,13 @@ public class SecurityPropertyConfig {
     private String loginFailureUri = "/error";
 
     /**
+     * 觸發登出的 URI，預設為 Spring Security 慣例的 {@code /logout}。
+     * <p>注意：請勿與表單登入的處理路徑 {@code /login} 相同，否則 LogoutFilter 會搶先攔截
+     * 登入請求、使表單登入失效。</p>
+     */
+    private String logoutUri = "/logout";
+
+    /**
      * 自訂驗證邏輯 Bean 的名稱。
      * 當 {@link #verificationType} 設為 Custom 時，框架將依此名稱取得對應的驗證服務 Bean。
      */
@@ -68,4 +75,7 @@ public class SecurityPropertyConfig {
 
     /** LDAP 驗證相關屬性，對應 {@code security.ldap.*} 設定區塊。 */
     private LdapPropertyConfig ldap = new LdapPropertyConfig();
+
+    /** BASIC 模式使用者設定，對應 {@code security.basic.*} 設定區塊。 */
+    private BasicUserPropertyConfig basic = new BasicUserPropertyConfig();
 }

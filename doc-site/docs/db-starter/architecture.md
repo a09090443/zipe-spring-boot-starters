@@ -42,7 +42,8 @@ db-spring-boot-starter/
     ├── java/com/zipe/
     │   ├── autoconfiguration/                         # Spring Boot AutoConfiguration 入口
     │   │   ├── DataSourceAspectAutoConfiguration.java # 向容器註冊 DynamicDataSourceAspect Bean
-    │   │   └── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   ├── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   └── DynamicJpaRepositoriesRegistrar.java   # 依 dynamic.base-packages 程式化註冊 JPA Repository
     │   ├── base/
     │   │   ├── annotation/                            # 自訂 Annotation
     │   │   │   ├── DS.java                            # @DS：指定方法/類別使用的資料來源 key
@@ -100,14 +101,14 @@ db-spring-boot-starter/
 
 #### `DataSourceConfigAutoConfiguration`
 
-繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。
+繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。另以 `@Import(DynamicJpaRepositoriesRegistrar.class)` 掛入設定檔驅動的 JPA Repository 註冊機制。
 
 **關鍵 Bean 方法：**
 
 | 方法 | 回傳型別 | 說明 |
 |---|---|---|
 | `dataSource()` | `DataSource` | 主要工廠方法，建立所有 HikariDataSource 並組裝 DynamicDataSource |
-| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件 |
+| `multiEntityManager(DataSource, BeanFactory)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描套件＝`dynamic.entity-scan`（逗號分隔多套件）＋所有 `@EntityScan` 註冊的套件（自動併入） |
 | `transactionManager(...)` | `PlatformTransactionManager` | 建立 `@Primary JpaTransactionManager` |
 | `jdbcTemplate(DataSource)` | `JdbcTemplate` | 供需要直接使用 JdbcTemplate 的程式碼注入 |
 | `namedParameterJdbcDaoSupport(DataSource)` | `NamedParameterJdbcDaoSupport` | `BaseJDBC` 內部使用的具名參數 JDBC 支援 |
@@ -123,6 +124,18 @@ db-spring-boot-starter/
 #### `DataSourceAspectAutoConfiguration`
 
 單純將 `DynamicDataSourceAspect` 以 `@Bean` 方式登錄到 Spring 容器，讓 AOP 可以正常運作。
+
+#### `DynamicJpaRepositoriesRegistrar`
+
+實作 `ImportBeanDefinitionRegistrar`（並 `EnvironmentAware`、`ResourceLoaderAware`），由 `DataSourceConfigAutoConfiguration` 以 `@Import` 掛入。其職責是**依設定檔屬性 `dynamic.base-packages` 程式化掃描並註冊 Spring Data JPA Repository**，效果等同 `@EnableJpaRepositories(basePackages = ...)`，但套件清單來自設定檔而非寫死於原始碼。
+
+| 運作步驟 | 說明 |
+|---|---|
+| 1. 讀取屬性 | 以 `Binder` 自 `Environment` 取得 `dynamic.base-packages`（逗號分隔、去空白）。未設定則直接 return，不介入，維持 Spring Boot 預設掃描行為（向後相容） |
+| 2. 建構 ConfigurationSource | 以一個僅帶預設值的 `@EnableJpaRepositories` 骨架類別 introspect 出註解屬性，再以匿名子類覆寫 `getBasePackages()` 回傳設定檔解析後的套件清單（因註解屬性本身不解析 `${}` placeholder、不切逗號） |
+| 3. 註冊 Repository | 以 `RepositoryConfigurationDelegate.registerRepositoriesIn(registry, new JpaRepositoryConfigExtension())` 完成掃描與註冊 |
+
+**為何需要它**：db-starter 自建 `entityManagerFactory` 會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時 Boot 仍會自動掃描應用主套件。但引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後，依 Spring Boot 規則，容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓，導致應用自身 Repository 註冊失敗。此註冊器讓應用只需在設定檔加一行 `dynamic.base-packages` 即可重新啟用掃描，無須改動啟動類別。詳見 [配置參考 — 以設定檔啟用 JPA Repository 掃描](./configuration.md#以設定檔啟用-jpa-repository-掃描dynamicbase-packages)。
 
 ---
 
@@ -198,7 +211,8 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
-| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑 |
+| `basePackages` | `dynamic.base-packages` | `String` | 無 | JPA Repository 掃描套件路徑（可逗號分隔多套件），由 `DynamicJpaRepositoriesRegistrar` 讀取；引入自帶 `@EnableJpaRepositories` 的模組後用以重新啟用自身 Repository 掃描 |
+| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件；另自動併入 `@EntityScan` 註冊的套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 
@@ -348,6 +362,9 @@ Spring Boot 啟動
   → transactionManager(...)        → 建立 @Primary JpaTransactionManager
   → jdbcTemplate(dataSource)       → 建立 JdbcTemplate
   → namedParameterJdbcDaoSupport() → 建立 NamedParameterJdbcDaoSupport
+  → DynamicJpaRepositoriesRegistrar（@Import）
+      → 讀取 dynamic.base-packages（未設定則略過）
+      → 程式化註冊各套件下的 Spring Data JPA Repository
 
   → DataSourceAspectAutoConfiguration 被載入
   → getDynamicDataSourceAspect() → 建立 DynamicDataSourceAspect Bean

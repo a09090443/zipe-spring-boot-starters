@@ -1,6 +1,6 @@
 # Zipe Spring Boot Starters
 
-> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、WebService、前端視圖等常用功能的自動配置模組。
+> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、帳號群組權限管理、WebService、前端視圖等常用功能的自動配置模組。
 
 This file contains all documentation content in a single document following the llmstxt.org standard.
 
@@ -31,7 +31,7 @@ This file contains all documentation content in a single document following the 
 
 ```
 base-spring-boot-starter/
-├── pom.xml                                         # Maven 建構描述，版本 3.5.14.0
+├── pom.xml                                         # Maven 建構描述，版本 4.0.0.1
 └── src/main/
     ├── java/com/zipe/
     │   ├── autoconfiguration/
@@ -177,7 +177,7 @@ base-spring-boot-starter/
 | `initWebPath(request, path)` | WebApp loader，適用 Servlet 環境 |
 | `generateContent(templateName, map)` | 以 Map 填入 VelocityContext，merge 後回傳 HTML 字串 |
 | `writeTemplateOutput(templateName, outputFile, map)` | 呼叫 `generateContent` 後寫入檔案，UTF-8，1 MB 緩衝 |
-| `close()` | 將 `ve` 設為 null 釋放引用（Velocity 1.7 無 close() 方法，GC 後釋放） |
+| `close()` | 將 `ve` 設為 null 釋放引用（velocity-engine-core 2.x 的 `VelocityEngine` 無顯式 close()，僅釋放參考交由 GC 回收） |
 
 **初始化模式比較：**
 
@@ -1403,7 +1403,7 @@ public class PhotoLocationExample {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -1467,7 +1467,7 @@ public class PhotoLocationExample {
 ## 前置需求
 
 - 已安裝 JDK 17 以上版本。
-- 業務專案使用 Spring Boot 3.5.x。
+- 業務專案使用 Spring Boot 4.0.x。
 - 已具備可用的 Maven 環境。
 
 :::note
@@ -1494,7 +1494,7 @@ cd base-spring-boot-starter
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
-        <version>3.5.14.0</version>
+        <version>4.0.0.1</version>
     </dependency>
 </dependencies>
 ```
@@ -1610,6 +1610,298 @@ public class NotificationService {
 
 ---
 
+## 客製化指南
+
+
+本指南盤點 `zipe-spring-boot-starters` 各 starter **預留的客製／擴充接點**，讓你在「不修改 Starter 原始碼」的前提下，依業務需求調整行為。所有結論均對應實際原始碼（`*AutoConfiguration` / `*Configuration` 類別、SPI 介面與抽象骨架類別）。
+
+## 客製化的三個層次
+
+擴充本專案的 starter 時，請由淺入深、依序評估下列三個層次，能用較淺的層次解決就不要動到較深的層次：
+
+1. **只調設定（Configuration）**：透過 `application.yml` / `application.properties` 切換既有行為。例如 `security.verification-type` 切換 BASIC / LDAP / CUSTOM、`web.thymeleaf.enable` 開關視圖引擎、`spring.quartz.enable` 開關排程。這類調整不需寫任何 Java 程式碼。
+2. **實作預留接點（Extension Point）**：實作 Starter 定義的 **SPI 介面**（如 `CustomLogonLogRecord`）、繼承 **抽象骨架類別**（如 `CommonLoginProcess`、`BaseJDBC`、`QuartzJobFactory`、`BaseController`、`SecurityBaseService`），或提供一個 Bean 並以 **設定值指定其名稱**（如 `security.custom-bean-name`、`security.custom-record-log-bean`、`web.service.map[*].bean-name`）。框架會在執行期主動找到並呼叫你的實作。
+3. **覆寫 Bean（Override）**：對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可整顆替換掉預設實作；最徹底的情況可整鏈覆寫（如 logon 的 `SecurityFilterChain`）。若連 `@AutoConfiguration` 都想關掉，使用 `spring.autoconfigure.exclude`（見最後一節）。
+
+> 原則：**設定 → 接點 → 覆寫 Bean → 排除 AutoConfiguration**，越往後侵入性越高，請優先選用前者。
+
+## 擴充接點總表
+
+下表彙整各 starter 的主要擴充接點，內容均取自實際原始碼。
+
+| Starter | 主要擴充接點（介面／抽象類別／可覆寫 Bean／設定指定 Bean 名稱） | 對應設定鍵 | 何時用 |
+|---|---|---|---|
+| base | 覆寫 Bean：`MessageSource`、`VelocityUtil`、`MailService`、`threadPoolTaskExecutor`（`BaseAutoConfiguration` 內未標 `@ConditionalOnMissingBean`，須以同名 Bean 或 `spring.main.allow-bean-definition-overriding` 覆寫）；`MessageSource` 受 `@ConditionalOnResource(classpath:message.properties)` 控制 | `mail.*`、`velocity.*` | 想換掉郵件實作、共用執行緒池參數或訊息資源時 |
+| db | 抽象骨架：繼承 `BaseJDBC` 撰寫 DAO；`@DS` / `@DynamicDS` 標註切換資料來源；可覆寫 `DataSource`（`dataSource()` Bean）整顆換成自家動態資料來源 | `dynamic.*`（`data-source.properties`）、`@DS("...")` | 需要多資料來源切換、SQL 外化、自訂連線池組裝時 |
+| job | 抽象骨架：繼承 `QuartzJobFactory`（覆寫 `executeJob`）撰寫排程業務；以 `quartz-jobs.properties` 宣告排程；`spring.quartz.enable` / `job-store-type` 切換啟用與 JobStore | `spring.quartz.enable`、`spring.quartz.job-store-type`、`quartz.*` | 撰寫排程任務、選擇記憶體或 JDBC JobStore 時 |
+| logon | 抽象骨架：繼承 `CommonLoginProcess`（CUSTOM 模式 `AuthenticationProvider`）、`SecurityBaseService`；SPI：實作 `CustomLogonLogRecord`；設定指定 Bean 名稱：`custom-bean-name`、`custom-record-log-bean`；**所有 `@Bean`（含 `filterChain`）皆標 `@ConditionalOnMissingBean`，可同型別覆寫** | `security.verification-type`、`security.custom-bean-name`、`security.record-log-enable`、`security.custom-record-log-bean`、`security.login-uri` | 自訂登入驗證、稽核日誌、整鏈接管 Security 設定時 |
+| web | 抽象骨架：繼承 `BaseController`；`@ResponseResultBody` 統一回應格式；可覆寫 `LocaleResolver`、`viewResolver` 等視圖 Bean（多數受 `@ConditionalOnProperty` 控制） | `web.jsp.enable`、`web.thymeleaf.enable`、`web.resource.*` | 切換 JSP／Thymeleaf、自訂靜態資源路徑、共用 Controller 基底時 |
+| web-service | 設定指定 Bean 名稱：`web.service.map[*].bean-name` 指向業務 `@WebService` 實作 Bean；可覆寫 `cxfServletRegistration` 調整 Servlet 路由 | `web.service.uri-mapping`、`web.service.map.*`（`bean-name`、`uri-mapping`） | 發布 SOAP 服務端點、調整 CXF Servlet 對外路徑時 |
+
+---
+
+## base-spring-boot-starter
+
+`BaseAutoConfiguration` 在 classpath 同時存在 `VelocityPropertyConfig` 與 `MailPropertyConfig` 時生效（`@ConditionalOnClass`），註冊 `MessageSource`、`ApplicationContextHelper`、`VelocityUtil`、`MailService` 與 `threadPoolTaskExecutor` 等 Bean。
+
+接點重點：
+
+- **`MessageSource`** 受 `@ConditionalOnResource(resources = "classpath:message.properties")` 控制：只要 classpath 沒有 `message.properties` 就不註冊，因此你可以選擇不放該檔，或自行提供 `MessageSource` Bean。
+- 其餘 Bean（`MailService`、`VelocityUtil`、`threadPoolTaskExecutor`）目前**未標 `@ConditionalOnMissingBean`**。若要覆寫，請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或直接排除整個 `BaseAutoConfiguration`（見最後一節）。
+
+覆寫共用執行緒池的範例（沿用框架預期的 Bean 名稱 `threadPoolTaskExecutor`）：
+
+```java
+@Configuration
+public class MyExecutorConfig {
+
+    @Bean(name = "threadPoolTaskExecutor")
+    public ThreadPoolTaskExecutor threadPoolTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(8);
+        executor.setMaxPoolSize(32);
+        executor.setQueueCapacity(500);
+        executor.initialize();
+        return executor;
+    }
+}
+```
+
+---
+
+## db-spring-boot-starter
+
+`DataSourceConfigAutoConfiguration` 在 classpath 存在 `DataSourcePropertyConfig` 時生效，讀取 `data-source.properties` 組裝 `DynamicDataSource`，並提供 `dataSource()`、`entityManagerFactory`、`transactionManager`、`jdbcTemplate`、`namedParameterJdbcDaoSupport` 等 Bean；`DataSourceAspectAutoConfiguration` 註冊 `DynamicDataSourceAspect` 切面。
+
+接點重點：
+
+- **繼承 `BaseJDBC` 撰寫 DAO**：`BaseJDBC` 為抽象類別，透過 `@Autowired protected JdbcTemplate jdbcTemplate` 與 `protected NamedParameterJdbcDaoSupport support` 取得 Starter 註冊的 Bean，提供 `update / queryForBean / queryForMap / queryForList` 並整合 `Conditions`（動態條件）與 `Paging`（分頁），SQL 可外化至檔案以 `ResourceEnum` 定位。
+
+  ```java
+  @Repository
+  public class UserDao extends BaseJDBC {
+      // 直接使用父類別提供的 update / queryForList(...) 等方法，搭配 Conditions / Paging
+  }
+  ```
+
+- **以 `@DS` / `@DynamicDS` 切換資料來源**：`@DS` 預設值為 `"common"`（`String value() default "common";`），切面在方法執行前後切換 ThreadLocal 中的資料來源並於結束後清除。
+
+  ```java
+  @DS("reportDb")
+  public List<Report> listReports() { ... }
+  ```
+
+- **覆寫 `DataSource`**：`dataSource()` Bean 負責整個動態資料來源的組裝；如需完全自訂連線池建立邏輯，可整顆替換（注意同時會牽動依賴它的 `entityManagerFactory` 等 Bean）。
+
+---
+
+## job-spring-boot-starter
+
+排程相關自動配置受 `spring.quartz.enable` 控制。`InitialJobAutoConfiguration` 標 `@ConditionalOnProperty(name = "spring.quartz.enable", havingValue = "true")`，啟動時依 `quartz-jobs.properties` 建立排程；`DataSourceAutoConfiguration` 以 `@ConditionalOnExpression("${spring.quartz.enable:true} && '${spring.quartz.job-store-type}'.equals('jdbc')")` 控制是否建立 Quartz 專用的 `quartzDataSource`（JDBC JobStore 模式才建立）。
+
+接點重點：
+
+- **繼承 `QuartzJobFactory` 撰寫排程業務**：`QuartzJobFactory` 繼承 Spring 的 `QuartzJobBean`，已在 `executeInternal` 內包好「前置日誌 → 業務 → 後置日誌」與例外捕捉，子類別只需實作唯一抽象方法：
+
+  ```java
+  protected abstract void executeJob(JobExecutionContext jobExecutionContext) throws Exception;
+  ```
+
+  範例：
+
+  ```java
+  public class ReportJob extends QuartzJobFactory {
+      @Override
+      protected void executeJob(JobExecutionContext context) throws Exception {
+          // 撰寫排程業務邏輯；例外會由父類別統一以錯誤日誌記錄
+      }
+  }
+  ```
+
+- **設定層切換 JobStore**：`spring.quartz.job-store-type=jdbc` 時才會建立 `quartzDataSource`（讀 `spring.datasource.quartz.*` 並套用 `spring.datasource.hikari.*`），否則使用記憶體 JobStore，無需改任何程式碼。
+
+---
+
+## logon-spring-boot-starter
+
+`SecurityConfiguration` 是本次客製能力最完整的一支。它以 `SecurityPropertyConfig`（前綴 `security`）驅動三種驗證模式，並將 **所有 `@Bean`（含 `filterChain`）標上 `@ConditionalOnMissingBean`**，相依改以方法參數注入，使覆寫可在 `proxyBeanMethods=false` 下正確傳遞。可客製的層次如下。
+
+### 1. 覆寫單顆 Bean（@ConditionalOnMissingBean）
+
+`passwordEncoder`、`basicUserServiceImpl`、`ldapUserDetailsService`、`sessionRegistry`、`loginSuccessHandler`、`loginFailureHandler`、`logoutSuccessHandler` 皆標 `@ConditionalOnMissingBean`，於業務專案宣告**同型別** Bean 即可覆寫。例如換掉密碼編碼器：
+
+```java
+@Configuration
+public class MyPasswordConfig {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+}
+```
+
+由於 `filterChain` 以方法參數注入 `PasswordEncoder` / `BasicUserServiceImpl` 等容器 Bean，覆寫後框架會自動採用你的版本。
+
+### 2. 整鏈覆寫 SecurityFilterChain
+
+`filterChain(...)` 標 `@ConditionalOnMissingBean(SecurityFilterChain.class)`。若預設的表單登入／自訂登入流程不符需求，可直接宣告自己的 `SecurityFilterChain` Bean 完整接管整條過濾鏈：
+
+```java
+@Configuration
+public class MySecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // 完全自訂 authorizeHttpRequests / formLogin / sessionManagement ...
+        return http.build();
+    }
+}
+```
+
+此時 `SecurityConfiguration` 內的 `filterChain` 因條件不成立而不註冊，其餘工具 Bean（如 `sessionRegistry`）仍可沿用或一併覆寫。
+
+> 備註：`application.yml` 的 `spring.main.allow-bean-definition-overriding=true` 為向後相容保留，覆寫能力現已不依賴它。
+
+### 3. CUSTOM 模式：自訂 AuthenticationProvider（繼承 CommonLoginProcess）
+
+將 `security.verification-type` 設為 `custom`，並以 `security.custom-bean-name` 指向一顆實作 `AuthenticationProvider` 的 Bean。`SecurityConfiguration.authenticationProvider(...)` 會在 CUSTOM 模式下透過 `ApplicationContextHelper.getBean(...)` 取出該 Bean；**若未設定 `custom-bean-name` 會拋出 `NullPointerException("Please enter value in custom-bean-name")`**。
+
+最省事的做法是繼承抽象骨架 `CommonLoginProcess`：它已實作 `AuthenticationProvider`，ADMIN 帳號自動走「當日日期動態密碼」驗證，子類別只需覆寫一般使用者驗證：
+
+```java
+protected abstract UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password);
+```
+
+`starters_example` 提供可運行的實例 `com.example.config.DbAuthProvider`（Bean 名稱 `dbAuthProvider`），以 `user_login` 資料表做 DB 驗證：
+
+```java
+@Component("dbAuthProvider")
+public class DbAuthProvider extends CommonLoginProcess {
+
+    private final UserLoginRepository userLoginRepository;
+
+    public DbAuthProvider(PasswordEncoder passwordEncoder, UserLoginRepository userLoginRepository) {
+        super(passwordEncoder);
+        this.userLoginRepository = userLoginRepository;
+    }
+
+    @Override
+    protected UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
+        UserLogin userLogin = userLoginRepository.findByLoginId(loginId);
+        if (userLogin == null || !passwordEncoder.matches(password, userLogin.getPassword())) {
+            throw new BadCredentialsException("使用者:" + loginId + " 帳號或密碼錯誤");
+        }
+        return new UsernamePasswordAuthenticationToken(loginId, null, Collections.emptyList());
+    }
+}
+```
+
+對應設定（`starters_example` 預設為 `basic` + `security.basic.users`，要切到 `custom` 只需把 `verification-type` 改為 `custom` 並取消註解 `custom-bean-name`）：
+
+```yaml
+security:
+  verification-type: custom   # 由 basic 改為 custom
+  custom-bean-name: dbAuthProvider   # 對應 @Component("dbAuthProvider")
+```
+
+> `dbAuthProvider` 因 `@Component` 始終會被建立，但只有 `verification-type: custom` 時 `SecurityConfiguration` 才會取出並掛載它；`basic` 模式下此 Bean 存在卻不被使用，不影響預設示範。整合情境詳見 [scenario-web-auth](./integration/scenario-web-auth.md)。
+
+### 4. CustomLogonLogRecord 稽核日誌（SPI 介面）
+
+`CustomLogonLogRecord` 是 `service` 套件下的 SPI 介面，定義三個回呼：
+
+```java
+public interface CustomLogonLogRecord {
+    void recordLoginSuccessLog(String userId);
+    void recordFailureLog(String userId);
+    void recordLogoutSuccessLog(String userId);
+}
+```
+
+業務專案實作後宣告為 Spring Bean，並設定 `security.record-log-enable: true` 與 `security.custom-record-log-bean`（指向你的 Bean 名稱）。三個 Handler（`LoginSuccessHandler` / `LoginFailureHandler` / `LogoutSuccessHandler`）會在對應事件發生時，透過 `ApplicationContextHelper.getBean(...)` 取出實作並回呼；**啟用 `record-log-enable=true` 卻未填 `custom-record-log-bean` 時，Handler 會丟出例外**（`The Custom-Record-Log must have value while Record-Log-Enable = true`）。
+
+```java
+@Component("auditLogRecord")
+public class AuditLogRecord implements CustomLogonLogRecord {
+    @Override public void recordLoginSuccessLog(String userId) { /* 寫稽核表 */ }
+    @Override public void recordFailureLog(String userId) { /* 寫稽核表 */ }
+    @Override public void recordLogoutSuccessLog(String userId) { /* 寫稽核表 */ }
+}
+```
+
+```yaml
+security:
+  record-log-enable: true
+  custom-record-log-bean: auditLogRecord
+```
+
+### 5. 共用認證基底：SecurityBaseService
+
+業務服務可繼承 `SecurityBaseService` 取得 `fetchLoginUser()` 等共用方法，從 `HttpSession` 取回目前登入使用者的 `SysUserVO`（內部透過 `UserInfoUtil.loginUserId()` 解析識別碼）。
+
+---
+
+## web-spring-boot-starter
+
+`ViewResolverAutoConfiguration` 與 `WebAutoConfiguration` 在 classpath 存在 `WebPropertyConfig` 時生效。視圖相關 Bean 受 `@ConditionalOnProperty` 控制：`viewResolver`（JSP）需 `web.jsp.enable=true`、`templateResolver` / `viewResolverThymeLeaf`（Thymeleaf）需 `web.thymeleaf.enable=true`，兩者可共存（分別以 order 1 / 2 與 viewNames glob 分流）。`localeResolver`（`CookieLocaleResolver`，預設 `Locale.TAIWAN`）與 `enableDefaultServlet` 為無條件註冊。
+
+接點重點：
+
+- **設定層切換視圖引擎**：以 `web.jsp.enable` / `web.thymeleaf.enable` 決定啟用哪種解析器，無需寫程式碼。
+- **繼承 `BaseController`**：抽象基底，提供 `getMessage(...)` 國際化、`Environment` 存取與 `request` / `response` / `currentLocale` 等受保護欄位，並定義初始頁面抽象方法供子類別實作。
+- **`@ResponseResultBody` 統一回應格式**：標於 Controller／方法上，套用統一的 `Result` DTO 回應包裝。
+- **覆寫視圖 Bean**：`localeResolver` 等 Bean 可於業務專案宣告同型別 Bean 調整（例如改預設語系或 Cookie 名稱）。
+
+---
+
+## web-service-spring-boot-starter
+
+`CxfConfigAutoConfiguration` 以 `web.service.uri-mapping` 註冊 `CXFServlet`（`cxfServletRegistration` Bean）；`WebServiceRegisterAutoConfiguration` 在 `afterPropertiesSet()` 遍歷 `web.service.map`，依每筆的 `bean-name` 從容器取出實作 Bean，以 CXF `EndpointImpl` 發布到該筆的 `uri-mapping`。
+
+接點重點：
+
+- **設定指定 Bean 名稱發布服務**：這是本模組的主要擴充方式——你只需提供 `@WebService` 實作 Bean，並在 `web.service.map` 中以 `bean-name` 指向它、`uri-mapping` 指定對外路徑，框架即自動發布。
+
+  ```yaml
+  web:
+    service:
+      uri-mapping: /services/*
+      map:
+        helloService:
+          bean-name: helloServiceImpl   # 對應業務 @WebService 實作 Bean
+          uri-mapping: /hello
+  ```
+
+- **覆寫 `cxfServletRegistration`**：如需調整 CXF Servlet 的對外路由或註冊參數，可宣告同型別 `ServletRegistrationBean` Bean 覆寫。
+- 每個端點固定掛載 `CdataContentInterceptor`（入站）與 `ResponseCdataInterceptor`（出站）攔截器並啟用 MTOM／JAXB 元素解包。
+
+---
+
+## 找不到接點怎麼辦
+
+當既有設定鍵、SPI 介面與抽象類別都無法滿足需求時，可採用以下兩種通則：
+
+### 1. 以同型別 Bean 覆寫（首選）
+
+對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可讓 Starter 的預設實作退讓。logon-starter 的所有 `@Bean`（含 `filterChain`）皆已支援此方式。對於**未標** `@ConditionalOnMissingBean` 的 Bean（如 base 的 `mailService` / `velocityUtil`），請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或改用下一招直接排除整個自動配置。
+
+### 2. 排除整個 AutoConfiguration（spring.autoconfigure.exclude）
+
+本專案的自動配置類別皆以 `@AutoConfiguration` 標註。若要完全停用某支自動配置（連帶其所有 Bean），用 `spring.autoconfigure.exclude` 指定其全限定類名即可，之後便能自行提供完整替代設定：
+
+```yaml
+spring:
+  autoconfigure:
+    exclude:
+      - com.zipe.autoconfiguration.BaseAutoConfiguration
+      - com.zipe.autoconfiguration.SecurityConfiguration
+```
+
+排除後，該模組原本註冊的所有 Bean 都不再產生，需由你的 `@Configuration` 完整補齊，請評估侵入性後再採用。一般而言應優先嘗試「調設定 → 實作接點 → 覆寫單顆 Bean」，排除整個 AutoConfiguration 是最後手段。
+
+---
+
 ## 架構與開發指南(Db-starter)
 
 
@@ -1649,7 +1941,8 @@ db-spring-boot-starter/
     ├── java/com/zipe/
     │   ├── autoconfiguration/                         # Spring Boot AutoConfiguration 入口
     │   │   ├── DataSourceAspectAutoConfiguration.java # 向容器註冊 DynamicDataSourceAspect Bean
-    │   │   └── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   ├── DataSourceConfigAutoConfiguration.java # 建立所有 DataSource/JPA/JDBC Beans
+    │   │   └── DynamicJpaRepositoriesRegistrar.java   # 依 dynamic.base-packages 程式化註冊 JPA Repository
     │   ├── base/
     │   │   ├── annotation/                            # 自訂 Annotation
     │   │   │   ├── DS.java                            # @DS：指定方法/類別使用的資料來源 key
@@ -1707,14 +2000,14 @@ db-spring-boot-starter/
 
 #### `DataSourceConfigAutoConfiguration`
 
-繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。
+繼承 `BaseDataSourceConfig`，是整個模組最核心的配置類別。啟動時讀取 `data-source.properties` 中的 `dynamic.*` 屬性，為每個宣告的資料來源建立 HikariCP 連線池，組裝成 `DynamicDataSource`，並向 Spring 容器提供完整的資料存取 Bean 組合。另以 `@Import(DynamicJpaRepositoriesRegistrar.class)` 掛入設定檔驅動的 JPA Repository 註冊機制。
 
 **關鍵 Bean 方法：**
 
 | 方法 | 回傳型別 | 說明 |
 |---|---|---|
 | `dataSource()` | `DataSource` | 主要工廠方法，建立所有 HikariDataSource 並組裝 DynamicDataSource |
-| `multiEntityManager(DataSource)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描 `dynamic.entity-scan` 套件 |
+| `multiEntityManager(DataSource, BeanFactory)` | `LocalContainerEntityManagerFactoryBean` | 建立 JPA EntityManagerFactory，掃描套件＝`dynamic.entity-scan`（逗號分隔多套件）＋所有 `@EntityScan` 註冊的套件（自動併入） |
 | `transactionManager(...)` | `PlatformTransactionManager` | 建立 `@Primary JpaTransactionManager` |
 | `jdbcTemplate(DataSource)` | `JdbcTemplate` | 供需要直接使用 JdbcTemplate 的程式碼注入 |
 | `namedParameterJdbcDaoSupport(DataSource)` | `NamedParameterJdbcDaoSupport` | `BaseJDBC` 內部使用的具名參數 JDBC 支援 |
@@ -1730,6 +2023,18 @@ db-spring-boot-starter/
 #### `DataSourceAspectAutoConfiguration`
 
 單純將 `DynamicDataSourceAspect` 以 `@Bean` 方式登錄到 Spring 容器，讓 AOP 可以正常運作。
+
+#### `DynamicJpaRepositoriesRegistrar`
+
+實作 `ImportBeanDefinitionRegistrar`（並 `EnvironmentAware`、`ResourceLoaderAware`），由 `DataSourceConfigAutoConfiguration` 以 `@Import` 掛入。其職責是**依設定檔屬性 `dynamic.base-packages` 程式化掃描並註冊 Spring Data JPA Repository**，效果等同 `@EnableJpaRepositories(basePackages = ...)`，但套件清單來自設定檔而非寫死於原始碼。
+
+| 運作步驟 | 說明 |
+|---|---|
+| 1. 讀取屬性 | 以 `Binder` 自 `Environment` 取得 `dynamic.base-packages`（逗號分隔、去空白）。未設定則直接 return，不介入，維持 Spring Boot 預設掃描行為（向後相容） |
+| 2. 建構 ConfigurationSource | 以一個僅帶預設值的 `@EnableJpaRepositories` 骨架類別 introspect 出註解屬性，再以匿名子類覆寫 `getBasePackages()` 回傳設定檔解析後的套件清單（因註解屬性本身不解析 `${}` placeholder、不切逗號） |
+| 3. 註冊 Repository | 以 `RepositoryConfigurationDelegate.registerRepositoriesIn(registry, new JpaRepositoryConfigExtension())` 完成掃描與註冊 |
+
+**為何需要它**：db-starter 自建 `entityManagerFactory` 會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時 Boot 仍會自動掃描應用主套件。但引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後，依 Spring Boot 規則，容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓，導致應用自身 Repository 註冊失敗。此註冊器讓應用只需在設定檔加一行 `dynamic.base-packages` 即可重新啟用掃描，無須改動啟動類別。詳見 [配置參考 — 以設定檔啟用 JPA Repository 掃描](./configuration.md#以設定檔啟用-jpa-repository-掃描dynamicbase-packages)。
 
 ---
 
@@ -1805,7 +2110,8 @@ public class ReportRepository { ... }
 | Java 欄位 | properties key | 型別 | 預設值 | 說明 |
 |---|---|---|---|---|
 | `primary` | `dynamic.primary` | `String` | 無 | 預設資料來源的 key 名稱 |
-| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑 |
+| `basePackages` | `dynamic.base-packages` | `String` | 無 | JPA Repository 掃描套件路徑（可逗號分隔多套件），由 `DynamicJpaRepositoriesRegistrar` 讀取；引入自帶 `@EnableJpaRepositories` 的模組後用以重新啟用自身 Repository 掃描 |
+| `entityScan` | `dynamic.entity-scan` | `String` | 無 | JPA Entity 掃描套件路徑（可逗號分隔多套件；另自動併入 `@EntityScan` 註冊的套件） |
 | `isEncrypt` | `dynamic.is-encrypt` | `Boolean` | `false` | 密碼是否經 Base64 編碼；為 `true` 時模組以 Base64 解碼後再連線 |
 | `dataSourceMap` | `dynamic.data-source-map[key].*` | `Map<String, DynamicDataSourceConfig>` | 無 | 各命名資料來源設定 |
 
@@ -1955,6 +2261,9 @@ Spring Boot 啟動
   → transactionManager(...)        → 建立 @Primary JpaTransactionManager
   → jdbcTemplate(dataSource)       → 建立 JdbcTemplate
   → namedParameterJdbcDaoSupport() → 建立 NamedParameterJdbcDaoSupport
+  → DynamicJpaRepositoriesRegistrar（@Import）
+      → 讀取 dynamic.base-packages（未設定則略過）
+      → 程式化註冊各套件下的 Spring Data JPA Repository
 
   → DataSourceAspectAutoConfiguration 被載入
   → getDynamicDataSourceAspect() → 建立 DynamicDataSourceAspect Bean
@@ -2494,7 +2803,8 @@ String cacheKey = resource.toString() + resource.fileName()
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
 |---|---|---|---|---|
 | `dynamic.primary` | String | 無 | 是 | 預設使用的資料來源 key 名稱；須對應 `data-source-map` 中的某個 key |
-| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example` |
+| `dynamic.base-packages` | String | 無 | 否 | 需掃描並註冊 Spring Data JPA Repository 的套件路徑，可逗號分隔多個。等同宣告 `@EnableJpaRepositories(basePackages = ...)`，但改由設定檔驅動。**僅在引入自帶 `@EnableJpaRepositories` 的模組（如 iam-starter）後需要**，用以重新啟用應用自身 Repository 的掃描；未設定時維持 Spring Boot 預設行為。詳見下方〈以設定檔啟用 JPA Repository 掃描〉 |
+| `dynamic.entity-scan` | String | 無 | 是 | JPA Entity 掃描套件路徑，例如 `com.example`；可逗號分隔指定多個套件。另外，所有以 `@EntityScan` 註冊的套件（如併用 iam-starter 的 `com.zipe.entity`）會自動併入，無須在此重複設定 |
 | `dynamic.is-encrypt` | Boolean | `false` | 否 | 密碼（`pa55word`）是否經 Base64 編碼；設為 `true` 時模組自動以 Base64 解碼 |
 | `dynamic.data-source-map` | Map | 無 | 是 | 所有命名資料來源的設定集合 |
 
@@ -2515,6 +2825,21 @@ String cacheKey = resource.toString() + resource.fileName()
 密碼欄位名稱為 `pa55word`（數字 `5` 取代字母 `s`），這是刻意設計以避開自動安全掃描工具。若誤寫為 `password`，屬性綁定會靜默失敗，密碼為空字串，連線時拋出認證錯誤。
 
 :::
+
+## 以設定檔啟用 JPA Repository 掃描（`dynamic.base-packages`）
+
+db-starter 自建 `entityManagerFactory`，會使 Spring Boot 的 JPA 自動配置退讓；單獨使用 db-starter 時，Spring Boot 仍會自動掃描應用主套件下的 Repository，無須額外設定。
+
+但若再引入**自帶 `@EnableJpaRepositories` 的模組**（例如 iam-starter 帶有 `@EnableJpaRepositories("com.zipe.repository")`），依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 Repository 自動掃描即退讓**，導致應用自身的 Repository 註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+此時只要在 `data-source.properties` 設定 `dynamic.base-packages`，db-starter 的 `DynamicJpaRepositoriesRegistrar` 便會依此掃描並註冊對應套件下的 Repository，效果等同於宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別：
+
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個），與 iam 的 com.zipe.repository 各自獨立掃描、互不影響
+dynamic.base-packages=com.example.repository
+```
+
+未設定 `dynamic.base-packages` 時，此機制不介入，維持 Spring Boot 既有掃描行為（向後相容）。
 
 ## HikariCP 連線池設定
 
@@ -2961,7 +3286,7 @@ public class OrderService {
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -2977,6 +3302,7 @@ public class OrderService {
 |---|---|---|
 | `DataSourceConfigAutoConfiguration` | `autoconfiguration` | 資料來源自動配置入口，建立所有 HikariDataSource / JPA / JDBC Beans |
 | `DataSourceAspectAutoConfiguration` | `autoconfiguration` | 向 Spring 容器登錄 AOP 切面 Bean |
+| `DynamicJpaRepositoriesRegistrar` | `autoconfiguration` | 依 `dynamic.base-packages` 設定程式化掃描並註冊 Spring Data JPA Repository |
 | `DS` | `base.annotation` | 指定資料來源的方法／類別 Annotation，`value()` 對應 `dynamic.data-source-map` 中的 key |
 | `DynamicDS` | `base.annotation` | `DS` 的執行期實作，供反射替換 Annotation 使用 |
 | `AnnotationHelper` | `base.annotation` | 利用反射在執行期修改類別上的 Annotation 值 |
@@ -3014,7 +3340,7 @@ public class OrderService {
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已準備至少一組（建議兩組）可連線的資料庫。
 - 已將 `db-spring-boot-starter` 安裝至本地 Maven Repository。
 
@@ -3037,7 +3363,7 @@ cd db-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>db-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -3189,6 +3515,613 @@ public class ReportService {
 
 ---
 
+## 架構與開發指南(Iam-starter)
+
+
+本文件面向需要維護、擴充或深入理解 `iam-spring-boot-starter` 的開發人員，涵蓋套件結構、資料模型、與 logon-starter 的整合機制、自動配置原理，以及擴充時的步驟與陷阱。
+
+---
+
+## 1. 模組定位與設計理念
+
+### 定位
+
+`iam-spring-boot-starter` 是一個 **Spring Boot Auto-Configuration 模組**，提供可儲存於資料庫的帳號／群組／權限模型，並透過 logon-starter 的擴充點接上登入流程，讓業務系統獲得集中式的身分與授權管理能力。
+
+### 設計理念
+
+| 理念 | 說明 |
+|---|---|
+| **核心精簡、客製必備** | 核心僅帳號／群組／權限三組 Service；內建 REST Controller 為可選成品，所有環節皆可覆寫 |
+| **授權與認證分離** | 認證（誰來驗帳密）交由 logon 的 verification-type 決定；授權（有哪些權限）統一由 iam 的 `GrantedAuthoritiesResolver` 提供 |
+| **泛用具名權限** | 權限是抽象授權點（`code`），不綁定 HTTP method／URL，由開發者自行決定使用方式 |
+| **DTO 邊界** | 服務層一律回傳 VO，不外漏 JPA 實體與 lazy proxy |
+| **Bean 覆寫友善** | 所有 `@Bean` 均 `@ConditionalOnMissingBean`，宣告同型別 Bean 即可覆寫，不需 `spring.main.allow-bean-definition-overriding` |
+
+### 與 logon-starter 的依賴方向
+
+依賴方向為 **iam → logon**（單向）。logon 定義授權解析的 SPI 介面 `GrantedAuthoritiesResolver` 並提供預設空實作以保持向後相容；iam 相依 logon 並以 `DbGrantedAuthoritiesResolver` 覆寫之。logon 不知道 iam 的存在，未引入 iam 時行為與現況完全一致。
+
+---
+
+## 2. 套件結構
+
+```
+iam-spring-boot-starter/
+└── src/main/java/com/zipe/
+    ├── autoconfiguration/
+    │   └── IamAutoConfiguration.java     # @AutoConfiguration 唯一入口（含巢狀 Controller 配置）
+    ├── config/
+    │   └── IamProperties.java            # iam.* 屬性綁定
+    ├── entity/
+    │   ├── Account.java                  # iam_account，與 Group 多對多
+    │   ├── Group.java                    # iam_group，與 Permission 多對多
+    │   └── Permission.java               # iam_permission
+    ├── repository/
+    │   ├── AccountRepository.java        # findByUsername 回 Optional
+    │   ├── GroupRepository.java
+    │   └── PermissionRepository.java
+    ├── service/
+    │   ├── AccountService.java / AccountServiceImpl.java
+    │   ├── GroupService.java / GroupServiceImpl.java
+    │   └── PermissionService.java / PermissionServiceImpl.java
+    ├── security/
+    │   ├── DbGrantedAuthoritiesResolver.java  # 實作 logon SPI
+    │   └── IamUserDetailsService.java         # 繼承 logon BasicUserServiceImpl
+    ├── controller/
+    │   ├── AccountController.java
+    │   ├── GroupController.java
+    │   └── PermissionController.java
+    └── vo/
+        ├── AccountVO / GroupVO / PermissionVO
+        ├── CreateAccountRequest / UpdateAccountRequest
+        └── CreateGroupRequest / CreatePermissionRequest
+└── src/main/resources/
+    ├── schema-iam.sql                    # 五張 iam_ 表 DDL
+    └── META-INF/spring/
+        └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+---
+
+## 3. 資料模型
+
+帳號（Account）─群組（Group，即角色）─權限（Permission）三層模型，兩兩多對多：
+
+```
+Account ──< iam_account_group >── Group ──< iam_group_permission >── Permission
+```
+
+- **Account**：登入帳號核心資料（username、BCrypt password、enabled、locked、稽核時間），與 Group 多對多。
+- **Group**：即「角色」，`code` 全表唯一，套 `role-prefix` 後成為 `ROLE_*` authority；持有多個 Permission。
+- **Permission**：泛用具名授權點，`code` 全表唯一、原樣作為 authority。
+
+實體的 `equals`／`hashCode` 以資料庫 `id` 比較，並以 `Hibernate.getClass()` 區分代理類別與真實類別，避免 Hibernate Proxy 誤判（與 `starters_example` 既有實體一致）。
+
+---
+
+## 4. 與 logon-starter 的整合機制
+
+這是本模組的核心。logon 在 `com.zipe.security` 套件定義 SPI：
+
+```java
+public interface GrantedAuthoritiesResolver {
+    Collection<? extends GrantedAuthority> resolve(String username);
+}
+```
+
+logon 於 `SecurityConfiguration` 提供預設 `@Bean`（`@ConditionalOnMissingBean`），回傳 `username -> Collections.emptyList()`，保留「無權限」的現行行為。`LdapUserDetailsService` 的 `buildAuthenticatedToken(principal)` 改以此 resolver 解析 authorities。
+
+iam 在兩個接點覆寫 logon 預設：
+
+| 接點 | logon 預設 | iam 覆寫 | 效果 |
+|---|---|---|---|
+| **授權** `GrantedAuthoritiesResolver` | 回空集合 | `DbGrantedAuthoritiesResolver` | 三種驗證模式（BASIC／LDAP／CUSTOM）皆由 DB 取得 authorities |
+| **認證** `BasicUserServiceImpl` | 寫死 `admin/admin` stub | `IamUserDetailsService`（繼承之） | BASIC／JWT 模式登入帳號改由 `iam_account` 表提供 |
+
+兩者皆以 `@ConditionalOnMissingBean` 註冊：iam 的 Bean 以**父型別／介面型別**宣告（`BasicUserServiceImpl`、`GrantedAuthoritiesResolver`），使 logon 同型別的預設 Bean 自動退讓。
+
+### 授權解析流程
+
+```
+登入成功 → resolver.resolve(username)
+        → AccountRepository.findByUsername
+        → 帳號的每個 Group：加入 SimpleGrantedAuthority(role-prefix + group.code)
+        → 每個 Group 的每個 Permission：加入 SimpleGrantedAuthority(permission.code)
+        → 去重（LinkedHashSet）回傳
+```
+
+解析以 `@Transactional(readOnly = true)` 包覆，於交易內讀取 lazy 關聯以避免 `LazyInitializationException`；查無帳號回空集合（不回 `null`）。
+
+---
+
+## 5. 自動配置原理
+
+`IamAutoConfiguration` 標註：
+
+- `@AutoConfiguration` + `META-INF/spring/...AutoConfiguration.imports` 註冊，引入即生效。
+- `@EnableConfigurationProperties(IamProperties.class)`：綁定 `iam.*`。
+- `@ConditionalOnProperty(prefix="iam", name="enabled", havingValue="true", matchIfMissing=true)`：`iam.enabled=false` 時整組停用。
+- `@EntityScan("com.zipe.entity")` + `@EnableJpaRepositories("com.zipe.repository")`：掃描 starter 套件，業務專案無須自行設定掃描路徑。
+
+各 `@Bean`（`AccountService`／`GroupService`／`PermissionService`／`GrantedAuthoritiesResolver`／`BasicUserServiceImpl`）皆 `@ConditionalOnMissingBean`，以建構子注入對應 Repository；`PasswordEncoder` 由方法參數注入（取 logon 容器提供的 Bean）。
+
+內建 Controller 置於巢狀靜態 `@Configuration`（`IamControllerConfiguration`），以 `@ConditionalOnProperty(prefix="iam.api", name="enabled", matchIfMissing=true)` 控制整組裝配，並對每個 Controller `@Bean` 標 `@ConditionalOnMissingBean`。Controller 的路由前綴採類別層級 `@RequestMapping("${iam.api.base-path:/api/iam}/...")` 屬性佔位符，於 handler 註冊時由 Environment 解析，使 `iam.api.base-path` 真正生效。
+
+:::tip 引入 iam 後，如何保留應用自身的 Repository 掃描
+`IamAutoConfiguration` 帶有 `@EnableJpaRepositories("com.zipe.repository")` 以自我註冊 iam 的 Repository。依 Spring Boot 規則，**容器中只要出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後其自身 Repository 會註冊失敗（啟動時報 `No qualifying bean of type ...Repository`）。
+
+- **併用 db-starter（建議）**：在 `data-source.properties` 設定 `dynamic.base-packages=你的.repository.套件`（可逗號分隔多個），db-starter 的 `DynamicJpaRepositoriesRegistrar` 會依此掃描並註冊，等同宣告 `@EnableJpaRepositories` 但改由設定檔驅動、無須改動啟動類別。
+- **未用 db-starter**：在應用啟動類別**顯式宣告自身的** `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
+
+兩種做法都與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
+:::
+
+:::caution Spring Boot 4.0.0 套件位置
+本專案執行於 Spring Boot 4.0.0，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
+:::
+
+---
+
+## 6. 擴充指南
+
+| 需求 | 做法 |
+|---|---|
+| 調整帳號→authorities 規則 | 宣告 `GrantedAuthoritiesResolver` Bean，覆寫 `DbGrantedAuthoritiesResolver` |
+| 帳號來源非 iam 表 | 宣告 `BasicUserServiceImpl` Bean（繼承之、覆寫 `loadUserByUsername`），authorities 仍可用 resolver |
+| 客製某個 Service 行為 | 宣告同型別 `AccountService`／`GroupService`／`PermissionService` Bean |
+| 替換／關閉內建 API | 覆寫對應 Controller Bean，或 `iam.api.enabled=false` 後自行實作 |
+| 調整 API 路徑 | 設定 `iam.api.base-path` |
+| 群組前綴非 `ROLE_` | 設定 `iam.group.role-prefix` |
+
+---
+
+## 7. 測試
+
+starter 的測試（`src/test`）涵蓋四個面向，皆於 H2／記憶體環境離線執行：
+
+1. **Repository 層**：`@SpringBootTest` + H2，驗證帳號／群組／權限 CRUD 與多對多關聯查詢（`findByUsername`、帳號取群組與權限）。
+2. **DbGrantedAuthoritiesResolver 單元測試**：以 Mockito 驗證 authorities 展開規則（群組帶前綴、權限原樣、共用權限去重、查無帳號回空）。
+3. **整合測試**：`@SpringBootTest` 驗證 `IamUserDetailsService` 由 iam 帳號表載入 `UserDetails`，及覆寫 `GrantedAuthoritiesResolver` Bean 時 iam 預設退讓（`ApplicationContextRunner`）。
+4. **logon 增補**：以 stub resolver 驗證 `LdapUserDetailsService.buildAuthenticatedToken` 會把 authorities 注入已認證 token（不需真連 LDAP）。
+
+---
+
+## 配置參考(Iam-starter)
+
+
+`iam-spring-boot-starter` 的所有設定皆以 `iam.*` 前綴綁定至 `IamProperties`。各屬性皆有合理預設值，**最小設定可不填任何屬性**即引入生效。
+
+## 設定屬性
+
+| 屬性鍵 | 預設值 | 說明 |
+|---|---|---|
+| `iam.enabled` | `true` | iam 模組總開關。設為 `false` 則不裝配任何 iam Bean（含 Service 與 Controller）。 |
+| `iam.api.enabled` | `true` | 是否裝配內建 REST Controller。設為 `false` 可整組關閉，僅保留 Service 供業務程式注入。 |
+| `iam.api.base-path` | `/api/iam` | 內建 REST API 的路由前綴。例如預設下帳號端點為 `/api/iam/accounts`。 |
+| `iam.group.role-prefix` | `ROLE_` | 群組 `code` 轉為 Spring Security authority 時套用的前綴。權限 `code` 不套前綴、原樣作為 authority。 |
+| `iam.ddl.init` | `false` | 是否由 starter 的 `schema-iam.sql` 自動建表。預設關閉，建議交由 Flyway／Liquibase 或手動建表掌控。 |
+
+## application.yml 範例
+
+```yaml
+iam:
+  enabled: true
+  api:
+    enabled: true
+    base-path: /api/iam
+  group:
+    role-prefix: ROLE_
+  ddl:
+    init: false
+```
+
+:::tip role-prefix 與 @PreAuthorize 的對應
+群組 `code` 為 `ADMIN`、`role-prefix` 為預設 `ROLE_` 時，產生的 authority 為 `ROLE_ADMIN`。此時：
+
+- 以 `hasRole('ADMIN')` 比對（`hasRole` 會自動補上 `ROLE_` 前綴）。
+- 權限 `code` 為 `ORDER_EXPORT` 時，authority 即為 `ORDER_EXPORT`，以 `hasAuthority('ORDER_EXPORT')` 比對（不補前綴）。
+:::
+
+## 資料表結構
+
+iam 採用五張表（含兩張多對多關聯表），表名與欄位均以 `iam_` 前綴。完整 DDL 位於 starter 的 `src/main/resources/schema-iam.sql`，相容 H2 / MySQL / PostgreSQL。
+
+### iam_account（帳號）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `username` | `VARCHAR(100)` NOT NULL UNIQUE | 登入帳號，全表唯一 |
+| `password` | `VARCHAR(200)` | BCrypt 密碼雜湊；LDAP 來源帳號此欄不使用 |
+| `display_name` | `VARCHAR(100)` | 顯示名稱 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用，停用即不可登入 |
+| `locked` | `BOOLEAN` NOT NULL DEFAULT FALSE | 是否鎖定 |
+| `created_at` | `TIMESTAMP` | 建立時間 |
+| `updated_at` | `TIMESTAMP` | 最後更新時間 |
+
+### iam_group（群組／角色）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `code` | `VARCHAR(100)` NOT NULL UNIQUE | 群組代碼，套 `role-prefix` 後作為 authority |
+| `name` | `VARCHAR(100)` | 群組名稱 |
+| `description` | `VARCHAR(255)` | 說明 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用 |
+
+### iam_permission（權限）
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `id` | `BIGINT` PK AUTO_INCREMENT | 主鍵 |
+| `code` | `VARCHAR(100)` NOT NULL UNIQUE | 權限代碼，原樣作為 authority |
+| `name` | `VARCHAR(100)` | 權限名稱 |
+| `description` | `VARCHAR(255)` | 說明 |
+| `enabled` | `BOOLEAN` NOT NULL DEFAULT TRUE | 是否啟用 |
+
+### iam_account_group / iam_group_permission（關聯表）
+
+| 表 | 欄位 | 說明 |
+|---|---|---|
+| `iam_account_group` | `account_id` + `group_id`（複合 PK） | 帳號↔群組多對多 |
+| `iam_group_permission` | `group_id` + `permission_id`（複合 PK） | 群組↔權限多對多 |
+
+:::note 建表時機
+`iam.ddl.init` 預設為 `false`，starter 不會自動執行 `schema-iam.sql`。正式環境建議以 Flyway／Liquibase 管理 schema；測試環境可改用 Hibernate `spring.jpa.hibernate.ddl-auto=create-drop` 搭配 H2 自動建表。
+:::
+
+---
+
+## 使用範例(Iam-starter)
+
+
+本頁示範 iam-starter 常見的整合與客製化情境。所有覆寫皆基於 `@ConditionalOnMissingBean`：業務專案宣告同型別 Bean 即自動取代 starter 預設，**不需 `spring.main.allow-bean-definition-overriding`**。
+
+## 範例 1：注入 Service 自行管理帳號
+
+關閉內建 REST API，改在業務程式中直接使用三組 Service：
+
+```yaml
+iam:
+  api:
+    enabled: false   # 關閉內建 Controller，僅保留 Service
+```
+
+```java
+@Service
+public class OnboardingService {
+
+    private final AccountService accountService;
+    private final GroupService groupService;
+
+    public OnboardingService(AccountService accountService, GroupService groupService) {
+        this.accountService = accountService;
+        this.groupService = groupService;
+    }
+
+    /** 建立新進員工帳號並指派到「一般使用者」群組。 */
+    public AccountVO onboard(String username, String rawPassword, Long defaultGroupId) {
+        CreateAccountRequest req = new CreateAccountRequest();
+        req.setUsername(username);
+        req.setPassword(rawPassword);          // 服務層會 BCrypt 編碼
+        AccountVO account = accountService.createAccount(req);
+        return accountService.addToGroup(account.getId(), defaultGroupId);
+    }
+}
+```
+
+## 範例 2：以權限保護任意業務邏輯
+
+權限是泛用具名授權點，不限於 REST API。可在任何方法上以 `@PreAuthorize` 比對：
+
+```java
+@Service
+public class ReportService {
+
+    // 群組 code = MANAGER → authority ROLE_MANAGER
+    @PreAuthorize("hasRole('MANAGER')")
+    public Report monthlySummary() { ... }
+
+    // 權限 code = REPORT_EXPORT → authority REPORT_EXPORT（無前綴）
+    @PreAuthorize("hasAuthority('REPORT_EXPORT')")
+    public byte[] exportPdf(Long reportId) { ... }
+
+    // 也可組合條件
+    @PreAuthorize("hasRole('MANAGER') and hasAuthority('REPORT_EXPORT')")
+    public byte[] exportConfidential(Long reportId) { ... }
+}
+```
+
+也可在程式中直接讀取當前登入者的 authorities 自行判斷：
+
+```java
+Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+boolean canExport = auth.getAuthorities().stream()
+        .anyMatch(a -> a.getAuthority().equals("REPORT_EXPORT"));
+```
+
+## 範例 3：覆寫授權解析規則（GrantedAuthoritiesResolver）
+
+若希望調整「帳號 → authorities」的展開邏輯（例如加上自訂的全域 authority，或從外部系統補充權限），宣告一個 `GrantedAuthoritiesResolver` Bean 即可覆寫 iam 的 `DbGrantedAuthoritiesResolver`：
+
+```java
+@Configuration
+public class CustomAuthoritiesConfig {
+
+    @Bean
+    public GrantedAuthoritiesResolver grantedAuthoritiesResolver(AccountRepository accountRepository,
+                                                                 IamProperties iamProperties) {
+        DbGrantedAuthoritiesResolver delegate =
+                new DbGrantedAuthoritiesResolver(accountRepository, iamProperties);
+        return username -> {
+            // 在 DB 權限之外，為所有登入者補上一個基礎 authority
+            Set<GrantedAuthority> merged = new LinkedHashSet<>(delegate.resolve(username));
+            merged.add(new SimpleGrantedAuthority("ROLE_USER"));
+            return merged;
+        };
+    }
+}
+```
+
+:::tip 此擴充點對三種驗證模式皆生效
+`GrantedAuthoritiesResolver` 是 logon-starter 定義的 SPI。BASIC、LDAP、CUSTOM 三種驗證模式的登入流程都會呼叫它解析 authorities，因此覆寫一處即同時影響所有模式。
+:::
+
+## 範例 4：LDAP 驗證 + iam 授權
+
+組織以 AD／LDAP 驗證帳號密碼，但權限改由 iam 資料庫集中管理：
+
+```yaml
+security:
+  verification-type: ldap
+  ldap:
+    ip: 10.0.0.10
+    port: "389"
+    domain: corp.example.com
+    dn: DC=corp,DC=example,DC=com
+
+iam:
+  enabled: true
+  ddl:
+    init: false
+```
+
+只要在 `iam_account` 建立與 LDAP 同名的帳號（`password` 欄可留空）並指派群組，使用者以 AD 帳密登入後，`LdapUserDetailsService` 即透過 `GrantedAuthoritiesResolver` 由 iam 取得群組／權限。**不需在 iam 維護密碼**。
+
+## 範例 5：覆寫內建 Controller
+
+保留內建 API 但替換其中一個 Controller 的行為（例如帳號建立要額外發送通知）：
+
+```java
+@RestController
+@RequestMapping("${iam.api.base-path:/api/iam}/accounts")
+public class CustomAccountController {
+
+    private final AccountService accountService;
+    private final NotificationService notificationService;
+
+    public CustomAccountController(AccountService accountService,
+                                   NotificationService notificationService) {
+        this.accountService = accountService;
+        this.notificationService = notificationService;
+    }
+
+    @PostMapping
+    public ResponseEntity<AccountVO> create(@RequestBody CreateAccountRequest request) {
+        AccountVO account = accountService.createAccount(request);
+        notificationService.welcome(account.getUsername());
+        return ResponseEntity.ok(account);
+    }
+
+    // 其餘端點可委派 accountService 比照內建實作補齊……
+}
+```
+
+由於 starter 的 `accountController` Bean 標註 `@ConditionalOnMissingBean`，宣告同型別 Bean 後內建版本自動退讓。
+
+## 範例 6：完全自管帳號來源
+
+若帳號資料不存於 iam 表（例如來自既有的人事系統），可保留 iam 的群組／權限模型，僅覆寫 `BasicUserServiceImpl` 的來源：
+
+```java
+@Bean
+public BasicUserServiceImpl iamUserDetailsService(PasswordEncoder passwordEncoder,
+                                                  HrAccountGateway hrGateway,
+                                                  GrantedAuthoritiesResolver authoritiesResolver) {
+    return new HrBackedUserDetailsService(passwordEncoder, hrGateway, authoritiesResolver);
+}
+```
+
+`HrBackedUserDetailsService` 繼承 `BasicUserServiceImpl`、覆寫 `loadUserByUsername`，密碼與狀態取自人事系統，authorities 仍由 `GrantedAuthoritiesResolver` 提供——iam 的授權模型與外部帳號來源可自由組合。
+
+---
+
+## iam-spring-boot-starter
+
+
+`iam-spring-boot-starter` 提供一套可儲存於資料庫的**帳號（Account）— 群組（Group）— 權限（Permission）**身分與授權模型，讓引入的業務系統具備完整的帳號管理與權限控管能力。模組以 JPA 持久化資料，並透過 logon-starter 的 `GrantedAuthoritiesResolver` 擴充點接上登入流程：登入成功後，使用者的 Spring Security authorities 直接由資料庫的群組與權限展開而來，可搭配 `@PreAuthorize`、`hasRole()`、`hasAuthority()` 等標準機制使用。
+
+模組維持「核心精簡、客製必備」的設計：核心為帳號／群組／權限三組 Service（必備），內建的 REST CRUD Controller 則為可選、可關閉、可覆寫的成品。所有對外 Bean 皆以 `@ConditionalOnMissingBean` 註冊，業務專案宣告同型別 Bean 即可覆寫任一環節。
+
+## 功能概述
+
+模組以 `IamAutoConfiguration`（`@AutoConfiguration`）為唯一入口，透過 `@EntityScan` 與 `@EnableJpaRepositories` 掃描 starter 套件，引入即生效。核心持久層由 `Account`、`Group`、`Permission` 三個 JPA 實體與對應 Repository 組成，帳號↔群組、群組↔權限皆為多對多關聯（`iam_account_group`、`iam_group_permission` 關聯表）。
+
+與 logon-starter 的整合是本模組的關鍵：
+
+- **授權（Authorization）**：`DbGrantedAuthoritiesResolver` 實作 logon 的 `GrantedAuthoritiesResolver` SPI，以 `GrantedAuthoritiesResolver` 型別註冊，覆寫 logon 的預設空實作。**LDAP、BASIC、CUSTOM 三種驗證模式皆共用此同一套授權來源**——無論帳號密碼由誰驗證，權限一律由 iam 資料庫的群組／權限展開。
+- **認證（Authentication，BASIC／JWT 模式）**：`IamUserDetailsService` 繼承 logon 的 `BasicUserServiceImpl`，以 `BasicUserServiceImpl` 型別註冊，使 logon 寫死 `admin/admin` 的預設 stub 自動退讓，登入帳號改由 iam 帳號表提供（密碼為 BCrypt 雜湊）。
+
+## 主要特性
+
+- **資料庫帳號模型**：帳號／群組／權限三層模型，群組即角色、群組持有多個權限，帳號加入多個群組。
+- **泛用具名權限**：權限是抽象的「具名授權點」（如 `ORDER_EXPORT`、`USER_MANAGE`），**不綁定 HTTP method 或 URL**——開發者依自身程式邏輯決定如何使用，不限於 API 授權。
+- **與 logon 無縫整合**：透過 `GrantedAuthoritiesResolver` SPI 接上登入流程，三種驗證模式共用 DB 授權；BASIC／JWT 模式另以資料庫帳號取代內建 stub。
+- **內建 REST CRUD（可選）**：提供帳號／群組／權限的 REST 端點，預設啟用、路由前綴可設定，並以 `iam.api.enabled=false` 整組關閉或逐一覆寫。
+- **全面可覆寫**：所有 Service、Resolver、UserDetailsService 與 Controller 皆 `@ConditionalOnMissingBean`，客製化不需 `spring.main.allow-bean-definition-overriding`。
+- **DTO 邊界**：服務層一律回傳 VO，不外漏 JPA 實體與 lazy proxy；帳號視圖不含密碼雜湊。
+- **建表策略可控**：附 `schema-iam.sql`（相容 H2／MySQL／PostgreSQL），預設不自動執行，交由業務專案以 Flyway／Liquibase 或手動掌控。
+
+## Maven 依賴引入
+
+```xml
+<dependency>
+    <groupId>io.github.a09090443</groupId>
+    <artifactId>iam-spring-boot-starter</artifactId>
+    <version>4.0.0.1</version>
+</dependency>
+```
+
+:::note 安裝前置作業
+`iam-spring-boot-starter` 相依於 `logon-spring-boot-starter`。引入前請先於專案根目錄執行 `mvn clean install`，將 logon 與 iam 模組一併安裝至本地 Maven Repository。
+:::
+
+:::tip 核心 Service 必備、Controller 可選
+引入 starter 後，帳號／群組／權限三組 Service 即自動裝配（必備能力）。內建 REST Controller 預設啟用，可用 `iam.api.enabled=false` 關閉；關閉後三組 Service 仍可注入到業務程式中自行使用。
+:::
+
+## 主要類別
+
+| 類別 | 套件 | 職責 |
+|---|---|---|
+| `IamAutoConfiguration` | `autoconfiguration` | `@AutoConfiguration` 唯一入口，裝配所有 Service／Resolver／UserDetailsService 與 Controller |
+| `IamProperties` | `config` | 屬性綁定（prefix: `iam`），持有啟用、API、群組前綴與建表設定 |
+| `Account` | `entity` | 帳號實體，對應 `iam_account`，與 `Group` 多對多 |
+| `Group` | `entity` | 群組（角色）實體，對應 `iam_group`，與 `Permission` 多對多 |
+| `Permission` | `entity` | 權限實體，對應 `iam_permission`，泛用具名授權點 |
+| `AccountRepository` | `repository` | 帳號資料存取，含 `findByUsername` 回 `Optional` |
+| `GroupRepository` / `PermissionRepository` | `repository` | 群組／權限資料存取 |
+| `AccountService` | `service` | 帳號建立／查詢／更新／停用／改密碼／群組指派 |
+| `GroupService` | `service` | 群組 CRUD 與群組／權限掛卸 |
+| `PermissionService` | `service` | 權限 CRUD 與查詢 |
+| `DbGrantedAuthoritiesResolver` | `security` | 實作 logon SPI，由 DB 展開帳號→群組→權限為 authorities |
+| `IamUserDetailsService` | `security` | 繼承 `BasicUserServiceImpl`，由 iam 帳號表提供 `UserDetails` |
+| `AccountController` / `GroupController` / `PermissionController` | `controller` | 內建可選 REST CRUD 端點 |
+| `AccountVO` / `GroupVO` / `PermissionVO` | `vo` | 服務層對外回傳的資料視圖 |
+| `CreateAccountRequest` / `UpdateAccountRequest` 等 | `vo` | 建立／更新的請求物件 |
+
+## 快速導航
+
+- [快速開始](./quickstart.md)：建表、建帳號、接上登入並以權限保護端點。
+- [配置參考](./configuration.md)：`iam.*` 所有屬性說明與資料表結構。
+- [使用範例](./examples.md)：權限保護、覆寫 Resolver、自訂帳號來源的完整範例。
+- [架構與開發指南](./architecture.md)：套件結構、與 logon 的整合機制、擴充指南。
+
+:::tip 與 logon-starter 的搭配
+- 已建置 AD／LDAP 驗證 → 帳號密碼由 LDAP 驗，**權限由 iam 群組／權限提供**。
+- 帳號自管於資料庫 → 使用 BASIC（或加 JWT），帳號與權限皆由 iam 提供。
+- 兩者皆透過同一個 `GrantedAuthoritiesResolver` 接點，無需修改 logon 程式碼。
+:::
+
+---
+
+## 快速開始(Iam-starter)
+
+
+本頁示範如何在數步內讓業務系統具備「資料庫帳號登入 + 群組／權限授權」能力。
+
+## 1. 引入依賴
+
+```xml
+<dependency>
+    <groupId>io.github.a09090443</groupId>
+    <artifactId>iam-spring-boot-starter</artifactId>
+    <version>4.0.0.1</version>
+</dependency>
+```
+
+`iam-spring-boot-starter` 已相依 `logon-spring-boot-starter` 與 `spring-boot-starter-data-jpa`，無須額外宣告 Spring Security 與 JPA。請於專案根目錄先執行 `mvn clean install` 安裝模組至本地 Repository。
+
+## 2. 設定資料來源與建表
+
+iam 以 JPA 持久化，需提供資料來源。以下以 H2 為例（正式環境請改為 MySQL／PostgreSQL）：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:iam;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+iam:
+  ddl:
+    init: false
+```
+
+建表方式擇一：
+
+- **正式環境（建議）**：以 Flyway／Liquibase 套用 starter 的 `schema-iam.sql`（五張 `iam_` 表）。
+- **快速試用**：將 `spring.jpa.hibernate.ddl-auto` 設為 `update` 或 `create`，由 Hibernate 依實體自動建表。
+
+## 3. 建立權限、群組與帳號
+
+啟動後即可透過內建 REST API（預設啟用，前綴 `/api/iam`）建立資料。以下用 `curl` 示範一條最小授權鏈：
+
+```bash
+# 建立一個權限（泛用具名授權點）
+curl -X POST http://localhost:8080/api/iam/permissions \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"ORDER_EXPORT","name":"匯出訂單","description":"允許匯出訂單報表"}'
+
+# 建立一個群組（角色），假設回傳 id=1
+curl -X POST http://localhost:8080/api/iam/groups \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"ADMIN","name":"系統管理員"}'
+
+# 將權限（id=1）掛到群組（id=1）
+curl -X POST http://localhost:8080/api/iam/groups/1/permissions/1
+
+# 建立帳號（密碼為明文，服務層會 BCrypt 編碼），假設回傳 id=1
+curl -X POST http://localhost:8080/api/iam/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"secret","displayName":"Alice"}'
+
+# 將帳號（id=1）加入群組（id=1）
+curl -X POST http://localhost:8080/api/iam/accounts/1/groups/1
+```
+
+此時帳號 `alice` 將擁有 authorities：`ROLE_ADMIN`（群組 code 套 `role-prefix`）與 `ORDER_EXPORT`（權限 code 原樣）。
+
+## 4. 以資料庫帳號登入
+
+iam 自動接上 logon 的登入流程，**不需額外設定**：
+
+- **BASIC／JWT 模式**：`IamUserDetailsService` 已取代 logon 內建的 `admin/admin` stub，登入帳號改由 `iam_account` 表提供。以 `alice / secret` 即可登入。
+- **LDAP 模式**：帳號密碼仍由 LDAP 驗證，但登入成功後的 authorities 由 iam 群組／權限提供（需在 `iam_account` 建立同名帳號並指派群組）。
+
+## 5. 以權限保護端點
+
+在業務應用啟用方法層級安全，並以標準註解比對 iam 產生的 authorities：
+
+```java
+@Configuration
+@EnableMethodSecurity
+public class MethodSecurityConfig {
+}
+```
+
+```java
+@RestController
+public class OrderController {
+
+    @PreAuthorize("hasRole('ADMIN')")          // 對應群組 code = ADMIN
+    @GetMapping("/orders")
+    public List<Order> list() { ... }
+
+    @PreAuthorize("hasAuthority('ORDER_EXPORT')") // 對應權限 code = ORDER_EXPORT
+    @GetMapping("/orders/export")
+    public Resource export() { ... }
+}
+```
+
+至此，業務系統已具備資料庫帳號登入與群組／權限授權能力。進一步的客製化（覆寫帳號來源、調整授權規則）請見[使用範例](./examples.md)。
+
+---
+
 ## 整合範例教學
 
 
@@ -3196,12 +4129,13 @@ public class ReportService {
 
 ## starters_example 專案簡介
 
-`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon` 六個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
+`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon`、`iam` 七個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
 
 - 以 JSP 與 Thymeleaf 同時提供前端頁面（依視圖名稱前綴路由）
 - 以 RESTful API 與 WebFlux SSE 串流提供資料介面
 - 以 Spring Security 提供登入認證，並透過策略模式注入自訂登入日誌
 - 以動態多資料來源連接多個資料庫，支援 `@DS` 與程式化兩種切換方式
+- 以 iam 的帳號／群組／權限模型提供身分與授權資料，並由同一個 `EntityManagerFactory` 與 db-starter 共管 Entity
 - 以 Quartz 提供三種不同模式的排程任務
 - 以 Apache CXF 發布 SOAP WebService 端點
 
@@ -3213,18 +4147,20 @@ public class ReportService {
 | `db-spring-boot-starter` | 多資料來源動態切換、JDBC 封裝 | `spring.jpa.*`、`data-source.properties` |
 | `job-spring-boot-starter` | Quartz 排程管理 | `spring.quartz.*`、`quartz-jobs.properties` |
 | `logon-spring-boot-starter` | Spring Security 登入認證 | `security.*` |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`（Entity 由 db-starter 自動併入掃描） |
 | `web-service-spring-boot-starter` | Apache CXF SOAP WebService | `web.service.*` |
 | `web-spring-boot-starter` | JSP / Thymeleaf 前端視圖 | `web.*` |
 
 ## 五種組合情境快速導覽
 
-為了讓你能依需求挑選合適的 Starter 組合，本章節整理出五種典型情境，由淺入深：
+為了讓你能依需求挑選合適的 Starter 組合，本章節整理出六種典型情境，由淺入深：
 
 1. [情境一：Web 應用含認證](./scenario-web-auth.md) — `base + web + logon`，適合需要登入保護的管理後台。
 2. [情境二：多資料來源應用](./scenario-db.md) — `base + db`，適合需要連接多個資料庫的系統。
 3. [情境三：排程任務應用](./scenario-job.md) — `base + job`（可選 `db`），適合需要定時執行任務的系統。
 4. [情境四：SOAP WebService](./scenario-webservice.md) — `base + web-service`，適合需要對接 SOAP 協議的企業系統。
-5. [情境五：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
+5. [情境五：身分與授權管理](./scenario-iam.md) — `db + logon + iam`，適合需要資料庫帳號／群組／權限的系統。
+6. [情境六：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
 
 ## 專案目錄結構說明
 
@@ -3238,6 +4174,7 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
+│   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/authorities/{username}、@PreAuthorize 保護的 /orders/export、/users/manage）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
@@ -3266,6 +4203,7 @@ starters_example/
 │   ├── quartz-datasource.properties        # Quartz JDBC 模式資料來源（備用）
 │   ├── init/schema.sql                     # 建表（user_main / user_detail，application.yml 實際引用）
 │   ├── init/data.sql                       # 初始資料（application.yml 實際引用）
+│   ├── init/iam-demo.sql                   # iam 示範建表與種子資料（手動套用至主資料源）
 │   ├── init/h2/schema.sql                  # H2 建表（TBL_EMPLOYEES，備用）
 │   ├── init/h2/data.sql                    # H2 初始資料（備用）
 │   ├── jasperreport/*.jrxml                # JasperReport 報表模板
@@ -3288,7 +4226,7 @@ cd zipe-spring-boot-starters
 
 ### 步驟二：取得 Starter 依賴
 
-範例引用的 Starter（`io.github.a09090443:*:3.5.14.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+範例引用的 Starter（`io.github.a09090443:*:4.0.0.1`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
 
 若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
@@ -3310,6 +4248,9 @@ cd starters_example
 | Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
+| iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
 | H2 Console | `http://localhost:8080/example/h2-console` |
 
@@ -3318,7 +4259,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `3.5.14`、`zipe.spring.starter.version` 為 `3.5.14.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.1`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案
@@ -3588,22 +4529,22 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
 
 ---
 
-## 情境五：全功能整合
+## 情境六：全功能整合
 
 
 ## 情境說明
 
-本情境是前述四種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入六個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
+本情境是前述五種情境的集大成，完整呈現 `starters_example` 的實作：**同時引入七個 Starter**，建構一個兼具前端頁面、REST API、SOAP WebService、登入認證、身分授權、多資料來源與排程任務的企業級應用系統。透過這個情境，你可以理解各 Starter 之間如何分工、設定檔如何串接，以及 Spring Boot 啟動時各模組的自動配置順序。
 
 ## 完整的 pom.xml 設定
 
 ```xml
 <properties>
-    <zipe.spring.starter.version>3.5.14.0</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
 </properties>
 
 <dependencies>
-    <!-- 六個自製 Starter -->
+    <!-- 七個自製 Starter -->
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
@@ -3632,6 +4573,11 @@ PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`）�
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>logon-spring-boot-starter</artifactId>
+        <version>${zipe.spring.starter.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>iam-spring-boot-starter</artifactId>
         <version>${zipe.spring.starter.version}</version>
     </dependency>
 
@@ -3718,11 +4664,18 @@ web:
 
 security:
   enable: true
-  verification-type: basic
-  custom-bean-name: test
+  verification-type: basic           # 範例預設（帶 iam）；帳密由 security.basic.users 提供
+  basic:
+    users:
+      - username: user01
+        password: 1234
+        authorities: [ORDER_EXPORT]
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
-  allow-uris: /resources/**,/static/**,/webservice/**
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
   login-success-uri: /jsp
   login-failure-uri: /login
   ldap:
@@ -3748,8 +4701,8 @@ security:
     │       ▼                                                            │
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
-    │  │   verification-type: basic (admin/admin)                     │ │
-    │  │   白名單: /static/**  /resources/**  /webservice/**          │ │
+    │  │   verification-type: basic.users (user01/1234、user02/abcd)  │ │
+    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
     │           ▼                                                        │
@@ -3793,10 +4746,11 @@ application.yml
   ├── spring.quartz.*       → job-starter ← quartz-jobs.properties / quartz-datasource.properties
   ├── spring.jpa/h2/sql.*   → db-starter  ← data-source.properties / init/*.sql
   ├── web.*                 → web-starter（JSP+Thymeleaf）+ web-service-starter（CXF）
-  └── security.*            → logon-starter ← LogonLogRecord.java
+  ├── security.*            → logon-starter ← LogonLogRecord.java
+  └── iam.*                 → iam-starter  ← Entity 由 db-starter EMF 自動併入（@EntityScan）/ IamDemoController
 ```
 
-`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB，於啟動流程中最後生效。
+`base-starter` 為所有模組的共同底層；`logon-starter` 因依賴 Web 與 DB 於啟動流程中後段生效；`iam-starter` 依賴 logon 並覆寫其授權解析，最後生效。
 
 ## Spring Boot 啟動時的自動配置順序
 
@@ -3808,6 +4762,7 @@ application.yml
 4. **web-service-starter**：建立 `CXFServlet` 掛載至 `/webservice/*`，發布 `exampleWebServiceImpl` 為 SOAP 端點。
 5. **job-starter**：讀取 `quartz-jobs.properties`，建立 `JobDetail` 與 `CronTrigger`（每 15 秒執行 `ExampleXmlJob`），使用 `RAMJobStore`。
 6. **logon-starter**：建立 Spring Security 過濾鏈，註冊登入事件監聽器，透過 `custom-record-log-bean` 呼叫 `LogonLogRecord`。
+7. **iam-starter**：裝配帳號／群組／權限 Service 與內建 REST API，以 `DbGrantedAuthoritiesResolver` 覆寫 logon 的授權解析；其 Entity（`com.zipe.entity`）以 `@EntityScan` 宣告，由 db-starter 的 `EntityManagerFactory` 自動併入掃描，無須額外設定。
 
 ## 完整的啟動與測試步驟
 
@@ -3830,7 +4785,7 @@ cd starters_example
 | 排程（XmlJob） | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
 | 排程（AnnotationJob） | 觀察日誌 | 每 20 秒一筆 `ExampleAnnotationJob` log |
 
-登入頁預設帳密為 `admin/admin`，登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:admin`。
+登入頁預設帳密為 `user01/1234`（或 `user02/abcd`，範例帶 iam、預設 basic + `security.basic.users` 模式），登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:user01`。
 
 ### 整合測試的執行方式
 
@@ -3851,12 +4806,211 @@ cd starters_example
 
 :::warning 整合測試需注意的外部依賴
 - `DBExampleServiceTest`、`DynamicDataSourceSwitchTest`、`CrossDbSwitchTest` 均預期連線真實 MySQL（`example1` / `example2`），`CrossDbSwitchTest` 額外需要 PostgreSQL；無對應環境時會失敗。H2 在此扮演開發輔助角色（`sql.init.mode: never` 代表 H2 腳本未自動執行）。
-- Excel 與 JasperReport 測試依賴本機 `D:/tmp/` 目錄的實際檔案，缺檔即失敗，屬本機手動測試性質。
+- Excel 與 JasperReport 測試的輸出檔改寫入 JUnit `@TempDir` 提供的暫存目錄（不再硬編 `D:/tmp/`），可跨平台執行並於測試結束自動清除。
 - `ExampleWebServiceTest` 與 Postman 測試均需應用程式已啟動才能執行。
 :::
 
 :::info 從全功能拆解到單一情境
-若你的系統只需要部分能力，不必照搬全部六個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境四](./scenario-webservice.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+若你的系統只需要部分能力，不必照搬全部七個 Starter。可參考[情境一](./scenario-web-auth.md)至[情境五](./scenario-iam.md)，挑選最小組合即可，各 Starter 之間並無強制耦合。
+:::
+
+---
+
+## 情境五：身分與授權管理
+
+
+## 情境說明
+
+本情境示範如何讓系統具備**資料庫帳號管理與權限控管**能力。`iam-spring-boot-starter` 提供帳號（Account）—群組（Group）—權限（Permission）三層模型並以 JPA 持久化，再透過 logon 的 `GrantedAuthoritiesResolver` 擴充點，把使用者的 Spring Security authorities 直接由資料庫的群組與權限展開——三種驗證模式（BASIC／LDAP／CUSTOM）皆共用同一套授權來源。
+
+`starters_example` 將 iam 與既有的 db、logon 一起裝配，重點在於 iam 的 Entity 如何與 db-starter 的動態資料來源**共用同一個 `EntityManagerFactory`**。
+
+## 使用的 Starters
+
+| Starter | 在本情境的角色 |
+|---|---|
+| `db-spring-boot-starter` | 提供動態資料來源與 `EntityManagerFactory`，並一併管理 iam 的 Entity |
+| `logon-spring-boot-starter` | 提供登入認證與 `GrantedAuthoritiesResolver` SPI |
+| `iam-spring-boot-starter` | 提供帳號／群組／權限模型、Service、內建 REST API 與 `DbGrantedAuthoritiesResolver` |
+
+## 關鍵整合點：與 db-starter 共用 EntityManagerFactory
+
+`db-spring-boot-starter` 會自行建立名為 `entityManagerFactory` 的 JPA Bean（以支援多資料來源動態切換），這會使 Spring Boot 預設的 JPA 自動配置退讓。為了讓引入的 starter 不必感知彼此，db-starter 的 `EntityManagerFactory` 在組裝掃描套件時，會**自動併入容器中所有以 `@EntityScan` 註冊的套件**。
+
+iam 的 `IamAutoConfiguration` 已標註 `@EntityScan("com.zipe.entity")`，因此**引入 iam 後無須任何額外設定**——`data-source.properties` 只需照舊列出自身的 Entity 套件即可：
+
+```properties
+# entity package 位置（僅需列自身 Entity；iam 等以 @EntityScan 宣告的套件會自動併入）
+dynamic.entity-scan=com.example
+```
+
+:::info db-starter 4.0.0.1 起自動併入 @EntityScan
+db-starter 的 `EntityManagerFactory` 會合併 `dynamic.entity-scan`（仍支援逗號分隔多套件，作為明確指定的選項）與所有 `@EntityScan` 註冊的套件。因此 iam 的 Entity（`com.zipe.entity`）會自動納入管理，其 Repository（`com.zipe.repository`）也自動綁定此 `entityManagerFactory` 與 db-starter 的 `@Primary transactionManager`。
+:::
+
+## 引入依賴
+
+於 `starters_example/pom.xml` 在 logon 之後加入 iam：
+
+```xml
+<dependency>
+  <groupId>io.github.a09090443</groupId>
+  <artifactId>logon-spring-boot-starter</artifactId>
+  <version>${zipe.spring.starter.version}</version>
+</dependency>
+<dependency>
+  <groupId>io.github.a09090443</groupId>
+  <artifactId>iam-spring-boot-starter</artifactId>
+  <version>${zipe.spring.starter.version}</version>
+</dependency>
+```
+
+## 設定
+
+`iam.*` 全部採用預設值即可（總開關啟用、內建 API 啟用、群組前綴 `ROLE_`），故 `application.yml` **無須新增 iam 區塊**。僅需在 `security.allow-uris` 放行示範端點：
+
+```yaml
+security:
+  # …
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 放行 iam 整合示範端點
+```
+
+:::tip 引入 iam 後，以 `dynamic.base-packages` 重新啟用自身 Repository 掃描
+iam 的 `IamAutoConfiguration` 帶有自己的 `@EnableJpaRepositories("com.zipe.repository")`。Spring Boot 的規則是：**一旦容器中出現任何顯式 `@EnableJpaRepositories`，框架對應用主套件的 JPA Repository 自動掃描即退讓**。因此原本僅靠 `@SpringBootApplication` 自動掃描 Repository 的應用，引入 iam 後，自己的 Repository（如 `com.example.repository`）會註冊失敗、啟動報「No qualifying bean of type ...Repository」。
+
+由於本範例同時引入 db-starter，**只需在 `data-source.properties` 設定 `dynamic.base-packages`**，db-starter 即會依此掃描並註冊應用自身的 Repository（等同宣告 `@EnableJpaRepositories`，但改由設定檔驅動、無須改動啟動類別，與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響）：
+
+```properties
+# 應用自身 Repository 套件（可逗號分隔多個）
+dynamic.base-packages=com.example.repository
+```
+
+故範例的 `Application` 維持單純的 `@SpringBootApplication`，無須再加 `@EnableJpaRepositories`。
+
+> 若未引入 db-starter，則仍以傳統做法在啟動類別宣告 `@EnableJpaRepositories(basePackages = "你的.repository.套件")`。
+:::
+
+## 建立資料表與種子資料
+
+範例的 `spring.sql.init.mode` 為 `never`、Hibernate `ddl-auto` 為 `none`，故 iam 的資料表不會自動建立。請於**主資料源**（`example1`）手動套用範例附的 `init/iam-demo.sql`（已含建表與種子資料）：
+
+```bash
+mysql --default-character-set=utf8mb4 -u user1 -p example1 < src/main/resources/init/iam-demo.sql
+```
+
+:::tip 種子資料含中文，載入時請指定 utf8mb4
+`iam-demo.sql` 的 `display_name` 含中文，匯入時務必加上 `--default-character-set=utf8mb4`（或以支援 UTF-8 的客戶端載入），否則 `display_name` 會出現亂碼。
+:::
+
+種子資料建立了一條最小授權鏈：
+
+| 帳號 | 群組（角色） | 展開後的 authorities | 用途 |
+|---|---|---|---|
+| `alice` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | 供 `/iam-demo/authorities/{username}` 展示授權解析 |
+| `bob` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | 同上 |
+| `user01` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | iam 表對帳號 `user01` 的解析結果（`/iam-demo/authorities/user01` 可見） |
+| `user02` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | iam 表對帳號 `user02` 的解析結果（`/iam-demo/authorities/user02` 可見） |
+
+> 群組 `code` 套用 `iam.group.role-prefix`（預設 `ROLE_`）；權限 `code` 原樣作為 authority。
+> `user01`／`user02` 的 `username` 刻意對齊登入帳號。**注意**：範例預設以 `security.basic.users` 登入，登入後帶的是 basic.users 的 authorities（已對齊上表的 `ORDER_EXPORT`／`USER_MANAGE`）；上表是 iam 表自身的群組／權限解析結果，可透過 `/iam-demo/authorities/{username}` 獨立檢視（與登入授權來源無關，見下節）。
+
+## 示範程式
+
+`com.example.controller.IamDemoController` 注入 iam 的 `AccountService` 與被 iam 覆寫的 `GrantedAuthoritiesResolver`，示範內建 API 看不到的「授權解析結果」：
+
+```java
+@RestController
+@RequestMapping("/iam-demo")
+public class IamDemoController {
+
+    private final AccountService accountService;
+    private final GrantedAuthoritiesResolver authoritiesResolver;
+
+    public IamDemoController(AccountService accountService,
+                             GrantedAuthoritiesResolver authoritiesResolver) {
+        this.accountService = accountService;
+        this.authoritiesResolver = authoritiesResolver;
+    }
+
+    @GetMapping("/accounts")
+    public Page<AccountVO> accounts(Pageable pageable) {
+        return accountService.listAccounts(pageable);
+    }
+
+    @GetMapping("/authorities/{username}")
+    public List<String> authorities(@PathVariable String username) {
+        return authoritiesResolver.resolve(username).stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+    }
+}
+```
+
+## 以 iam 權限保護端點
+
+光是「解析得到 authorities」還不夠——要讓權限真正生效，需要兩件事：
+
+**1. 登入後的使用者要帶上 iam 授權。** 範例**預設即為 `custom` 模式**（帳密查 `user_login`：`user01/1234`、`user02/abcd`；`custom-bean-name` 已預先指向 `dbAuthProvider`），登入即可體驗權限端點。custom 模式下 logon 把驗證委派給 `DbAuthProvider`，而 **CUSTOM 模式下框架不會自動套用 `GrantedAuthoritiesResolver`**（僅 BASIC／JWT 的 `IamUserDetailsService`、LDAP 的 `LdapUserDetailsService` 會自動套用）。因此 `DbAuthProvider` 在帳密驗證成功後**自行呼叫 resolver**，把 iam 的群組／權限放進已認證的 token——示範「**認證來源用自家 `user_login`，授權來源用 iam**」的解耦：
+
+```java
+@Override
+protected UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
+    UserLogin userLogin = userLoginRepository.findByLoginId(loginId);
+    // …帳密比對（略）…
+    // 帳密由 user_login 驗證（authn），群組／權限改由 iam 解析（authz）
+    var authorities = authoritiesResolver.resolve(loginId);
+    return new UsernamePasswordAuthenticationToken(loginId, null, authorities);
+}
+```
+
+**2. 在端點上宣告所需權限。** logon 的 `SecurityConfiguration` 已標註 `@EnableMethodSecurity(prePostEnabled = true)`，故 `@PreAuthorize` 開箱即用。`IamDemoController` 加了兩個差異化保護的端點：
+
+```java
+@GetMapping("/orders/export")
+@PreAuthorize("hasAuthority('ORDER_EXPORT')")   // user01、user02 皆可
+public String exportOrders() {
+    return "訂單已匯出";
+}
+
+@GetMapping("/users/manage")
+@PreAuthorize("hasAuthority('USER_MANAGE')")     // 僅 user02（ADMIN）
+public String manageUsers() {
+    return "已進入使用者管理";
+}
+```
+
+## 驗證端點
+
+啟動後（需主資料源 MySQL 已就緒並套用 `iam-demo.sql`）：
+
+| 功能 | 端點 | 預期結果 |
+|---|---|---|
+| 解析 alice 的權限 | `GET /example/iam-demo/authorities/alice` | `["ROLE_ADMIN","ORDER_EXPORT","USER_MANAGE"]` |
+| 解析 bob 的權限 | `GET /example/iam-demo/authorities/bob` | `["ROLE_USER","ORDER_EXPORT"]` |
+| iam 帳號分頁查詢 | `GET /example/iam-demo/accounts` | 含 alice／bob／user01／user02 的分頁 JSON |
+| iam 內建帳號 API | `GET /example/api/iam/accounts` | iam 內建 CRUD（受 security 保護，需登入） |
+
+權限保護端點需**先登入**（表單登入 `/example/login`）後再存取。範例預設以 `security.basic.users` 登入，登入者的 authorities **直接來自設定檔**（已刻意對齊下列權限）：
+
+| 登入帳號 | authorities（來自 basic.users） | `GET /example/iam-demo/orders/export`（需 `ORDER_EXPORT`） | `GET /example/iam-demo/users/manage`（需 `USER_MANAGE`） |
+|---|---|---|---|
+| `user01/1234` | `ORDER_EXPORT` | ✅ `訂單已匯出` | ⛔ HTTP 403 |
+| `user02/abcd` | `ORDER_EXPORT`、`USER_MANAGE` | ✅ `訂單已匯出` | ✅ `已進入使用者管理` |
+| 未登入 | — | 導向登入頁 | 導向登入頁 |
+
+> 雖然 `/iam-demo/**` 在 `security.allow-uris` 中（URL 層放行），但 `@PreAuthorize` 是**方法層**授權、獨立於 URL 規則之外，因此仍會依登入者的 authorities 把關。
+
+> iam 表的「帳號 → 群組 → 權限」解析仍可透過 `GET /example/iam-demo/authorities/{username}` 獨立展示——該端點直接呼叫 `DbGrantedAuthoritiesResolver`，與登入後的授權來源（此處為 basic.users）無關。
+
+## 切換登入帳號來源（選用）
+
+範例預設以 **basic + `security.basic.users`** 登入：帳密與授權皆來自設定檔，透過 `com.example.config.BasicUserServiceConfig` 在應用層宣告 logon 的 `BasicUserServiceImpl`、覆寫 iam 的帳號接管而生效。若要改由其他來源驗證登入：
+
+- **改走 iam 帳號表（授權由 `DbGrantedAuthoritiesResolver` 解析）**：移除 `BasicUserServiceConfig`，維持 `verification-type: basic`，iam 的 `IamUserDetailsService` 即接管、改讀 `iam_account`（需在 `iam-demo.sql` 為帳號填入真實 BCrypt 密碼雜湊）。
+- **改走 `user_login` 表（CUSTOM）**：設 `verification-type: custom` 並 `custom-bean-name: dbAuthProvider`（`DbAuthProvider` 驗帳密、授權再由 iam resolver 疊上）。
+
+:::note 執行期需求
+本情境的執行期與整個 `starters_example` 一致，需主資料源（MySQL `example1`）就緒。程式與設定可獨立以 `mvn -o test-compile` 編譯驗證；完整啟動驗證請備妥 MySQL 並先套用 `iam-demo.sql`。
 :::
 
 ---
@@ -4140,21 +5294,23 @@ web:
 
 security:
   enable: true
-  verification-type: basic          # 使用內建帳密 admin/admin
+  verification-type: basic          # 未設 security.basic.users 時用內建帳密 admin/admin
   allow-uris: /static/**            # 白名單路徑（不需登入）
   login-success-uri: /home          # 登入成功跳轉
-  login-failure-uri: /login         # 登入失敗跳轉
+  login-failure-uri: /login         # 登入失敗 redirect 回登入頁（勿用 /login?error，自訂 failureHandler 下產生器不認得）
   csrf-enabled: false               # 預設為 true；此範例為簡化測試而關閉，正式環境建議維持開啟
   record-log-enable: true           # 啟用登出入事件記錄
   custom-record-log-bean: myLogonLogRecord  # 指向自訂日誌 Bean 名稱
 ```
 
 :::note Spring Security 預設行為與覆寫方式
-`logon-spring-boot-starter` 透過 `verification-type` 提供三種驗證模式：
+`logon-spring-boot-starter` 透過 `verification-type` 提供三種**憑證來源**：
 
-- `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`，預設帳密為 `admin/admin`。
+- `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`。可由 `security.basic.users` 自訂多組帳密與權限（密碼支援明文與 `{bcrypt}` 預雜湊）；未設定時 fallback 回內建 `admin/admin`。
 - `ldap`：連接 LDAP 目錄服務，需另行設定 `security.ldap.*`。
 - `custom`：從 Spring Context 取出 `security.custom-bean-name` 指定的 Bean（須實作 `AuthenticationProvider`）。
+
+另有與之**正交**的 `security.jwt.enabled`：設為 `true` 即在上述任一憑證來源之上改用 JWT 無狀態登入（內建 `POST /api/login` 簽發 token），詳見 [logon-starter configuration.md](../logon-starter/configuration.md)。
 
 此外，`security.login-uri` 未設定時走預設登入頁（`/login`）；設定後則改用自訂登入頁，Session 策略改為 `STATELESS`。若將 `security.enable` 設為 `false`，所有路徑 `/**` 都會 `permitAll`，等同於關閉安全控制。
 :::
@@ -4262,7 +5418,108 @@ public class LogonLogRecord implements CustomLogonLogRecord {
 只要實作這個介面，即可將登出入事件接到既有的稽核系統、資料庫或外部監控平台，而無須修改 Starter 本身。
 
 :::tip 進一步切換驗證來源
-若內建 `admin/admin` 無法滿足需求，可將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean，即可接上自家的使用者資料庫或 SSO 系統。
+若內建 `admin/admin` 無法滿足需求：帳號少而固定時，可在 `basic` 模式以 `security.basic.users` 設定多組帳密與權限；需接自家使用者資料庫或 SSO 時，將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean。後者詳見下方「業務端自訂登入（CUSTOM 模式）」一節。
+:::
+
+## 業務端自訂登入（CUSTOM 模式）
+
+`starters_example` 已內建一組可運行的 CUSTOM 自訂登入示範：業務端繼承 `logon-spring-boot-starter` 的 `CommonLoginProcess`，覆寫 `verifyNormalUser()`，以自家的 `user_login` 資料表進行帳號密碼驗證。繼承 `CommonLoginProcess` 的好處是**自動沿用父類別的 ADMIN 動態密碼機制**（`admin` 帳號以「當日日期 `yyyyMMdd`」為密碼），業務端只需專注一般帳號的驗證邏輯。
+
+:::note 與 logon-starter 通用範例的關係
+本節為 `starters_example` 的**實際整合程式碼**。`CommonLoginProcess` 的通用擴充說明、認證 Token 最佳實踐與設定屬性細節，請參閱 [logon-starter examples.md「範例四：CUSTOM 模式」](../logon-starter/examples.md) 與 [configuration.md「CUSTOM 模式」](../logon-starter/configuration.md)，此處不重複。
+:::
+
+### 步驟一：登入帳號資料表與測試資料
+
+CUSTOM 示範使用獨立的 `user_login` 資料表（與 `user_main` 各自獨立，避免影響多資料來源切換測試）。`init/schema.sql` 與 `init/data.sql` 已補上對應結構與兩筆 BCrypt 測試帳號：
+
+```sql
+-- init/schema.sql
+CREATE TABLE `user_login` (
+                              `LoginId`  varchar(100) NOT NULL,
+                              `Password` varchar(100) NOT NULL,
+                              PRIMARY KEY (`LoginId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
+
+```sql
+-- init/data.sql（密碼為 BCrypt 雜湊，strength=10）
+-- user01 / 1234
+INSERT INTO user_login (LoginId, Password) VALUES('user01', '$2a$10$Y6WAl60GuH2wIULKsaRotuHGCAoYfGXmvclCEO2PrvRNQIqcb0VB2');
+-- user02 / abcd
+INSERT INTO user_login (LoginId, Password) VALUES('user02', '$2a$10$1Ihk8NP/mi1bxAErFUA0fu6RnY0EnuDEqYSa57VkDvxzgTrDNMgoK');
+```
+
+對應的 JPA 實體與 Repository（`UserLogin` / `UserLoginRepository`）以 `loginId` 為主鍵，並提供 `findByLoginId(String loginId)` 查詢方法。
+
+### 步驟二：實作自訂 AuthenticationProvider
+
+`starters_example` 中的 `DbAuthProvider` 完整實作如下（`com.example.config.DbAuthProvider`）。`@Component("dbAuthProvider")` 的 Bean 名稱即為 `application.yml` 中 `security.custom-bean-name` 所指定者；`PasswordEncoder` 由 `logon-spring-boot-starter` 預設提供（委派式 `DelegatingPasswordEncoder`，相容無前綴的既有 BCrypt 雜湊），可直接注入比對：
+
+```java
+@Slf4j
+@Component("dbAuthProvider")
+public class DbAuthProvider extends CommonLoginProcess {
+
+    private final UserLoginRepository userLoginRepository;
+
+    public DbAuthProvider(PasswordEncoder passwordEncoder, UserLoginRepository userLoginRepository) {
+        super(passwordEncoder);
+        this.userLoginRepository = userLoginRepository;
+    }
+
+    @Override
+    protected UsernamePasswordAuthenticationToken verifyNormalUser(String loginId, String password) {
+        UserLogin userLogin = userLoginRepository.findByLoginId(loginId);
+        if (userLogin == null) {
+            log.warn("使用者:{} 帳號不存在", loginId);
+            throw new BadCredentialsException("使用者:" + loginId + " 帳號或密碼錯誤");
+        }
+        if (!passwordEncoder.matches(password, userLogin.getPassword())) {
+            log.warn("使用者:{} 密碼錯誤", loginId);
+            throw new BadCredentialsException("使用者:" + loginId + " 帳號或密碼錯誤");
+        }
+        log.info("使用者:{} 登入成功", loginId);
+        // 使用非 null 的權限集合使 token 成為已認證狀態，並清除明文密碼
+        return new UsernamePasswordAuthenticationToken(loginId, null, Collections.emptyList());
+    }
+}
+```
+
+:::note data.sql 為 BCrypt 雜湊，故以 matches() 比對
+`data.sql` 寫入的是 BCrypt 雜湊字串（非明文），因此 `verifyNormalUser()` 使用 `passwordEncoder.matches(rawPassword, hashedPassword)` 比對。若你的既有資料庫存的是明文密碼，請改以 `rawPassword.equals(storedPassword)` 等方式，或先將既有資料轉為 BCrypt 雜湊。
+:::
+
+### 步驟三：範例預設即為 basic + security.basic.users（帶 iam）
+
+`starters_example` 雖同時引入 iam-starter，**預設改用 `verification-type: basic`**，並以 `security.basic.users` 自訂帳密與權限，示範 BASIC 模式自訂帳密：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic           # 範例預設；帳密由 security.basic.users 提供
+  basic:
+    users:
+      - username: user01
+        password: 1234                # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [ORDER_EXPORT]   # 對齊 /iam-demo 端點所需權限
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
+```
+
+可用的測試帳號：
+
+| 帳號 | 密碼 | 授權（來自 basic.users） |
+|---|---|---|
+| `user01` | `1234` | `ORDER_EXPORT` |
+| `user02` | `abcd` | `ORDER_EXPORT`、`USER_MANAGE` |
+
+:::note 帶 iam 時讓 basic.users 生效的關鍵
+本範例帶 iam，basic 模式預設會由 iam 的 `IamUserDetailsService` 接管帳號查詢、改查 `iam_account`，使 `security.basic.users` 不生效。範例以 `com.example.config.BasicUserServiceConfig` 在應用層宣告 logon 的 `BasicUserServiceImpl` Bean，使 iam 的 `iamUserDetailsService` 因 `@ConditionalOnMissingBean` 退讓，`security.basic.users` 才會生效。此時**登入與授權皆來自設定檔**（authorities 刻意填入 iam-demo 所需的 `ORDER_EXPORT` / `USER_MANAGE`），不再經 iam 帳號表與群組／權限解析。
+
+- 想改回「iam 帳號表 + 群組權限解析」驗證：移除 `BasicUserServiceConfig` 即可恢復 iam 接管。
+- 想改回 CUSTOM（查 `user_login` 表）：設 `verification-type: custom` 並設 `custom-bean-name: dbAuthProvider`。
 :::
 
 ---
@@ -4479,7 +5736,8 @@ CXF 會根據介面與實作上的 JAX-WS 注解（`@WebService`、`@WebMethod`�
 | **base-spring-boot-starter** | 基本工具功能（郵件、加解密、文件處理、HTTP 等） | [前往文件](./base-starter/index.md) |
 | **db-spring-boot-starter** | 資料庫動態連接與多資料來源切換 | [前往文件](./db-starter/index.md) |
 | **job-spring-boot-starter** | 基於 Quartz 的排程管理 | [前往文件](./job-starter/index.md) |
-| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP） | [前往文件](./logon-starter/index.md) |
+| **logon-spring-boot-starter** | 登入認證（Spring Security / LDAP / JWT） | [前往文件](./logon-starter/index.md) |
+| **iam-spring-boot-starter** | 帳號／群組／權限身分與授權管理（與 logon 整合） | [前往文件](./iam-starter/index.md) |
 | **web-service-spring-boot-starter** | 基於 Apache CXF 的 SOAP WebService | [前往文件](./web-service-starter/index.md) |
 | **web-spring-boot-starter** | 前端顯示（JSP / Thymeleaf） | [前往文件](./web-starter/index.md) |
 
@@ -4490,7 +5748,7 @@ CXF 會根據介面與實作上的 JAX-WS 注解（`@WebService`、`@WebMethod`�
 | 項目 | 需求版本 |
 |---|---|
 | **Java** | 17 以上（建議使用 JDK 17 LTS） |
-| **Spring Boot** | 3.5.x |
+| **Spring Boot** | 4.0.x |
 | **建構工具** | Maven 3.8+ |
 
 :::note 為什麼是 Java 17？
@@ -4521,7 +5779,7 @@ cd base-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -4531,7 +5789,7 @@ cd base-spring-boot-starter
 若您需要同時使用多個 Starter，可在專案根目錄一次性安裝所有模組。建議搭配 CI/CD 流程，於建構前自動執行各 Starter 的 `mvnw clean install`，確保版本一致。
 
 ```bash
-for module in base db job logon web web-service keycloak; do
+for module in base db job logon iam web web-service keycloak; do
   (cd ${module}-spring-boot-starter && ./mvnw clean install -DskipTests)
 done
 ```
@@ -4575,7 +5833,7 @@ cd starters_example
 
 ```
 job-spring-boot-starter/
-├── pom.xml                                              # groupId=io.github.a09090443, version=3.5.14.0
+├── pom.xml                                              # groupId=io.github.a09090443, version=4.0.0.1
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                             # 模組內建獨立啟動入口（開發/測試用）
@@ -5328,7 +6586,7 @@ spring:
 本頁列出 `job-spring-boot-starter` 的所有可設定屬性，涵蓋排程啟用、儲存模式、JDBC 資料來源與連線池設定。
 
 :::important 正確的命名空間
-本模組讀取的是 **`spring.quartz.*`** 與 **`spring.datasource.quartz.*`** 命名空間，而非 `zipe.quartz.*`。JDBC 資料來源設定請使用 `spring.datasource.quartz.*`。
+本模組共使用三個命名空間：**`spring.quartz.*`**（排程啟用與儲存模式，Spring Boot 原生整合）、**`quartz.*`**（本模組自訂屬性，含 `quartz.controller.*`、`quartz.allowed-job-classes`、`quartz.job-map`，對應 `QuartzJobPropertyConfig`）、以及 **`spring.datasource.quartz.*`**（JDBC 模式資料來源）。三者皆非 `zipe.quartz.*`。
 :::
 
 ---
@@ -5973,7 +7231,7 @@ curl -X POST http://localhost:8080/quartz/register \
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -6018,7 +7276,7 @@ curl -X POST http://localhost:8080/quartz/register \
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `job-spring-boot-starter` 安裝至本地 Maven Repository。
 - 若使用 JDBC 模式，需準備一組資料庫並建立 Quartz 資料表。
 
@@ -6039,7 +7297,7 @@ cd job-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>job-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -6199,12 +7457,13 @@ Quartz 預設不透過 Spring 容器建立 Job 實例，因此 `@Autowired` 欄�
 | **策略模式切換驗證** | 透過 `security.verification-type`（`basic` / `ldap` / `custom`）在不修改程式碼的前提下切換驗證機制 |
 | **骨架 + 擴充** | `CommonLoginProcess` 提供統一的 `authenticate()` 骨架（含 ADMIN 動態密碼），子類別只需覆寫 `verifyNormalUser()` |
 | **回呼介面分離** | 登入稽核邏輯透過 `CustomLogonLogRecord` 介面解耦，業務專案自行實作，不污染 Starter 核心 |
-| **Bean 覆寫友善** | `application.yml` 預設啟用 `spring.main.allow-bean-definition-overriding: true`，業務專案可以同名 Bean 覆寫任何預設實作 |
+| **Bean 覆寫友善** | 所有 `@Bean` 方法（含 `filterChain`）均標註 `@ConditionalOnMissingBean`，業務專案只要宣告同型別 Bean 即可覆寫任何預設實作，**不再依賴 `spring.main.allow-bean-definition-overriding`** |
 
 ### 限制與取捨
 
-- 模組**無任何 `@ConditionalOnXxx` 條件**：只要引入依賴，`SecurityConfiguration` 無條件生效。業務專案不得另行定義 `SecurityFilterChain` Bean，否則將衝突。
-- BASIC 模式的 `BasicUserServiceImpl` 為 **hardcoded stub**（帳號 `admin`，密碼 `admin`），僅適合開發測試，生產環境必須切換至 CUSTOM 模式或覆寫此 Bean。
+- `SecurityConfiguration` 上的類別層級**無任何 `@ConditionalOnXxx` 條件**：只要引入依賴，`SecurityConfiguration` 無條件生效。但各 `@Bean` 方法皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean（含整鏈覆寫 `SecurityFilterChain`）即可取代預設實作，不會衝突。
+- BASIC 模式的 `BasicUserServiceImpl` 讀取 `security.basic.users` 作為帳號來源（支援明文與 `{bcrypt}` 預雜湊密碼、各帶權限）；**未設定 `users` 時 fallback 回內建的 `admin/admin`**（hardcoded，僅適合開發測試）。生產環境請以 `security.basic.users` 設定、覆寫此 Bean，或切換至 CUSTOM 模式。
+- JWT 是與 `verification-type`（憑證來源）**正交的登入後狀態策略**，由 `security.jwt.enabled` 控制，而非第四種 verification-type。啟用時採用**獨立的 `jwtSecurityFilterChain`**（`@ConditionalOnProperty(security.jwt.enabled=true)`），先行註冊使預設 `filterChain` 的 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓，兩者不會同時存在。**登入驗帳密重用 `verification-type` 的 provider 選擇邏輯**（`resolveAuthenticationProvider`），故 LDAP/CUSTOM + JWT 皆可；唯每次請求查權限用的 `UserDetailsService` 預設為 BASIC 的 `BasicUserServiceImpl`，LDAP/CUSTOM + JWT 時須覆寫之。
 
 ---
 
@@ -6222,8 +7481,10 @@ logon-spring-boot-starter/
     │   │   └── SecurityBaseService.java              # 業務 Service 繼承的基底類別，封裝從 HttpSession 取出 SysUserVO 的邏輯
     │   ├── config/
     │   │   ├── LdapPropertyConfig.java               # @ConfigurationProperties(prefix="security.ldap")，LDAP 連線屬性
+    │   │   ├── BasicUserPropertyConfig.java          # security.basic 子屬性，持有可自訂的 BASIC 使用者清單
+    │   │   ├── BasicUser.java                        # 單一 BASIC 使用者（username / password / authorities）
     │   │   ├── SecurityInitializer.java              # 繼承 AbstractSecurityWebApplicationInitializer，傳統 WAR 部署時確保 Security Filter 正確初始化
-    │   │   └── SecurityPropertyConfig.java           # @ConfigurationProperties(prefix="security")，所有 Security 主屬性（含巢狀 LdapPropertyConfig）
+    │   │   └── SecurityPropertyConfig.java           # @ConfigurationProperties(prefix="security")，所有 Security 主屬性（含巢狀 LdapPropertyConfig / BasicUserPropertyConfig）
     │   ├── enums/
     │   │   ├── UserEnum.java                         # 特殊使用者類型（SYSTEM / ADMIN），ADMIN 具動態密碼特權
     │   │   └── VerificationTypeEnum.java             # 驗證模式（BASIC / LDAP / CUSTOM），提供大小寫不敏感的 getEnum() 解析
@@ -6234,10 +7495,18 @@ logon-spring-boot-starter/
     │   │   ├── LoginFailureHandler.java              # 登入失敗處理器，分類日誌並回呼 CustomLogonLogRecord
     │   │   ├── LoginSuccessHandler.java              # 登入成功處理器，擷取 IP 並回呼 CustomLogonLogRecord
     │   │   └── LogoutSuccessHandler.java             # 登出成功處理器，清理 Session 並回呼 CustomLogonLogRecord
+    │   ├── jwt/                                      # JWT 無狀態登入（security.jwt.enabled=true 時生效，與 verification-type 正交）
+    │   │   ├── JwtProperties.java                    # @ConfigurationProperties(prefix="security.jwt")，演算法 / 金鑰 / token 設定
+    │   │   ├── JwtTokenProvider.java                 # JWT 簽發與驗證核心，依 algorithm 選 HS256 / RS256
+    │   │   ├── JwtAuthenticationFilter.java          # OncePerRequestFilter，解析 Bearer token 查權限寫入 SecurityContext
+    │   │   ├── JwtLoginController.java               # 內建登入端點 @PostMapping(${security.jwt.login-uri})，委派 AuthenticationManager
+    │   │   └── vo/
+    │   │       ├── JwtLoginRequest.java              # 登入請求 DTO（username / password）
+    │   │       └── JwtLoginResponse.java             # 登入回應 DTO（token / tokenType）
     │   ├── model/
     │   │   └── LdapUser.java                         # LDAP 驗證後的資料傳輸物件（userId / name / email / ldapDn / isEnabled）
     │   ├── service/
-    │   │   ├── BasicUserServiceImpl.java             # 實作 UserDetailsService，BASIC 模式的 hardcoded fallback（admin/admin）
+    │   │   ├── BasicUserServiceImpl.java             # 實作 UserDetailsService，讀 security.basic.users 自訂帳號，未設定時 fallback 回 admin/admin
     │   │   ├── CommonLoginProcess.java               # 抽象類別，實作 AuthenticationProvider，統一 authenticate() 並提供 ADMIN 動態密碼機制
     │   │   ├── CustomLogonLogRecord.java             # 登入稽核回呼介面，業務專案實作後由三個 Handler 呼叫
     │   │   └── LdapUserDetailsService.java           # 繼承 CommonLoginProcess，實作 verifyNormalUser()，與 AD/LDAP 互動
@@ -6261,6 +7530,7 @@ logon-spring-boot-starter/
 | `enums` | 驗證模式常數與特殊使用者類型常數，供 `SecurityConfiguration` 與 `CommonLoginProcess` 參照 |
 | `exception` | 自訂 `AuthenticationException` 子類別，使 Spring Security 能辨識並路由至正確的失敗處理器 |
 | `handler` | 三個登入生命週期 Handler，負責日誌輸出、IP 記錄、Session 清理與稽核回呼 |
+| `jwt`（含 `jwt.vo`） | JWT 無狀態登入：屬性綁定、token 簽驗、驗證過濾器、登入端點與請求 / 回應 DTO |
 | `model` | LDAP 查詢結果的 POJO |
 | `service` | 核心驗證邏輯：`AuthenticationProvider` 抽象骨架、LDAP 實作、BASIC fallback、稽核介面 |
 | `util` | `SecurityContextHolder` 存取工具 |
@@ -6278,26 +7548,43 @@ logon-spring-boot-starter/
 
 | 方法 | 說明 |
 |---|---|
-| `filterChain(HttpSecurity)` | 依 `security.login-uri` 是否有值，分派至 `customLoginConfigure()` 或 `basicLoginConfigure()` |
-| `basicLoginConfigure(HttpSecurity)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session |
-| `customLoginConfigure(HttpSecurity)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)） |
-| `authenticationProvider(HttpSecurity)` | `switch-case` 依 `VerificationTypeEnum`：`LDAP` 掛載 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取出指定 Bean；`BASIC`（預設）掛載 `DaoAuthenticationProvider` + `BasicUserServiceImpl` |
+| `filterChain(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder, SessionRegistry, LoginSuccessHandler, LoginFailureHandler, LogoutSuccessHandler)` | 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，可被業務專案整鏈覆寫。依 `security.login-uri` 是否有值，分派至 `customLoginConfigure()` 或 `basicLoginConfigure()`。Handler、`SessionRegistry`、`PasswordEncoder` 等相依**以方法參數注入容器 Bean**（含使用者覆寫版），不再以 `this.xxx()` 直接 new |
+| `basicLoginConfigure(...)` | 使用 Spring Security 預設登入頁；Session 策略 Stateful，最多 2 個並行 Session。授權規則以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手，**放行 `FORWARD`（JSP / view render）與 `ERROR`（錯誤頁派發）兩種 dispatcher type**，再接 `allow-uris` 放行與 `anyRequest().authenticated()`（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。登出路徑取自 `security.logout-uri`（預設 `/logout`，**不可與表單登入處理路徑 `/login` 相同**，否則 LogoutFilter 會搶先攔截登入）。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `customLoginConfigure(...)` | 指定自訂 `loginPage(loginUri)`；Session 策略 STATELESS，最多 2 個並行 Session（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。授權規則同樣以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手。登出路徑同取自 `security.logout-uri`。Handler 與 `SessionRegistry` 由 `filterChain` 透過參數傳入 |
+| `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider，以 `ProviderManager` 包成本 chain 的 `AuthenticationManager` 並透過 `http.authenticationManager(...)` **明確指定**。確保表單登入與 HTTP Basic 一致採用此 provider；避免容器存在多個 `AuthenticationProvider` Bean（如 CUSTOM provider 與 `ldapUserDetailsService`）時，Spring Boot 放棄組裝全域 `AuthenticationManager`、使 HTTP Basic 落到預設 `DaoAuthenticationProvider` |
+| `resolveAuthenticationProvider(BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 依 `VerificationTypeEnum` 回傳 provider：`LDAP` 回傳 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取指定 Bean；`BASIC`（預設 / null）以 `BasicUserServiceImpl` + `PasswordEncoder` 組 `DaoAuthenticationProvider`。**同時供表單登入與 JWT 的 `AuthenticationManager` 重用**，確保兩種狀態策略憑證來源一致 |
 | `switchSecurity()` | `security.enable=false` 時回傳 `["/**"]`（全路徑放行）；否則回傳 `allow-uris` 切分後的陣列 |
-| `passwordEncoder()` | `@Bean`，回傳 `BCryptPasswordEncoder` |
-| `sessionRegistry()` | `@Bean`，回傳 `SessionRegistryImpl`，供並行 Session 控制使用 |
+| `passwordEncoder()` | `@Bean @ConditionalOnMissingBean`，回傳 `PasswordEncoderFactories.createDelegatingPasswordEncoder()`（委派式編碼器，依 `{id}` 前綴比對、以 BCrypt 編碼新密碼） |
+| `sessionRegistry()` | `@Bean @ConditionalOnMissingBean`，回傳 `SessionRegistryImpl`，供並行 Session 控制使用 |
 
 **注冊的 Bean 清單：**
 
-| Bean 名稱 | 型別 | 說明 |
-|---|---|---|
-| `filterChain` | `SecurityFilterChain` | 主過濾鏈 |
-| `passwordEncoder` | `PasswordEncoder` | BCrypt 密碼編碼器 |
-| `basicUserServiceImpl` | `BasicUserServiceImpl` | BASIC 模式 UserDetailsService（hardcoded stub） |
-| `ldapUserDetailsService` | `LdapUserDetailsService` | LDAP 模式 AuthenticationProvider（無論驗證類型均建立） |
-| `sessionRegistry` | `SessionRegistry` | Session 並行控制登錄 |
-| `loginSuccessHandler` | `LoginSuccessHandler` | 登入成功處理器 |
-| `loginFailureHandler` | `LoginFailureHandler` | 登入失敗處理器 |
-| `logoutSuccessHandler` | `LogoutSuccessHandler` | 登出成功處理器 |
+> 下列所有 `@Bean` 方法均標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫，無需 `spring.main.allow-bean-definition-overriding`。
+
+| Bean 名稱 | 型別 | 覆寫條件 | 說明 |
+|---|---|---|---|
+| `filterChain` | `SecurityFilterChain` | `@ConditionalOnMissingBean(SecurityFilterChain.class)` | 主過濾鏈；進階使用者可宣告自己的 `SecurityFilterChain` Bean 整鏈覆寫 |
+| `passwordEncoder` | `PasswordEncoder` | `@ConditionalOnMissingBean` | 委派式密碼編碼器（`DelegatingPasswordEncoder`，依 `{id}` 前綴比對、以 BCrypt 編碼新密碼，相容既有 BCrypt 雜湊）；覆寫後會經參數注入傳遞給 `basicUserServiceImpl` / `ldapUserDetailsService` 及 BASIC 模式的 `DaoAuthenticationProvider` |
+| `basicUserServiceImpl` | `BasicUserServiceImpl` | `@ConditionalOnMissingBean` | BASIC 模式 UserDetailsService；以參數注入 `PasswordEncoder`，並讀取 `security.basic.users`（未設定時 fallback 回 `admin/admin`） |
+| `ldapUserDetailsService` | `LdapUserDetailsService` | `@ConditionalOnMissingBean` | LDAP 模式 AuthenticationProvider（無論驗證類型均建立），以參數注入 `PasswordEncoder` |
+| `sessionRegistry` | `SessionRegistry` | `@ConditionalOnMissingBean` | Session 並行控制登錄 |
+| `loginSuccessHandler` | `LoginSuccessHandler` | `@ConditionalOnMissingBean` | 登入成功處理器 |
+| `loginFailureHandler` | `LoginFailureHandler` | `@ConditionalOnMissingBean` | 登入失敗處理器 |
+| `logoutSuccessHandler` | `LogoutSuccessHandler` | `@ConditionalOnMissingBean` | 登出成功處理器 |
+
+**JWT 專屬 Bean（僅 `@ConditionalOnProperty(security.jwt.enabled=true)` 時建立）：**
+
+> 下列 Bean 僅在 `security.jwt.enabled=true` 時生效（與 verification-type 正交），且皆標註 `@ConditionalOnMissingBean`，業務專案可覆寫。
+
+| Bean 名稱 | 型別 | 條件 | 說明 |
+|---|---|---|---|
+| `jwtSecurityFilterChain` | `SecurityFilterChain` | `@ConditionalOnProperty(jwt.enabled)` | JWT 無狀態過濾鏈：授權規則以 `dispatcherTypeMatchers(FORWARD, ERROR).permitAll()` 起手，停用 CSRF、`STATELESS` session、401 entry point，並於 `UsernamePasswordAuthenticationFilter` 前插入 `JwtAuthenticationFilter`。**先於預設 `filterChain` 註冊，使其 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓** |
+| `jwtTokenProvider` | `JwtTokenProvider` | `@ConditionalOnProperty(jwt.enabled)` + missing | token 簽發 / 驗證核心，由 Spring 觸發 `@PostConstruct init()` |
+| `jwtAuthenticationFilter` | `JwtAuthenticationFilter` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以具體型別注入 `BasicUserServiceImpl` 作為查權限的 `UserDetailsService`（預設；LDAP/CUSTOM + JWT 須覆寫），避免多個 `UserDetailsService` Bean 歧義 |
+| `jwtAuthenticationManager` | `AuthenticationManager` | `@ConditionalOnProperty(jwt.enabled)` + missing | 以 `resolveAuthenticationProvider(...)` 依 `verification-type` 取得 provider 後組成 `ProviderManager`，登入驗帳密因此與表單登入一致（BASIC/LDAP/CUSTOM） |
+| `jwtLoginController` | `JwtLoginController` | `@ConditionalOnProperty(jwt.enabled)` + missing | 內建登入端點 |
+
+> JWT 啟用時不套用 `basicLoginConfigure` / `customLoginConfigure` 與三個登入 Handler；登入改走 `JwtLoginController`（仍依 verification-type 驗帳密），並以 `JwtAuthenticationFilter` 取代表單登入流程。
 
 ---
 
@@ -6314,7 +7601,7 @@ logon-spring-boot-starter/
 | `allow-uris` | String | 無 | 逗號分隔的免驗證路徑，如 `/static/**,/public/**` |
 | `login-uri` | String | 無 | 自訂登入頁路徑；設定此值則採用 `customLoginConfigure` |
 | `login-success-uri` | String | `/` | 登入成功後的導向路徑 |
-| `login-failure-uri` | String | `/error` | 登入失敗後的轉送路徑（伺服器端 forward，非 redirect） |
+| `login-failure-uri` | String | `/error` | 登入失敗後的導向路徑（redirect，非 forward；搭配預設登入頁設 `/login`，勿用 `/login?error`，見注意 7） |
 | `custom-bean-name` | String | 無 | `verification-type=custom` 時必填，指定 AuthenticationProvider Bean 名稱 |
 | `csrf-enabled` | Boolean | `true` | CSRF 保護開關 |
 | `ldap` | LdapPropertyConfig | 巢狀物件 | LDAP 子設定群組 |
@@ -6371,7 +7658,7 @@ logon-spring-boot-starter/
 
 **LoginFailureHandler（繼承 `SimpleUrlAuthenticationFailureHandler`）：**
 
-- `useForward=true`：登入失敗採用**伺服器端 forward**（非 redirect），瀏覽器 URL 不改變
+- `useForward=false`：登入失敗採用 **redirect**（而非 forward）導向 `login-failure-uri`。**不可使用 forward**——Spring Security 6/7 會對 `FORWARD` 派發套用 filter chain，若 `login-failure-uri` 與表單登入處理路徑（預設 `/login`）相同，forward 會把失敗的 `POST /login` 再次送進認證 filter，重新驗證、再失敗、再 forward……無限轉發直至 `StackOverflowError`（詳見[維護注意事項](#7-維護注意事項與常見陷阱)）。redirect 以 GET 重新請求失敗頁，不再進入認證 filter，對任何 `login-failure-uri` 皆安全
 - 依 `AuthenticationException` 子型別輸出對應 warn 日誌：`UsernameNotFoundException` / `DisabledException` / `BadCredentialsException` / `LdapException` / 其他
 - `record-log-enable=true` 時呼叫 `customLogonLogRecord.recordFailureLog(loginId)`
 
@@ -6426,9 +7713,11 @@ logon-spring-boot-starter/
 
 | 值 | 說明 |
 |---|---|
-| `BASIC` | 使用 `BasicUserServiceImpl`（DaoAuthenticationProvider + BCrypt，hardcoded stub） |
+| `BASIC` | 使用 `BasicUserServiceImpl`（DaoAuthenticationProvider + 委派式編碼器）；帳號來自 `security.basic.users`，未設定時 fallback 回 `admin/admin` |
 | `LDAP` | 使用 `LdapUserDetailsService`（JNDI 連線 AD/LDAP） |
 | `CUSTOM` | 使用 `security.custom-bean-name` 指定的 `AuthenticationProvider` Bean |
+
+> JWT 並非此列舉的值，而是與 verification-type 正交的 `security.jwt.enabled` 開關；啟用後登入仍依上述 verification-type 驗帳密。
 
 **UserEnum（`enums` 套件）：**
 
@@ -6481,7 +7770,7 @@ sequenceDiagram
     else 認證失敗
         AM->>SH: onAuthenticationFailure()
         SH->>LR: recordFailureLog(userId)（若 recordLogEnable=true）
-        SH->>B: forward to loginFailureUri（伺服器端轉送）
+        SH->>B: redirect to loginFailureUri（302，瀏覽器以 GET 重新請求）
     end
 ```
 
@@ -6554,11 +7843,11 @@ com.zipe.autoconfiguration.SecurityConfiguration
 
 ### 5.2 條件註解分析
 
-`SecurityConfiguration` **未宣告任何 `@ConditionalOnXxx` 條件**，這代表：
+`SecurityConfiguration` **類別層級未宣告任何 `@ConditionalOnXxx` 條件**，但**每個 `@Bean` 方法皆標註 `@ConditionalOnMissingBean`**，這代表：
 
 - 只要引入此 Starter，Security 配置**無條件生效**
 - 引用方若要停用，唯一途徑是在 `spring.autoconfigure.exclude` 中排除，或設定 `security.enable=false`（全路徑放行，但 Bean 仍建立）
-- 引用方**不得自行定義 `SecurityFilterChain` Bean**，否則 Spring Context 啟動失敗（除非另行排除本模組）
+- 引用方**可自行定義 `SecurityFilterChain` Bean 整鏈覆寫**：因 `filterChain` 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，業務專案宣告自己的過濾鏈時，模組預設的 `filterChain` 自動退讓，不會衝突
 
 ### 5.3 屬性綁定機制
 
@@ -6575,15 +7864,34 @@ IDE 自動補全由 `spring-boot-configuration-processor`（optional 依賴）�
 
 ### 5.4 Bean 覆寫機制
 
-模組 `application.yml` 啟用：
+模組所有 `@Bean` 方法（含 `filterChain`）均標註 `@ConditionalOnMissingBean`，**以「容器中尚未存在同型別 Bean 時才建立預設實作」的方式達成覆寫**：
 
-```yaml
-spring:
-  main:
-    allow-bean-definition-overriding: true
+```java
+@Bean
+@ConditionalOnMissingBean
+public PasswordEncoder passwordEncoder() {
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+}
+
+@Bean
+@ConditionalOnMissingBean(SecurityFilterChain.class)
+public SecurityFilterChain filterChain(HttpSecurity http, /* ... 注入的 Bean ... */) {
+    ...
+}
 ```
 
-此設定允許業務專案以**相同 Bean 名稱**宣告自己的實作，覆蓋模組預設的 Bean（例如覆寫 `basicUserServiceImpl` 提供真實資料庫查詢，或覆寫 `loginSuccessHandler` 改為回傳 JSON）。
+業務專案只要宣告**同型別**（或同名）Bean，即可覆寫模組預設實作；當該型別已存在時，模組對應的預設 `@Bean` 方法自動跳過。例如覆寫 `passwordEncoder` 改用其他演算法、覆寫 `basicUserServiceImpl` 提供真實資料庫查詢，或覆寫 `loginSuccessHandler` 改為回傳 JSON。進階使用者甚至可宣告自己的 `SecurityFilterChain` Bean 整鏈接管安全設定。
+
+**此機制不再依賴 `spring.main.allow-bean-definition-overriding`。** 模組 `application.yml` 雖仍保留該設定以維持向後相容，但覆寫能力的正確性已由 `@ConditionalOnMissingBean` 保證，並非靠 bean 定義覆寫。
+
+#### 覆寫如何正確傳遞（proxyBeanMethods=false 的關鍵）
+
+`@AutoConfiguration` 等同 `@Configuration(proxyBeanMethods = false)`，因此在 `@Bean` 方法內以 `this.passwordEncoder()` 直接呼叫**不會回傳容器 Bean，而是每次 new 一個新實例**，使用者覆寫無法傳遞。為此，模組將相依改為**方法參數注入**：
+
+- `basicUserServiceImpl(PasswordEncoder passwordEncoder)`、`ldapUserDetailsService(PasswordEncoder passwordEncoder)` 透過參數取得容器中的 `PasswordEncoder`（含使用者覆寫版）。
+- `filterChain(...)` 將 `LoginSuccessHandler` / `LoginFailureHandler` / `LogoutSuccessHandler` / `SessionRegistry` / `BasicUserServiceImpl` / `LdapUserDetailsService` / `PasswordEncoder` 全部以參數注入，再傳遞給私有的 `basicLoginConfigure()` / `customLoginConfigure()` / `authenticationProvider()`，避免內部再次 `this.xxx()` 取得新實例。
+
+如此一來，使用者覆寫任一 Bean（例如 `passwordEncoder`）後，BASIC 模式的 `DaoAuthenticationProvider` 與各 UserDetailsService 都會使用到覆寫後的版本。
 
 ---
 
@@ -6649,36 +7957,40 @@ public class OtpUserDetailsService extends CommonLoginProcess {
 ```java
 // 檔案：autoconfiguration/SecurityConfiguration.java
 
-// 1. 新增 Bean 方法
+// 1. 新增 Bean 方法（密碼編碼器以方法參數注入容器 Bean，並標註 @ConditionalOnMissingBean）
 @Bean
-public OtpUserDetailsService otpUserDetailsService() {
-    OtpVerificationClient otpClient = applicationContext.getBean(OtpVerificationClient.class);
-    return new OtpUserDetailsService(this.passwordEncoder(), otpClient);
+@ConditionalOnMissingBean
+public OtpUserDetailsService otpUserDetailsService(PasswordEncoder passwordEncoder,
+                                                   OtpVerificationClient otpClient) {
+    return new OtpUserDetailsService(passwordEncoder, otpClient);
 }
 
-// 2. 在 authenticationProvider() 的 switch 新增 case
-private void authenticationProvider(HttpSecurity http) throws Exception {
-    switch (Objects.requireNonNull(
-            VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType()))) {
-        case LDAP:
-            http.authenticationProvider(ldapUserDetailsService());
-            break;
-        case OTP:
-            http.authenticationProvider(otpUserDetailsService());  // 新增
-            break;
-        case CUSTOM:
-            String beanName = securityPropertyConfig.getCustomBeanName();
-            if (beanName == null) throw new IllegalArgumentException(
-                    "verification-type=otp 時必須設定 custom-bean-name");
-            http.authenticationProvider(
-                    applicationContext.getBean(beanName, AuthenticationProvider.class));
-            break;
-        default:  // BASIC
-            DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-            provider.setUserDetailsService(basicUserServiceImpl());
-            provider.setPasswordEncoder(passwordEncoder());
-            http.authenticationProvider(provider);
+// 2. 在 resolveAuthenticationProvider() 的判斷新增 OTP 分支，回傳對應 provider
+//    （otpUserDetailsService 一併以 filterChain → authenticationProvider →
+//      resolveAuthenticationProvider 的方法參數傳入）。
+//    authenticationProvider() 不需改動——它一律把回傳的 provider 包成
+//    new ProviderManager(provider) 並以 http.authenticationManager(...) 明確指定，
+//    表單登入與 HTTP Basic 因此共用同一 provider。
+private AuthenticationProvider resolveAuthenticationProvider(BasicUserServiceImpl basicUserService,
+                                                             LdapUserDetailsService ldapUserService,
+                                                             PasswordEncoder passwordEncoder,
+                                                             OtpUserDetailsService otpUserService) {
+    VerificationTypeEnum type = VerificationTypeEnum.getEnum(securityPropertyConfig.getVerificationType());
+    if (type == VerificationTypeEnum.LDAP) {
+        return ldapUserService;
     }
+    if (type == VerificationTypeEnum.OTP) {   // 新增
+        return otpUserService;
+    }
+    if (type == VerificationTypeEnum.CUSTOM) {
+        String beanName = securityPropertyConfig.getCustomBeanName();
+        if (beanName == null) throw new IllegalArgumentException(
+                "verification-type=custom 時必須設定 custom-bean-name");
+        return (AuthenticationProvider) ApplicationContextHelper.getBean(beanName);
+    }
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+    provider.setPasswordEncoder(passwordEncoder);
+    return provider;
 }
 ```
 
@@ -6803,7 +8115,7 @@ security:
 
 ### 6.4 範例四：覆寫 LoginSuccessHandler 回傳 JSON（前後端分離）
 
-因 `allow-bean-definition-overriding: true`，業務專案宣告同名 Bean 即可覆寫：
+因 `loginSuccessHandler` 標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫（無需 `spring.main.allow-bean-definition-overriding`）：
 
 ```java
 // 業務專案：config/SecurityBeanConfig.java
@@ -6863,32 +8175,22 @@ logRecord.recordLogoutSuccessLog(UserInfoUtil.loginUserId());
 
 ---
 
-#### Bug 2：SecurityBaseService 使用 javax.servlet（Spring Boot 3.x 不相容）
+#### Bug 2（已解決）：servlet 命名空間統一為 jakarta
 
-`SecurityBaseService.java` 第 8 行：
-
-```java
-import javax.servlet.http.HttpSession;  // 錯誤，Spring Boot 3.x 已遷移至 jakarta.*
-```
-
-其他 Handler 類別已正確使用 `jakarta.servlet`，此處不一致導致在 Spring Boot 3.x 環境**無法編譯**。
-
-**修復方式：**
-
-```java
-import jakarta.servlet.http.HttpSession;  // 正確
-```
+`SecurityBaseService` 與所有 Handler 類別均使用 `jakarta.servlet.*`，相容 Spring Boot 4 /
+Jakarta EE 11，無命名空間不一致問題。
 
 ---
 
 ### 設計注意事項
 
-#### 注意 1：BasicUserServiceImpl 為 Hardcoded Stub，不適用生產環境
+#### 注意 1：BASIC 模式的帳號來源與 fallback
 
-BASIC 模式下，`BasicUserServiceImpl` 只允許帳號 `admin`，密碼硬編碼為 `admin`。**生產環境必須**：
+BASIC 模式下，`BasicUserServiceImpl` 優先讀取 `security.basic.users`（可設定多組帳密與權限，密碼支援明文與 `{bcrypt}` 預雜湊）。**未設定 `users` 時 fallback 回 hardcoded 的 `admin/admin`**，僅適合開發測試。**生產環境**請擇一：
 
-- 改用 CUSTOM 模式，提供真實資料庫查詢的 `AuthenticationProvider`，或
-- 以同名 Bean `basicUserServiceImpl` 覆寫，提供正確的 `UserDetailsService` 實作
+- 以 `security.basic.users` 設定真實帳密（密碼填 `{bcrypt}` 預雜湊，勿在設定檔寫死明文），或
+- 以同名 Bean `basicUserServiceImpl` 覆寫，提供從資料庫等外部來源查詢的 `UserDetailsService`，或
+- 改用 CUSTOM 模式，提供真實資料庫查詢的 `AuthenticationProvider`
 
 #### 注意 2：customLoginConfigure 的 STATELESS 與 Session 並行控制語義衝突
 
@@ -6924,6 +8226,40 @@ throw new IllegalArgumentException(
 
 無論 `verification-type` 為何，`ldapUserDetailsService` Bean 都會被建立。若未設定 LDAP 相關屬性（`ip` / `port` / `dn` 為空），建立 Bean 時不報錯，但實際驗證請求到來時 `LdapUtil` 建構子會因無法連線而拋出 `CommunicationException`。效能影響極小，但需留意啟動期無 LDAP 設定警告。
 
+#### 注意 6：授權規則須放行 FORWARD / ERROR 派發（否則錯誤頁／JSP render 會卡死）
+
+Spring Security 6/7 的 `authorizeHttpRequests` 預設**對所有 dispatcher type 套用授權**（不再只過濾最初的 `REQUEST`），包含 `FORWARD`（JSP / view render 的內部 forward）與 `ERROR`（容器錯誤頁派發）。若授權規則未放行這兩種派發，會出現：
+
+- 任何 `@PreAuthorize` 或 URL 授權拒絕 → 容器 `ERROR` 派發至 `/error` → Security 又攔截 `/error`（此時 SecurityContext 為 anonymous）→ `/error` 不在 `allow-uris` → 判定需登入 → 再觸發錯誤派發…**錯誤頁與授權互相觸發、forward 一層層巢狀疊上**，最終 `getSession` 沿 request wrapper 鏈無限遞迴拋出 `StackOverflowError`。
+
+因此 `basicLoginConfigure` / `customLoginConfigure` / `jwtSecurityFilterChain` 的授權規則皆以下列起手：
+
+```java
+.authorizeHttpRequests(auth -> auth
+    .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
+    .requestMatchers(switchSecurity()).permitAll()
+    .anyRequest().authenticated())
+```
+
+放行 `FORWARD` 使 JSP / Thymeleaf 的內部 forward 不被重複授權；放行 `ERROR` 使 `/error` 錯誤頁能正常 render，避免上述遞迴。此放行僅針對「容器內部派發」，不影響外部請求（`REQUEST`）的授權判斷，安全性不受影響。
+
+#### 注意 7：登入失敗一律用 redirect，不可 forward 回 `/login` 處理路徑
+
+承注意 6 的同一根因（Spring Security 6/7 過濾 `FORWARD` 派發）：`LoginFailureHandler` 一旦以 `setUseForward(true)` 把失敗的 `POST /login` **forward** 回 `login-failure-uri`，而該 URI 又等於表單登入處理路徑（預設 `/login`）時，forward 的目標路徑仍是 `/login`（查詢字串不影響路徑比對），於是再次進入 `UsernamePasswordAuthenticationFilter` → 再次驗證失敗 → 再 forward……無限轉發直至 `StackOverflowError`。
+
+因此 `LoginFailureHandler` 固定使用 `setUseForward(false)`（redirect）：
+
+```java
+setDefaultFailureUrl(securityPropertyConfig.getLoginFailureUri());
+setUseForward(false);  // 不可改為 true，否則 failure-uri 撞 /login 時無限轉發
+```
+
+失敗以 302 redirect 導向 `login-failure-uri`，瀏覽器改以 GET 重新請求，不再進入認證 filter。
+
+> **失敗頁建議設為 `/login`（而非 `/login?error`）**：本模組以自訂 `LoginFailureHandler` 取代 formLogin 內建的失敗 URL，因此 `DefaultLoginPageGeneratingFilter` 只會產生 `/login`、**不認得 `/login?error`**。若把 `login-failure-uri` 設為 `/login?error`，該路徑不會被產生器 render——未放行時被導回 `/login`，一旦放行（如加進 `allow-uris`）則直接落到 DispatcherServlet 靜態資源處理器拋 `NoResourceFoundException`（404）。需要在失敗頁顯示錯誤訊息時，請改提供**自訂登入頁**（設定 `security.login-uri` 指向自家頁面，於該頁讀取錯誤狀態），而非依賴預設產生器的 `?error`。
+
+> 此陷阱與[注意 1（logout-uri 不可與 /login 相同）](#7-維護注意事項與常見陷阱)同屬「URL 與登入處理路徑碰撞」家族：登入成功（`LoginSuccessHandler` 用 redirect）、登出（`logout-uri` 預設 `/logout`）、登入失敗（redirect）三者都須避免與 `POST /login` 處理路徑相撞。
+
 ### 執行緒安全摘要
 
 | 元件 | 安全性 | 說明 |
@@ -6935,7 +8271,7 @@ throw new IllegalArgumentException(
 
 ### 依賴版本一致性
 
-- 模組依賴 `base-spring-boot-starter:3.5.14.0`（`LdapUtil` 來源），兩者版本需同步更新
+- 模組依賴 `base-spring-boot-starter:4.0.0.1`（`LdapUtil` 來源），兩者版本需同步更新
 - `spring-security-test` 為 test scope，不傳遞至引用方
 - `spring-boot-configuration-processor` 為 optional，不傳遞至引用方
 
@@ -6955,16 +8291,49 @@ throw new IllegalArgumentException(
 | 屬性鍵 | 型別 | 預設值 | 說明 |
 |---|---|---|---|
 | `security.enable` | Boolean | `true` | 安全控制總開關；設為 `false` 時全部路徑免驗證放行（會輸出 WARN 日誌，請勿用於正式環境） |
-| `security.verification-type` | String | `basic` | 驗證模式：`basic` / `ldap` / `custom`（大小寫不敏感） |
+| `security.verification-type` | String | `basic` | 憑證來源（怎麼驗帳密）：`basic` / `ldap` / `custom`（大小寫不敏感）。與 `security.jwt.enabled`（登入後狀態策略）正交 |
 | `security.login-uri` | String | 無 | 自訂登入頁路徑；設定此值時採用 `customLoginConfigure`（STATELESS Session）；若留空則使用 Spring Security 預設登入頁（Stateful Session） |
 | `security.login-success-uri` | String | `/` | 登入成功後的導向路徑 |
-| `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用伺服器端 forward，瀏覽器 URL 不改變） |
+| `security.login-failure-uri` | String | `/error` | 登入失敗後的目標路徑（採用 redirect）。搭配預設登入頁請設 `/login`（**勿用 `/login?error`**，自訂 failureHandler 下產生器不認得、會 404）；本模組已固定用 redirect 避免 forward 迴圈，詳見下方說明 |
+| `security.logout-uri` | String | `/logout` | 觸發登出的路徑。**切勿設為 `/login`**（與表單登入處理路徑相同），否則 LogoutFilter 會搶先攔截登入請求、使表單登入失效 |
 | `security.allow-uris` | String | 無 | 免驗證放行的路徑，逗號分隔，支援 Ant 樣式，如 `/static/**,/public/**` |
 | `security.csrf-enabled` | Boolean | `true` | CSRF 保護開關；傳統表單應維持 `true`，純 REST API 視情況可設為 `false` |
 | `security.frame-options-mode` | Enum | `SAMEORIGIN` | X-Frame-Options（點擊劫持防護）模式：`SAMEORIGIN`（僅同源可內嵌）/ `DENY`（禁止內嵌）/ `DISABLE`（停用，不建議） |
 | `security.record-log-enable` | Boolean | `false` | 是否啟用登入稽核回呼；設為 `true` 時必須同時設定 `custom-record-log-bean` |
 | `security.custom-record-log-bean` | String | 無 | `record-log-enable=true` 時必填；業務端 `CustomLogonLogRecord` Bean 的名稱 |
 | `security.custom-bean-name` | String | 無 | `verification-type=custom` 時必填；業務端 `AuthenticationProvider` Bean 的名稱 |
+
+## BASIC 使用者子屬性（`security.basic.*`）
+
+僅在 `security.verification-type: basic` 時生效。設定 `security.basic.users` 後，BASIC 模式的使用者來源改為此清單；**未設定時 fallback 回內建的 `admin/admin`**（開發測試用，向後相容）。對應 `BasicUserPropertyConfig` / `BasicUser`。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.basic.users` | List | 空清單 | 可登入的使用者清單；為空時 fallback 回內建 `admin/admin` |
+| `security.basic.users[i].username` | String | 無 | 登入帳號 |
+| `security.basic.users[i].password` | String | 無 | 登入密碼。支援**明文**（載入時自動以 `PasswordEncoder` 編碼）與**帶 `{id}` 前綴的預雜湊值**（如 `{bcrypt}$2a$...`，原值採用、依前綴比對） |
+| `security.basic.users[i].authorities` | List&lt;String&gt; | 空清單 | 權限清單，每個字串直接轉為 `SimpleGrantedAuthority`，**不自動加 `ROLE_` 前綴**（要當角色請自行寫 `ROLE_xxx`） |
+
+:::note 引入 iam-starter 時此設定不生效
+引入 `iam-spring-boot-starter` 後，`IamUserDetailsService` 會接管 BASIC 模式的帳號查詢、改查 `iam_account` 資料表，`security.basic.users` 不再被使用。此設定適用於**未引入 iam、純 logon BASIC** 的情境。
+:::
+
+## JWT 子屬性（`security.jwt.*`）
+
+設定 `security.jwt.enabled: true` 時生效，與 `verification-type` 正交（可疊加於 basic / ldap / custom 任一憑證來源）。對應 `JwtProperties`。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.jwt.enabled` | Boolean | `false` | 是否啟用 JWT 無狀態登入；`true` 時以 JWT filter chain 取代表單登入與 session，登入仍依 `verification-type` 驗帳密 |
+| `security.jwt.algorithm` | String | `HS256` | 簽章演算法：`HS256`（對稱）或 `RS256`（非對稱） |
+| `security.jwt.secret` | String | 無 | HS256 對稱密鑰，長度至少 32 位元組；`algorithm=HS256` 時必填（建議以環境變數注入） |
+| `security.jwt.private-key-location` | String | 無 | RS256 私鑰位置（PEM，簽 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
+| `security.jwt.public-key-location` | String | 無 | RS256 公鑰位置（PEM，驗 token 用），支援 `classpath:` / `file:`；`algorithm=RS256` 時必填 |
+| `security.jwt.expiration-seconds` | long | `3600` | access token 有效秒數，預設 3600（1 小時） |
+| `security.jwt.login-uri` | String | `/api/login` | 內建登入端點路徑 |
+| `security.jwt.header` | String | `Authorization` | 讀取 token 的 HTTP 標頭名稱 |
+| `security.jwt.token-prefix` | String | `Bearer ` | token 前綴（注意尾端含一個空格） |
+| `security.jwt.issuer` | String | 無 | 選填，寫入 token 的 `iss` claim |
 
 ## LDAP 子屬性（`security.ldap.*`）
 
@@ -6979,9 +8348,9 @@ throw new IllegalArgumentException(
 
 ## 完整 application.yml 範例
 
-### BASIC 模式（開發測試用）
+### BASIC 模式（內建 admin/admin，開發測試用）
 
-帳號固定為 `admin`，密碼固定為 `admin`，僅適合快速驗證功能。
+未設定 `security.basic.users` 時，帳號密碼 fallback 為內建的 `admin`／`admin`，僅適合快速驗證功能。
 
 ```yaml
 security:
@@ -6993,6 +8362,29 @@ security:
   allow-uris: /static/**,/public/**,/resources/**
   csrf-enabled: false
 ```
+
+### BASIC 模式（自訂帳密）
+
+設定 `security.basic.users` 後，由清單載入帳號，取代內建的 `admin/admin`。密碼可填明文或帶 `{id}` 前綴的預雜湊值：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /static/**,/public/**,/resources/**
+  basic:
+    users:
+      - username: user01
+        password: 1234                      # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [admin, viewer]
+      - username: user02
+        password: '{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'  # 預雜湊
+        authorities: [viewer]
+```
+
+:::tip 正式環境請勿在設定檔寫死明文密碼
+建議改填 `{bcrypt}` 前綴的預雜湊值（可用 Spring 的 `PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("...")` 產生），或覆寫 `basicUserServiceImpl` Bean 改由資料庫等外部來源載入。
+:::
 
 ### LDAP 模式
 
@@ -7025,6 +8417,51 @@ security:
   allow-uris: /static/**,/public/**,/resources/**
   csrf-enabled: false
 ```
+
+### JWT 無狀態登入（疊加於任一憑證來源）
+
+JWT 與 `verification-type` 正交：`verification-type` 決定怎麼驗帳密，`jwt.enabled: true` 決定驗完改發 token。以下示範 BASIC + JWT（HS256）：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic       # 憑證來源：basic / ldap / custom 皆可
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
+    algorithm: HS256
+    secret: 0123456789-0123456789-0123456789-secret  # 至少 32 位元組，請以環境變數注入
+    expiration-seconds: 3600
+    login-uri: /api/login
+```
+
+LDAP + JWT（RS256）—— 登入走 LDAP 驗證，驗成功後發 RS256 token：
+
+```yaml
+security:
+  enable: true
+  verification-type: ldap        # 登入以 LDAP 驗帳密
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true
+    algorithm: RS256
+    private-key-location: classpath:keys/jwt-private.pem
+    public-key-location: classpath:keys/jwt-public.pem
+    expiration-seconds: 3600
+  ldap:
+    ip: 192.168.1.100
+    domain: corp.example.com
+    port: 389
+    dn: DC=corp,DC=example,DC=com
+```
+
+:::note JWT 啟用時不使用表單登入與 session
+`security.jwt.enabled=true` 時模組改用無狀態 filter chain（`SessionCreationPolicy.STATELESS`、停用 CSRF），不套用 `login-uri` 表單登入頁與三個登入 Handler。登入改走內建 `POST /api/login`（路徑由 `security.jwt.login-uri` 設定），帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM；未通過驗證的請求回傳 401。
+:::
+
+:::warning LDAP / CUSTOM + JWT 的權限查詢
+JWT 每次請求以 token 內的 username 透過 `UserDetailsService` 查權限。`LdapUserDetailsService` 與一般 CUSTOM `AuthenticationProvider` 需要密碼、無法僅以 username 查詢，因此 `verification-type=ldap|custom` 搭配 JWT 時，請覆寫 `basicUserServiceImpl` Bean，提供可依 username 載入權限的 `UserDetailsService`，否則一般使用者帶 token 的請求會因查無使用者而被拒（登入本身仍正常）。
+:::
 
 ### 含稽核日誌的完整範例
 
@@ -7069,12 +8506,16 @@ security:
 採用 `customLoginConfigure()` 時 Session 策略為 `STATELESS`，Spring Security 不主動建立 `HttpSession`。若業務邏輯依賴 Session 儲存資料（例如透過 `SecurityBaseService.fetchLoginUser()` 取回 `SysUserVO`），需確保應用層面有另行管理 Session，或改用 `basicLoginConfigure()`（不填 `login-uri`）。
 :::
 
-### security.login-failure-uri 的 forward 行為
+### security.login-failure-uri 的 redirect 行為
 
-`LoginFailureHandler` 設定 `useForward=true`，登入失敗後採**伺服器端 forward** 至 `login-failure-uri`，而非客戶端 redirect。這代表：
+`LoginFailureHandler` 設定 `useForward=false`，登入失敗後採**客戶端 redirect**（302）導向 `login-failure-uri`。這代表：
 
-- 瀏覽器 URL 不會改變（仍顯示登入表單送出的 URL）
-- 可在 `login-failure-uri` 對應的 Controller / View 中存取 `AuthenticationException`，用來顯示錯誤訊息
+- 瀏覽器以 GET 重新請求失敗頁，URL 會變更為 `login-failure-uri`
+- 搭配 Spring Security 預設登入頁時，`login-failure-uri` 請設為 `/login`（即登入頁本身）。**不要設 `/login?error`**：本模組以自訂 `LoginFailureHandler` 取代 formLogin 內建失敗 URL，`DefaultLoginPageGeneratingFilter` 只認得 `/login`、不認得 `/login?error`，後者不會被 render（未放行→被導回 `/login`；放行→落到靜態資源處理器拋 404）。需要在失敗頁顯示錯誤訊息，請改用**自訂登入頁**（`security.login-uri`）
+
+:::danger 不可使用 forward 回 `/login`
+請勿改回 `setUseForward(true)`：Spring Security 6/7 會對 `FORWARD` 派發套用 filter chain，若 `login-failure-uri` 與表單登入處理路徑（預設 `/login`）相同，forward 會把失敗的 `POST /login` 再次送進認證 filter，無限轉發直至 `StackOverflowError`。詳見 [architecture.md 注意 7](./architecture.md)。
+:::
 
 ### ADMIN 帳號動態密碼
 
@@ -7086,14 +8527,18 @@ security:
 設定 `verification-type: custom` 時，**必須同時設定 `custom-bean-name`**，否則 Spring Context 啟動時會因 `NullPointerException` 而失敗，應用無法啟動。
 :::
 
+:::warning JWT HS256 金鑰長度
+`algorithm=HS256` 時 `security.jwt.secret` 長度**至少需 32 位元組（256 bit）**，否則 jjwt 會在 `JwtTokenProvider.init()` 啟動階段拋出例外。RS256 模式則需同時提供 `private-key-location` 與 `public-key-location`，缺一即啟動失敗。
+:::
+
 :::note 密碼編碼
-模組內建 `BCryptPasswordEncoder`（Bean 名稱 `passwordEncoder`），BASIC 模式的密碼比對使用 BCrypt。CUSTOM 模式的業務 `AuthenticationProvider` 可直接注入此 Bean 進行密碼比對：
+模組內建 `passwordEncoder` Bean，採 `PasswordEncoderFactories.createDelegatingPasswordEncoder()`（委派式編碼器）：依密碼的 `{id}` 前綴（如 `{bcrypt}`）選擇對應演算法比對，並以 BCrypt 編碼新密碼，對既有的 BCrypt 雜湊完全相容。如此 `security.basic.users` 可同時接受明文與帶前綴的預雜湊密碼。CUSTOM 模式的業務 `AuthenticationProvider` 可直接注入此 Bean 進行密碼比對：
 
 ```java
 @Autowired
 private PasswordEncoder passwordEncoder;
 
-// 比對使用者輸入密碼與資料庫儲存的 BCrypt hash
+// 比對使用者輸入密碼與儲存的雜湊（儲存值建議帶 {bcrypt} 前綴）
 boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
 ```
 :::
@@ -7190,6 +8635,36 @@ public class SecuredController {
 ---
 
 ## 進階使用範例
+
+### BASIC 模式：以 `security.basic.users` 自訂帳密
+
+不引入 iam、僅用 logon 的 BASIC 模式時，可由設定檔自訂多組帳密與權限，取代內建的 `admin/admin`。密碼支援明文（啟動時自動編碼）與帶 `{id}` 前綴的預雜湊值（如 `{bcrypt}`）：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /static/**,/public/**
+  basic:
+    users:
+      - username: user01
+        password: 1234            # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [admin, viewer]
+      - username: user02
+        password: '{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'  # 預雜湊（明文為 password）
+        authorities: [viewer]
+```
+
+要點：
+
+- `authorities` 內字串直接成為 `SimpleGrantedAuthority`，**不自動加 `ROLE_` 前綴**；搭配 `@PreAuthorize("hasRole('admin')")` 等需要角色時，請自行寫成 `ROLE_admin`。
+- 未設定 `security.basic.users` 時 fallback 回內建 `admin/admin`（向後相容）。
+- 密碼比對由委派式 `passwordEncoder`（`DelegatingPasswordEncoder`）依 `{id}` 前綴處理，故明文與 `{bcrypt}` 可混用。
+- 產生 `{bcrypt}` 預雜湊值：`PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("password")`。
+
+:::note 引入 iam-starter 時此設定不生效
+引入 `iam-spring-boot-starter` 後，`IamUserDetailsService` 會接管 BASIC 模式帳號查詢、改查 `iam_account`，`security.basic.users` 不再被使用。
+:::
 
 ### 範例四：CUSTOM 模式——業務資料庫帳號驗證
 
@@ -7318,7 +8793,7 @@ security:
 
 ### 範例六：覆寫 LoginSuccessHandler 回傳 JSON（前後端分離）
 
-因模組 `application.yml` 啟用 `spring.main.allow-bean-definition-overriding: true`，業務專案宣告同名 Bean 即可覆寫預設 Handler 行為。
+模組的 `loginSuccessHandler` Bean 標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫預設 Handler 行為（無需 `spring.main.allow-bean-definition-overriding`）。
 
 ```java
 // 業務專案：config/SecurityBeanConfig.java
@@ -7379,6 +8854,144 @@ security:
 ```
 
 LDAP 驗證流程中，`LdapUserDetailsService` 會以 `sAMAccountName` 搜尋使用者並驗證密碼。驗證成功後回傳帳號（不含網域部分）作為 `Authentication.getName()`。
+
+---
+
+### 範例八：JWT 無狀態登入——取得 token 並存取受保護資源
+
+**application.yml（業務專案）：** JWT 與 `verification-type` 正交，以下示範 BASIC + JWT。
+
+```yaml
+security:
+  verification-type: basic       # 憑證來源：basic / ldap / custom
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600
+    login-uri: /api/login
+```
+
+**Step 1：登入取得 token**
+
+```bash
+curl -X POST http://localhost:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
+```
+
+回應：
+
+```json
+{ "token": "eyJhbGciOiJIUzI1NiJ9...", "tokenType": "Bearer" }
+```
+
+**Step 2：帶 token 存取受保護資源**
+
+```bash
+curl http://localhost:8080/whoami \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..."
+```
+
+未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
+
+:::warning JWT 開啟後「沒有表單登入頁」
+`jwt.enabled: true` 是純無狀態 API 模式：filter chain **不套用 `formLogin`**，因此沒有瀏覽器表單登入頁，未帶 token 的請求一律回 **401**（而非導向登入頁）；`login-uri` / `login-success-uri` / `login-failure-uri` 與三個登入 Handler 皆不生效。用瀏覽器直接開頁面、期待出現登入表單在此模式下不會發生——它是給前後端分離 / 行動 App / API 客戶端用的。若要「保留表單登入頁、又用 JWT 取代 session」，見下方的混合模式範例。
+:::
+
+:::note 登入驗證來源與權限查詢
+**登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
+
+**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（讀 `security.basic.users`，未設定時為 `admin/admin`）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
+:::
+
+### 範例九：覆寫 JWT 內建端點與查權限來源
+
+JWT 相關 Bean 皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫。
+
+**覆寫登入端點（自訂回應格式 / 路徑）：** 宣告自己的 `JwtLoginController`（沿用方法簽章 `login(JwtLoginRequest)` 回傳 `ResponseEntity<JwtLoginResponse>`），或直接宣告 `@RestController` 接管登入路徑。
+
+**覆寫查權限用的 UserDetailsService（LDAP/CUSTOM + JWT 必要）：** 登入驗證已由 `verification-type` 處理，通常只需提供可依 username 載入權限的 `UserDetailsService`（以 `basicUserServiceImpl` 型別覆寫）。若還想完全接管登入驗證，再額外覆寫 `AuthenticationManager`：
+
+```java
+// 業務專案：config/JwtBeanConfig.java
+import com.zipe.service.BasicUserServiceImpl;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class JwtBeanConfig {
+
+    /** 覆寫查權限用的 UserDetailsService（JWT filter 以 BasicUserServiceImpl 型別注入）。 */
+    @Bean
+    public BasicUserServiceImpl basicUserServiceImpl(PasswordEncoder passwordEncoder) {
+        return new BasicUserServiceImpl(passwordEncoder) {
+            // 覆寫 loadUserByUsername 改查業務資料庫，並填入角色
+        };
+    }
+
+    /** 覆寫登入驗證用的 AuthenticationManager。 */
+    @Bean
+    public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl userService,
+                                                          PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
+    }
+}
+```
+
+:::warning JWT 模式的角色控制
+與其他模式相同，`@PreAuthorize` 需要 `UserDetails` 帶有正確的 `GrantedAuthority`。JWT 模式下權限來自查權限的 `UserDetailsService`，請在覆寫的 `loadUserByUsername()` 中填入角色清單。
+:::
+
+### 範例十：表單登入頁 + JWT cookie 混合模式
+
+內建 `jwt.enabled` 是純無狀態 API（無表單登入頁）。若要**保留瀏覽器表單登入頁、又以 JWT cookie 取代 server session**，不要開 `jwt.enabled`，改自宣告一條 `SecurityFilterChain`：表單登入成功後簽 token 寫 HttpOnly cookie，後續請求由自訂 filter 從 cookie 讀 token 驗證（STATELESS）。
+
+`starters_example` 提供可切換的完整示範（`example.hybrid-jwt.enabled=true` 啟用，預設關閉）：
+
+- `com.example.config.JwtCookieAuthenticationFilter`：從 cookie 讀 JWT、驗證後設定 `SecurityContext`（對應內建 `JwtAuthenticationFilter` 的 header 版）。
+- `com.example.config.JwtCookieSecurityConfig`：宣告混合 `SecurityFilterChain`——`formLogin` + 簽 token 寫 cookie 的 `successHandler` + 上述 cookie filter + 登出清 cookie，Session 為 `STATELESS`。
+
+關鍵骨架：
+
+```java
+@Bean
+public SecurityFilterChain hybridJwtFilterChain(HttpSecurity http,
+        BasicUserServiceImpl basicUserService, PasswordEncoder passwordEncoder,
+        JwtTokenProvider tokenProvider, JwtProperties jwtProperties) throws Exception {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+    provider.setPasswordEncoder(passwordEncoder);
+    var cookieFilter = new JwtCookieAuthenticationFilter(tokenProvider, basicUserService, "JWT_TOKEN");
+
+    http.authenticationManager(new ProviderManager(provider))
+        .authorizeHttpRequests(a -> a.anyRequest().authenticated())
+        .formLogin(form -> form.permitAll().successHandler((req, res, auth) -> {
+            String token = tokenProvider.generateToken(auth.getName());
+            Cookie cookie = new Cookie("JWT_TOKEN", token);
+            cookie.setHttpOnly(true);
+            cookie.setMaxAge((int) jwtProperties.getExpirationSeconds());
+            res.addCookie(cookie);
+            res.sendRedirect(req.getContextPath() + "/home");
+        }))
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .csrf(AbstractHttpConfigurer::disable)
+        .addFilterBefore(cookieFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+:::note `JwtTokenProvider` 的取得
+`jwt.enabled=false` 時 logon 不會建立 `JwtTokenProvider` Bean，混合設定需自行宣告
+（`new JwtTokenProvider(jwtProperties)`，由 Spring 觸發其 `@PostConstruct init()`）；`JwtProperties`
+由 logon 以 `@EnableConfigurationProperties` 註冊、恆存在，可直接注入。啟用混合模式時請保持
+`security.jwt.enabled=false`，否則會與 logon 內建的 `jwtSecurityFilterChain` 並存而衝突。
+:::
 
 ---
 
@@ -7485,22 +9098,24 @@ security:
 ## logon-spring-boot-starter
 
 
-`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組支援三種驗證類型：BASIC（內建 stub）、LDAP 目錄服務，以及 CUSTOM（業務自訂 `AuthenticationProvider`），透過 `security.verification-type` 屬性切換，無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
+`logon-spring-boot-starter` 整合 Spring Security，提供開箱即用的登入認證流程。模組以**兩個正交的軸**設定：**憑證來源**透過 `security.verification-type` 切換 BASIC（內建 stub）、LDAP 目錄服務、CUSTOM（業務自訂 `AuthenticationProvider`）三種；**登入後狀態策略**則透過 `security.jwt.enabled` 決定要走傳統 session 表單登入，或疊加 JWT 無狀態 token 登入。兩軸獨立，因此可組合出「LDAP 驗證 + JWT」「CUSTOM 驗證 + JWT」等情境，皆無需修改程式碼。內建登入成功／失敗與登出三種 Handler，並提供 `CustomLogonLogRecord` 介面供業務專案實作登入稽核日誌。
 
 ## 功能概述
 
-模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。
+模組以 `SecurityConfiguration`（`@AutoConfiguration`）為唯一入口，自動配置 Spring Security 過濾鏈、表單登入端點與三個生命週期 Handler。`CommonLoginProcess` 提供統一的 `AuthenticationProvider` 骨架（含 ADMIN 動態密碼機制），子類別覆寫 `verifyNormalUser()` 即可實作不同驗證邏輯。LDAP 模式由 `LdapUserDetailsService` 實作，透過 `base-spring-boot-starter` 提供的 `LdapUtil` 與 Active Directory / LDAP 互動；CUSTOM 模式由業務專案自行提供 Bean。設定 `security.jwt.enabled=true` 時，模組改用無狀態 filter chain：內建 `JwtLoginController` 委派 `AuthenticationManager`（**重用上述 verification-type 的 provider 選擇邏輯**）驗帳密後，由 `JwtTokenProvider` 簽發 token，`JwtAuthenticationFilter` 解析 `Authorization: Bearer` 並於每次請求查 `UserDetailsService` 取得權限；JWT 相關元件集中於 `com.zipe.jwt` 子套件，皆以 `@ConditionalOnMissingBean` 允許覆寫。
 
 ## 主要特性
 
-- **多種驗證類型**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）可切換。
+- **多種憑證來源**：`BASIC`（開發用 stub）、`LDAP`（企業 AD）、`CUSTOM`（業務資料庫或任意邏輯）可由 `security.verification-type` 切換。
 - **表單登入**：內建標準的 Spring Security 表單登入流程，支援自訂或預設登入頁。
+- **JWT 無狀態登入（正交疊加）**：設定 `security.jwt.enabled=true` 即在**任一** verification-type 之上改用 JWT；內建 `/api/login` REST 端點簽發 token，支援 HS256（對稱密鑰）與 RS256（公私鑰）並可由 `security.jwt.algorithm` 切換；token 僅存放 username，每次請求查 `UserDetailsService` 取得權限以支援即時撤銷。
 - **LDAP 整合**：自動補全網域、JNDI 連線 AD/LDAP，驗證後解析 `sAMAccountName`。
 - **ADMIN 動態密碼**：帳號 `admin` 以當日日期（`yyyyMMdd`）作為動態密碼，便於維護期間緊急登入。
 - **登入 Handler**：`LoginSuccessHandler`（還原原始請求 URL）、`LoginFailureHandler`（伺服器端 forward）、`LogoutSuccessHandler`（清理 Session）。
 - **登入日誌介面**：實作 `CustomLogonLogRecord` 並設定 `security.record-log-enable: true` 即可記錄登入稽核軌跡。
 - **靜態工具**：`UserInfoUtil.loginUserId()` 從 `SecurityContextHolder` 取得當前登入者 ID。
 - **安全開關**：`security.enable: false` 可全路徑放行，適合開發測試環境。
+- **授權解析擴充點**：`GrantedAuthoritiesResolver` SPI 為「帳號→authorities」的解析接點，預設回空集合（保留現行行為）；三種驗證模式（含 LDAP）登入後皆透過此接點取得權限，可由 [iam-spring-boot-starter](../iam-starter/index.md) 以資料庫群組／權限覆寫。
 
 ## Maven 依賴引入
 
@@ -7508,7 +9123,7 @@ security:
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -7516,8 +9131,8 @@ security:
 引入前請先於 `logon-spring-boot-starter` 目錄執行 `./mvnw clean install`，將模組安裝至本地 Maven Repository。
 :::
 
-:::warning 不得自行定義 SecurityFilterChain
-模組無條件配置 `SecurityFilterChain`，業務專案**不得重複定義**此 Bean，否則 Spring Context 啟動時將因 Bean 定義衝突而失敗。若需調整過濾鏈行為，請使用屬性設定或覆寫個別 Handler Bean。
+:::tip 過濾鏈與各 Bean 皆可覆寫
+模組的 `filterChain` 標註 `@ConditionalOnMissingBean(SecurityFilterChain.class)`，所有其他 `@Bean` 方法（`passwordEncoder` / `basicUserServiceImpl` / `ldapUserDetailsService` / `sessionRegistry` 及三個 Handler）也都標註 `@ConditionalOnMissingBean`。因此業務專案可宣告同型別 Bean 覆寫個別 Handler，或宣告自己的 `SecurityFilterChain` 整鏈接管安全設定，**不會發生 Bean 定義衝突，也不需要 `spring.main.allow-bean-definition-overriding`**。一般情境建議優先以屬性設定與覆寫個別 Handler 為主。
 :::
 
 ## 主要類別
@@ -7527,17 +9142,24 @@ security:
 | `SecurityConfiguration` | `autoconfiguration` | `@AutoConfiguration` 唯一入口，配置 `SecurityFilterChain` 與所有 Bean |
 | `SecurityPropertyConfig` | `config` | 屬性綁定（prefix: `security`），持有所有 Security 設定 |
 | `LdapPropertyConfig` | `config` | 屬性綁定（prefix: `security.ldap`），持有 LDAP 連線設定 |
+| `BasicUserPropertyConfig` / `BasicUser` | `config` | 屬性綁定（prefix: `security.basic`），BASIC 模式可自訂帳密與權限的使用者清單 |
 | `CommonLoginProcess` | `service` | `AuthenticationProvider` 抽象骨架，統一登入流程與 ADMIN 動態密碼 |
-| `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`（hardcoded stub，僅適合開發測試） |
+| `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`；讀 `security.basic.users` 自訂帳號，未設定時 fallback 回內建 `admin/admin` |
 | `LdapUserDetailsService` | `service` | LDAP 模式，繼承 `CommonLoginProcess`，與 AD/LDAP 互動 |
 | `CustomLogonLogRecord` | `service` | 稽核日誌回呼介面，業務專案自行實作 |
+| `GrantedAuthoritiesResolver` | `security` | 「帳號→authorities」解析 SPI，預設回空集合，可由 iam-starter 等覆寫 |
+| `JwtProperties` | `jwt` | 屬性綁定（prefix: `security.jwt`），持有 JWT 演算法、金鑰與 token 設定 |
+| `JwtTokenProvider` | `jwt` | JWT 簽發與驗證核心，支援 HS256 / RS256 |
+| `JwtAuthenticationFilter` | `jwt` | 解析 `Authorization: Bearer` token，查權限寫入 `SecurityContext` |
+| `JwtLoginController` | `jwt` | 內建 JWT 登入端點（預設 `/api/login`），可覆寫 |
+| `JwtLoginRequest` / `JwtLoginResponse` | `jwt.vo` | JWT 登入請求 / 回應 DTO |
 | `LoginSuccessHandler` | `handler` | 登入成功處理器，記錄日誌與 IP，導向成功頁 |
-| `LoginFailureHandler` | `handler` | 登入失敗處理器，分類日誌，伺服器端 forward 至失敗頁 |
+| `LoginFailureHandler` | `handler` | 登入失敗處理器，分類日誌，redirect 至失敗頁 |
 | `LogoutSuccessHandler` | `handler` | 登出成功處理器，清理 Session，導向登入頁 |
 | `UserInfoUtil` | `util` | 靜態工具，`loginUserId()` 從 `SecurityContextHolder` 取得當前帳號 |
 | `SecurityBaseService` | `base/service` | 業務 Service 基底，封裝 Session 存取，`fetchLoginUser()` 回傳 `SysUserVO` |
 | `SysUserVO` | `vo` | 儲存於 `HttpSession` 的使用者 VO（`userId` / `loginTime`） |
-| `VerificationTypeEnum` | `enums` | 驗證模式列舉：`BASIC` / `LDAP` / `CUSTOM` |
+| `VerificationTypeEnum` | `enums` | 憑證來源列舉：`BASIC` / `LDAP` / `CUSTOM`（JWT 為正交設定，非此列舉值） |
 | `UserEnum` | `enums` | 特殊使用者列舉：`SYSTEM` / `ADMIN` |
 | `LdapUser` | `model` | LDAP 驗證後的資料傳輸物件 |
 
@@ -7551,7 +9173,9 @@ security:
 :::tip 驗證類型選擇建議
 - 組織已建置 AD / LDAP → 使用 `ldap` 驗證
 - 帳號自管於資料庫 → 使用 `custom` 驗證，實作 `CommonLoginProcess.verifyNormalUser()`
-- 快速開發 / 測試環境 → 使用 `basic`（注意：預設帳密為 `admin/admin`，上線前必須切換）
+- 前後端分離 / 行動 App / 無狀態 API → 在上述任一憑證來源加上 `security.jwt.enabled: true`，以 token 取代 session
+- 帳號少且固定 → 使用 `basic` 並以 `security.basic.users` 設定多組帳密與權限（密碼可填 `{bcrypt}` 預雜湊）
+- 快速開發 / 測試環境 → 使用 `basic`（未設 `security.basic.users` 時預設帳密為 `admin/admin`，上線前必須改設定或切換模式）
 :::
 
 ---
@@ -7563,7 +9187,7 @@ security:
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `logon-spring-boot-starter` 安裝至本地 Maven Repository。
 - 選定驗證模式：`basic`（開發測試）、`ldap`（企業 AD）或 `custom`（業務資料庫）。
 
@@ -7584,13 +9208,13 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
 ## Step 3：設定 application.yml
 
-以下範例使用 `basic` 模式（適合快速驗證功能，預設帳密為 `admin` / `admin`）：
+以下範例使用 `basic` 模式（適合快速驗證功能，未設定 `security.basic.users` 時預設帳密為 `admin` / `admin`）：
 
 ```yaml
 security:
@@ -7598,14 +9222,26 @@ security:
   verification-type: basic       # basic | ldap | custom
   login-uri: /login              # 自訂登入頁路徑；若移除此設定則使用 Spring Security 預設登入頁
   login-success-uri: /dashboard  # 登入成功後的導向路徑
-  login-failure-uri: /login      # 登入失敗後的轉送路徑（伺服器端 forward）
+  login-failure-uri: /login        # 登入失敗後的導向路徑（redirect 回登入頁；勿用 /login?error，見 configuration.md）
   allow-uris: /static/**,/public/**  # 免驗證放行的路徑（逗號分隔）
   csrf-enabled: false            # 是否啟用 CSRF 保護
 ```
 
-:::warning BASIC 模式僅適合開發測試
-`verification-type: basic` 使用的 `BasicUserServiceImpl` 為 hardcoded stub，帳號固定為 `admin`，密碼固定為 `admin`。**生產環境必須改用 `custom` 或 `ldap` 模式。**
+:::warning BASIC 模式的帳號來源
+`verification-type: basic` 使用 `BasicUserServiceImpl`：未設定 `security.basic.users` 時 fallback 為內建的 `admin` / `admin`（hardcoded，僅適合開發測試）；可透過 `security.basic.users` 自訂多組帳密與權限（見 [配置參考](./configuration.md#basic-使用者子屬性securitybasic)）。**生產環境**請以 `security.basic.users`（密碼填 `{bcrypt}` 預雜湊）、覆寫 `basicUserServiceImpl` Bean，或改用 `custom` / `ldap` 模式。
 :::
+
+設定多組自訂帳密（取代內建 `admin/admin`）：
+
+```yaml
+security:
+  verification-type: basic
+  basic:
+    users:
+      - username: user01
+        password: 1234            # 明文，啟動時自動編碼；正式環境建議改 {bcrypt} 預雜湊
+        authorities: [admin]
+```
 
 ## Step 4：取得當前登入使用者
 
@@ -7721,6 +9357,31 @@ security:
 
 詳細實作步驟請參閱[使用範例](./examples.md)。
 
+## JWT 無狀態登入快速設定
+
+前後端分離、行動 App 或無狀態 API 場景，在既有 `verification-type` 之上加開 `jwt.enabled`，即以 token 取代 session（此處示範 BASIC + JWT）：
+
+```yaml
+security:
+  verification-type: basic       # 憑證來源照舊：basic / ldap / custom
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true                # 啟用 JWT 無狀態登入（與 verification-type 正交）
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600                          # token 有效秒數
+    login-uri: /api/login                             # 內建登入端點（預設值）
+```
+
+啟用後流程：
+
+1. `POST /api/login`，body 為 `{"username":"admin","password":"admin"}`，回傳 `{"token":"...","tokenType":"Bearer"}`。
+2. 後續請求帶標頭 `Authorization: Bearer <token>` 即可存取受保護資源。
+3. 未帶或 token 無效時回傳 `401 Unauthorized`。
+
+:::note JWT 啟用時與表單登入互斥
+`security.jwt.enabled=true` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；帳密驗證仍依 `verification-type`（basic/ldap/custom）。BASIC 未設 `security.basic.users` 時沿用 `admin/admin`、有設定則用該清單；LDAP/CUSTOM + JWT 時請覆寫 `basicUserServiceImpl` 提供查權限用的 `UserDetailsService`。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
+:::
+
 :::warning CSRF 設定
 Spring Security 預設啟用 CSRF 保護（`csrf-enabled: true`）。若使用傳統表單登入，請確保表單包含 CSRF token；若為純 REST API 或前後端分離架構，可設定 `csrf-enabled: false`。
 :::
@@ -7749,9 +9410,9 @@ Spring Security 預設啟用 CSRF 保護（`csrf-enabled: true`）。若使用�
 
 ### 技術選型
 
-- **CXF 4.0.x**：Jakarta EE 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 3.x 配對。
+- **CXF 4.2.x**：Jakarta EE 11 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 4.x / Spring Framework 7 配對。
 - **JAXB DataBinding**：序列化／反序列化層，可透過 `XmlAdapter` 進行欄位級客製化。
-- **Apache HttpClient 4.5.x**：`SoapUtil` 底層 HTTP 傳輸（長期應考慮遷移至 HttpClient 5.x）。
+- **Apache HttpClient 5.x**：`SoapUtil` 底層 HTTP 傳輸（`org.apache.hc.client5` / `core5`，採 try-with-resources 與 response handler）。
 
 ---
 
@@ -8452,8 +10113,8 @@ try (CloseableHttpClient httpClient = HttpClients.createDefault();
 | 項目 | 說明 |
 |---|---|
 | **Jakarta EE 命名空間** | 本模組使用 `jakarta.xml.bind`、`jakarta.jws` 等命名空間，**不相容 Spring Boot 2.x**（`javax` 命名空間）。 |
-| **CXF 版本** | 確保業務專案的 CXF 版本為 4.0.x（已切換至 Jakarta EE），與本 starter 一致。 |
-| **Apache HttpClient** | 目前使用 HttpClient 4.5.x（舊版，已進入維護模式），長期應考慮遷移至 5.x。 |
+| **CXF 版本** | 確保業務專案的 CXF 版本為 4.2.x（支援 Spring Framework 7 / Jakarta EE 11），與本 starter 一致。 |
+| **Apache HttpClient** | 使用 HttpClient 5.x（`org.apache.hc.client5` / `core5`），由 Spring Boot 4 BOM 管理版本。 |
 
 ---
 
@@ -8922,7 +10583,7 @@ LoggingFeature 會將完整 SOAP 訊息輸出至日誌，可能包含帳號密�
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -8966,7 +10627,7 @@ LoggingFeature 會將完整 SOAP 訊息輸出至日誌，可能包含帳號密�
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `web-service-spring-boot-starter` 安裝至本地 Maven Repository。
 - 對 SOAP / WSDL 有基本認識。
 
@@ -8987,7 +10648,7 @@ cd web-service-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-service-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -9125,7 +10786,7 @@ SOAP 客戶端與服務端的 `targetNamespace` 需一致。若由外部 WSDL �
 
 ```
 web-spring-boot-starter/
-├── pom.xml                                          # 模組建構定義（Spring Boot 3.5.11，Java 17）
+├── pom.xml                                          # 模組建構定義（Spring Boot 4.0.0，Java 17）
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                         # 內建獨立執行入口（開發/測試用）
@@ -9347,15 +11008,15 @@ web-spring-boot-starter/
 
 | 保護欄位 / 方法 | 說明 |
 |---|---|
-| `request` | `HttpServletRequest`（目前為 `javax.servlet`，見注意事項） |
+| `request` | `HttpServletRequest`（`jakarta.servlet.http`） |
 | `response` | `HttpServletResponse` |
 | `currentLocale` | 當前語系 |
 | `defaultMsg` | 預設訊息字串 |
 | `getMessage(String key)` | 透過 `MessageSource` 查找 i18n 訊息 |
 | `initPage()` | 抽象方法，子類別必須實作，回傳 `ModelAndView` 作為首頁 |
 
-:::warning 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。繼承此類別的業務程式碼在 Spring Boot 3.x 環境下會有編譯錯誤。維護時應優先修正此問題。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ---
@@ -9806,15 +11467,7 @@ cd D:/projects/zipe-spring-boot-starters/web-spring-boot-starter
 
 ## 7. 維護注意事項與常見陷阱
 
-### 7.1 `BaseController` 使用 `javax.servlet`（高優先修正）
-
-`BaseController.java` 的 import 為 `javax.servlet.http.*`，但 Spring Boot 3.x 要求 Jakarta EE 10（`jakarta.servlet.*`）。所有繼承 `BaseController` 的類別在 Spring Boot 3.x 環境下**無法編譯**。
-
-**修正方式：** 將所有 `import javax.servlet.*` 改為 `import jakarta.servlet.*`，再執行 `mvn clean install`。
-
----
-
-### 7.2 `ResultException` 建構子型別限制
+### 7.1 `ResultException` 建構子型別限制
 
 `ResultException(ResultStatus resultStatus)` 接受的是具體枚舉 `ResultStatus`，而非 `IResultStatus` 介面，導致業務自訂狀態碼無法透過 `ResultException` 傳遞。
 
@@ -9835,7 +11488,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.3 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
+### 7.2 `ResponseResultBodyAdvice` 全域攔截的 Order 問題
 
 此 Advice 以 `@ExceptionHandler(Exception.class)` 攔截所有例外。程式碼中有一行被注解的 `@Order(Ordered.HIGHEST_PRECEDENCE)`，顯示開發者曾考慮此問題但未完成決策。
 
@@ -9847,7 +11500,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.4 `beforeBodyWrite` 的 String 特殊處理風險
+### 7.3 `beforeBodyWrite` 的 String 特殊處理風險
 
 `String` 型別需先透過 `ObjectMapper` 序列化後再返回。若 `ObjectMapper` 序列化失敗，會拋出 `RuntimeException` 導致 500。
 
@@ -9857,7 +11510,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.5 雙重 ViewResolver 共存的 viewNames 不能重疊
+### 7.4 雙重 ViewResolver 共存的 viewNames 不能重疊
 
 當 JSP 與 Thymeleaf 同時啟用時，兩者的 viewNames 必須不重疊：
 
@@ -9870,13 +11523,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.6 Thymeleaf `cacheable=false` 在生產環境的性能影響
+### 7.5 Thymeleaf `cacheable=false` 在生產環境的性能影響
 
 `SpringResourceTemplateResolver.setCacheable(false)` 代表每次請求都重新解析模板，適合開發環境。**生產環境必須改為 `true`（或由 `spring.thymeleaf.cache=true` 覆蓋）**，否則會有明顯性能問題。
 
 ---
 
-### 7.7 範例 Controller 會佔用固定路由
+### 7.6 範例 Controller 會佔用固定路由
 
 `RestfulController` 和 `WebController` 打包在 Starter jar 中。引入此 Starter 且掃描範圍涵蓋 `com.zipe.controller` 時，以下路由會被自動暴露：
 
@@ -9891,7 +11544,7 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.8 `Application.java` 不應打包進 Starter
+### 7.7 `Application.java` 不應打包進 Starter
 
 `Application.java`（含 `@SpringBootApplication`）打包在 Starter jar 中，若引入此 Starter 的應用元件掃描誤觸發此類別，可能造成 Bean 重複或掃描範圍異常。
 
@@ -9899,13 +11552,13 @@ public class ResultException extends Exception {
 
 ---
 
-### 7.9 `tomcat-embed-jasper` 重複宣告
+### 7.8 `tomcat-embed-jasper` 重複宣告
 
 `pom.xml` 中 `tomcat-embed-jasper` 依賴被宣告兩次。Maven 雖會自動去重，但應清理以維持 pom 整潔。
 
 ---
 
-### 7.10 `BaseController` 的執行緒安全問題
+### 7.9 `BaseController` 的執行緒安全問題
 
 `BaseController` 暴露 `protected HttpServletRequest request`、`HttpServletResponse response` 等欄位，但 Spring Controller 預設為 Singleton。若子類別將每次請求的 request 賦值給這些欄位，在高並發下會發生執行緒安全問題（不同請求互相覆蓋欄位值）。
 
@@ -10343,8 +11996,8 @@ public class UserController {
 
 `BaseController` 提供 i18n 訊息查找（`getMessage`）與 `Environment` 存取功能。
 
-:::warning `BaseController` 已知相容問題
-`BaseController` 目前使用 `javax.servlet.http.*`，在 Spring Boot 3.x 環境下繼承此類別會有編譯錯誤（需改為 `jakarta.servlet.*`）。使用前請確認此問題已修正。
+:::note 命名空間
+`BaseController` 使用 `jakarta.servlet.http.*`，相容 Spring Boot 4 / Jakarta EE 11。
 :::
 
 ```java
@@ -10465,7 +12118,7 @@ GET /api/events?startDate=1717200000000&endDate=1717286400000
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
@@ -10510,7 +12163,7 @@ GET /api/events?startDate=1717200000000&endDate=1717286400000
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `web-spring-boot-starter` 安裝至本地 Maven Repository。
 
 :::note JSP 與 Thymeleaf 共存注意事項
@@ -10530,7 +12183,7 @@ cd web-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

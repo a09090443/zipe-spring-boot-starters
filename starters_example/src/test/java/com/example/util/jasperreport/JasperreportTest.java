@@ -1,15 +1,16 @@
 package com.example.util.jasperreport;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.zipe.util.doc.JasperReportUtil;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.util.ResourceUtils;
 
 import java.io.File;
@@ -25,24 +26,30 @@ import java.util.Map;
 @Slf4j
 public class JasperreportTest {
 
+  /** PDF 輸出至 JUnit 提供的暫存目錄，避免硬編 d:\tmp 並可跨平台執行。 */
+  @TempDir
+  Path tempDir;
+
   @Test
   void exportPdfUserUtil() throws JRException, IOException {
     log.info("generating pdf file using util...");
 
-    File output = new File("D:/tmp/SimpleReporter.pdf");
+    File output = tempDir.resolve("SimpleReporter.pdf").toFile();
     SimpleBeanMaker simpleBeanMaker = new SimpleBeanMaker();
     ArrayList<SimpleBean> simpleBeanList = simpleBeanMaker.getDataBeanList();
     Map<String, Object> parameters = new HashMap<>();
     JRBeanCollectionDataSource beanColDataSource = new JRBeanCollectionDataSource(simpleBeanList);
     JasperReportUtil.exportPdfFile("classpath:jasperreport/SimpleReporter.jrxml", output,
         parameters, beanColDataSource);
+
+    assertTrue(output.exists() && output.length() > 0, "JasperReportUtil 應產生非空 PDF 檔");
   }
 
   @Test
   void exportPdfTest() throws FileNotFoundException, JRException {
 
     log.info("generating pdf file...");
-    String outFile = "D:/tmp/ExampleReport.pdf";
+    File outFile = tempDir.resolve("ExampleReport.pdf").toFile();
     // 1. compile template ".jrxml" file
     JasperReport jasperReport = getJasperReport();
 
@@ -55,7 +62,9 @@ public class JasperreportTest {
     JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport,
         parameters,
         dataSource);
-    JasperExportManager.exportReportToPdfFile(jasperPrint, outFile);
+    JasperExportManager.exportReportToPdfFile(jasperPrint, outFile.getAbsolutePath());
+
+    assertTrue(outFile.exists() && outFile.length() > 0, "JasperExportManager 應產生非空 PDF 檔");
   }
 
 

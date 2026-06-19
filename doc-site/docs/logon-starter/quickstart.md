@@ -10,7 +10,7 @@ sidebar_position: 2
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `logon-spring-boot-starter` 安裝至本地 Maven Repository。
 - 選定驗證模式：`basic`（開發測試）、`ldap`（企業 AD）或 `custom`（業務資料庫）。
 
@@ -31,13 +31,13 @@ cd logon-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>logon-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 
 ## Step 3：設定 application.yml
 
-以下範例使用 `basic` 模式（適合快速驗證功能，預設帳密為 `admin` / `admin`）：
+以下範例使用 `basic` 模式（適合快速驗證功能，未設定 `security.basic.users` 時預設帳密為 `admin` / `admin`）：
 
 ```yaml
 security:
@@ -45,14 +45,26 @@ security:
   verification-type: basic       # basic | ldap | custom
   login-uri: /login              # 自訂登入頁路徑；若移除此設定則使用 Spring Security 預設登入頁
   login-success-uri: /dashboard  # 登入成功後的導向路徑
-  login-failure-uri: /login      # 登入失敗後的轉送路徑（伺服器端 forward）
+  login-failure-uri: /login        # 登入失敗後的導向路徑（redirect 回登入頁；勿用 /login?error，見 configuration.md）
   allow-uris: /static/**,/public/**  # 免驗證放行的路徑（逗號分隔）
   csrf-enabled: false            # 是否啟用 CSRF 保護
 ```
 
-:::warning BASIC 模式僅適合開發測試
-`verification-type: basic` 使用的 `BasicUserServiceImpl` 為 hardcoded stub，帳號固定為 `admin`，密碼固定為 `admin`。**生產環境必須改用 `custom` 或 `ldap` 模式。**
+:::warning BASIC 模式的帳號來源
+`verification-type: basic` 使用 `BasicUserServiceImpl`：未設定 `security.basic.users` 時 fallback 為內建的 `admin` / `admin`（hardcoded，僅適合開發測試）；可透過 `security.basic.users` 自訂多組帳密與權限（見 [配置參考](./configuration.md#basic-使用者子屬性securitybasic)）。**生產環境**請以 `security.basic.users`（密碼填 `{bcrypt}` 預雜湊）、覆寫 `basicUserServiceImpl` Bean，或改用 `custom` / `ldap` 模式。
 :::
+
+設定多組自訂帳密（取代內建 `admin/admin`）：
+
+```yaml
+security:
+  verification-type: basic
+  basic:
+    users:
+      - username: user01
+        password: 1234            # 明文，啟動時自動編碼；正式環境建議改 {bcrypt} 預雜湊
+        authorities: [admin]
+```
 
 ## Step 4：取得當前登入使用者
 
@@ -167,6 +179,31 @@ security:
 ```
 
 詳細實作步驟請參閱[使用範例](./examples.md)。
+
+## JWT 無狀態登入快速設定
+
+前後端分離、行動 App 或無狀態 API 場景，在既有 `verification-type` 之上加開 `jwt.enabled`，即以 token 取代 session（此處示範 BASIC + JWT）：
+
+```yaml
+security:
+  verification-type: basic       # 憑證來源照舊：basic / ldap / custom
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true                # 啟用 JWT 無狀態登入（與 verification-type 正交）
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600                          # token 有效秒數
+    login-uri: /api/login                             # 內建登入端點（預設值）
+```
+
+啟用後流程：
+
+1. `POST /api/login`，body 為 `{"username":"admin","password":"admin"}`，回傳 `{"token":"...","tokenType":"Bearer"}`。
+2. 後續請求帶標頭 `Authorization: Bearer <token>` 即可存取受保護資源。
+3. 未帶或 token 無效時回傳 `401 Unauthorized`。
+
+:::note JWT 啟用時與表單登入互斥
+`security.jwt.enabled=true` 時不啟用表單登入與 session，`login-uri`（表單頁）與三個登入 Handler 不生效；帳密驗證仍依 `verification-type`（basic/ldap/custom）。BASIC 未設 `security.basic.users` 時沿用 `admin/admin`、有設定則用該清單；LDAP/CUSTOM + JWT 時請覆寫 `basicUserServiceImpl` 提供查權限用的 `UserDetailsService`。完整範例與覆寫方式請參閱[使用範例](./examples.md)。
+:::
 
 :::warning CSRF 設定
 Spring Security 預設啟用 CSRF 保護（`csrf-enabled: true`）。若使用傳統表單登入，請確保表單包含 CSRF token；若為純 REST API 或前後端分離架構，可設定 `csrf-enabled: false`。

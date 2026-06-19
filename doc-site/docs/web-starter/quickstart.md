@@ -10,7 +10,7 @@ sidebar_position: 2
 
 ## 前置需求
 
-- JDK 17 以上、Spring Boot 3.5.x。
+- JDK 17 以上、Spring Boot 4.0.x。
 - 已將 `web-spring-boot-starter` 安裝至本地 Maven Repository。
 
 :::note JSP 與 Thymeleaf 共存注意事項
@@ -30,7 +30,7 @@ cd web-spring-boot-starter
 <dependency>
     <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.5.14.0</version>
+    <version>4.0.0.1</version>
 </dependency>
 ```
 

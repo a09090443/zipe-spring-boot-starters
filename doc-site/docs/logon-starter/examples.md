@@ -94,6 +94,36 @@ public class SecuredController {
 
 ## 進階使用範例
 
+### BASIC 模式：以 `security.basic.users` 自訂帳密
+
+不引入 iam、僅用 logon 的 BASIC 模式時，可由設定檔自訂多組帳密與權限，取代內建的 `admin/admin`。密碼支援明文（啟動時自動編碼）與帶 `{id}` 前綴的預雜湊值（如 `{bcrypt}`）：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /static/**,/public/**
+  basic:
+    users:
+      - username: user01
+        password: 1234            # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [admin, viewer]
+      - username: user02
+        password: '{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'  # 預雜湊（明文為 password）
+        authorities: [viewer]
+```
+
+要點：
+
+- `authorities` 內字串直接成為 `SimpleGrantedAuthority`，**不自動加 `ROLE_` 前綴**；搭配 `@PreAuthorize("hasRole('admin')")` 等需要角色時，請自行寫成 `ROLE_admin`。
+- 未設定 `security.basic.users` 時 fallback 回內建 `admin/admin`（向後相容）。
+- 密碼比對由委派式 `passwordEncoder`（`DelegatingPasswordEncoder`）依 `{id}` 前綴處理，故明文與 `{bcrypt}` 可混用。
+- 產生 `{bcrypt}` 預雜湊值：`PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("password")`。
+
+:::note 引入 iam-starter 時此設定不生效
+引入 `iam-spring-boot-starter` 後，`IamUserDetailsService` 會接管 BASIC 模式帳號查詢、改查 `iam_account`，`security.basic.users` 不再被使用。
+:::
+
 ### 範例四：CUSTOM 模式——業務資料庫帳號驗證
 
 這是最常見的擴充場景。繼承 `CommonLoginProcess` 自動獲得 ADMIN 動態密碼機制，只需實作 `verifyNormalUser()` 提供資料庫查詢邏輯。
@@ -221,7 +251,7 @@ security:
 
 ### 範例六：覆寫 LoginSuccessHandler 回傳 JSON（前後端分離）
 
-因模組 `application.yml` 啟用 `spring.main.allow-bean-definition-overriding: true`，業務專案宣告同名 Bean 即可覆寫預設 Handler 行為。
+模組的 `loginSuccessHandler` Bean 標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫預設 Handler 行為（無需 `spring.main.allow-bean-definition-overriding`）。
 
 ```java
 // 業務專案：config/SecurityBeanConfig.java
@@ -282,6 +312,144 @@ security:
 ```
 
 LDAP 驗證流程中，`LdapUserDetailsService` 會以 `sAMAccountName` 搜尋使用者並驗證密碼。驗證成功後回傳帳號（不含網域部分）作為 `Authentication.getName()`。
+
+---
+
+### 範例八：JWT 無狀態登入——取得 token 並存取受保護資源
+
+**application.yml（業務專案）：** JWT 與 `verification-type` 正交，以下示範 BASIC + JWT。
+
+```yaml
+security:
+  verification-type: basic       # 憑證來源：basic / ldap / custom
+  allow-uris: /static/**,/public/**
+  jwt:
+    enabled: true                # 啟用 JWT 無狀態登入
+    secret: 0123456789-0123456789-0123456789-secret  # HS256 密鑰，至少 32 位元組
+    expiration-seconds: 3600
+    login-uri: /api/login
+```
+
+**Step 1：登入取得 token**
+
+```bash
+curl -X POST http://localhost:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
+```
+
+回應：
+
+```json
+{ "token": "eyJhbGciOiJIUzI1NiJ9...", "tokenType": "Bearer" }
+```
+
+**Step 2：帶 token 存取受保護資源**
+
+```bash
+curl http://localhost:8080/whoami \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..."
+```
+
+未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
+
+:::warning JWT 開啟後「沒有表單登入頁」
+`jwt.enabled: true` 是純無狀態 API 模式：filter chain **不套用 `formLogin`**，因此沒有瀏覽器表單登入頁，未帶 token 的請求一律回 **401**（而非導向登入頁）；`login-uri` / `login-success-uri` / `login-failure-uri` 與三個登入 Handler 皆不生效。用瀏覽器直接開頁面、期待出現登入表單在此模式下不會發生——它是給前後端分離 / 行動 App / API 客戶端用的。若要「保留表單登入頁、又用 JWT 取代 session」，見下方的混合模式範例。
+:::
+
+:::note 登入驗證來源與權限查詢
+**登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
+
+**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（讀 `security.basic.users`，未設定時為 `admin/admin`）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
+:::
+
+### 範例九：覆寫 JWT 內建端點與查權限來源
+
+JWT 相關 Bean 皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean 即可覆寫。
+
+**覆寫登入端點（自訂回應格式 / 路徑）：** 宣告自己的 `JwtLoginController`（沿用方法簽章 `login(JwtLoginRequest)` 回傳 `ResponseEntity<JwtLoginResponse>`），或直接宣告 `@RestController` 接管登入路徑。
+
+**覆寫查權限用的 UserDetailsService（LDAP/CUSTOM + JWT 必要）：** 登入驗證已由 `verification-type` 處理，通常只需提供可依 username 載入權限的 `UserDetailsService`（以 `basicUserServiceImpl` 型別覆寫）。若還想完全接管登入驗證，再額外覆寫 `AuthenticationManager`：
+
+```java
+// 業務專案：config/JwtBeanConfig.java
+import com.zipe.service.BasicUserServiceImpl;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class JwtBeanConfig {
+
+    /** 覆寫查權限用的 UserDetailsService（JWT filter 以 BasicUserServiceImpl 型別注入）。 */
+    @Bean
+    public BasicUserServiceImpl basicUserServiceImpl(PasswordEncoder passwordEncoder) {
+        return new BasicUserServiceImpl(passwordEncoder) {
+            // 覆寫 loadUserByUsername 改查業務資料庫，並填入角色
+        };
+    }
+
+    /** 覆寫登入驗證用的 AuthenticationManager。 */
+    @Bean
+    public AuthenticationManager jwtAuthenticationManager(BasicUserServiceImpl userService,
+                                                          PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
+    }
+}
+```
+
+:::warning JWT 模式的角色控制
+與其他模式相同，`@PreAuthorize` 需要 `UserDetails` 帶有正確的 `GrantedAuthority`。JWT 模式下權限來自查權限的 `UserDetailsService`，請在覆寫的 `loadUserByUsername()` 中填入角色清單。
+:::
+
+### 範例十：表單登入頁 + JWT cookie 混合模式
+
+內建 `jwt.enabled` 是純無狀態 API（無表單登入頁）。若要**保留瀏覽器表單登入頁、又以 JWT cookie 取代 server session**，不要開 `jwt.enabled`，改自宣告一條 `SecurityFilterChain`：表單登入成功後簽 token 寫 HttpOnly cookie，後續請求由自訂 filter 從 cookie 讀 token 驗證（STATELESS）。
+
+`starters_example` 提供可切換的完整示範（`example.hybrid-jwt.enabled=true` 啟用，預設關閉）：
+
+- `com.example.config.JwtCookieAuthenticationFilter`：從 cookie 讀 JWT、驗證後設定 `SecurityContext`（對應內建 `JwtAuthenticationFilter` 的 header 版）。
+- `com.example.config.JwtCookieSecurityConfig`：宣告混合 `SecurityFilterChain`——`formLogin` + 簽 token 寫 cookie 的 `successHandler` + 上述 cookie filter + 登出清 cookie，Session 為 `STATELESS`。
+
+關鍵骨架：
+
+```java
+@Bean
+public SecurityFilterChain hybridJwtFilterChain(HttpSecurity http,
+        BasicUserServiceImpl basicUserService, PasswordEncoder passwordEncoder,
+        JwtTokenProvider tokenProvider, JwtProperties jwtProperties) throws Exception {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+    provider.setPasswordEncoder(passwordEncoder);
+    var cookieFilter = new JwtCookieAuthenticationFilter(tokenProvider, basicUserService, "JWT_TOKEN");
+
+    http.authenticationManager(new ProviderManager(provider))
+        .authorizeHttpRequests(a -> a.anyRequest().authenticated())
+        .formLogin(form -> form.permitAll().successHandler((req, res, auth) -> {
+            String token = tokenProvider.generateToken(auth.getName());
+            Cookie cookie = new Cookie("JWT_TOKEN", token);
+            cookie.setHttpOnly(true);
+            cookie.setMaxAge((int) jwtProperties.getExpirationSeconds());
+            res.addCookie(cookie);
+            res.sendRedirect(req.getContextPath() + "/home");
+        }))
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .csrf(AbstractHttpConfigurer::disable)
+        .addFilterBefore(cookieFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+:::note `JwtTokenProvider` 的取得
+`jwt.enabled=false` 時 logon 不會建立 `JwtTokenProvider` Bean，混合設定需自行宣告
+（`new JwtTokenProvider(jwtProperties)`，由 Spring 觸發其 `@PostConstruct init()`）；`JwtProperties`
+由 logon 以 `@EnableConfigurationProperties` 註冊、恆存在，可直接注入。啟用混合模式時請保持
+`security.jwt.enabled=false`，否則會與 logon 內建的 `jwtSecurityFilterChain` 並存而衝突。
+:::
 
 ---
 

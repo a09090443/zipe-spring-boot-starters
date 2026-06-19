@@ -11,7 +11,7 @@ sidebar_position: 2
 ## 前置需求
 
 - 已安裝 JDK 17 以上版本。
-- 業務專案使用 Spring Boot 3.5.x。
+- 業務專案使用 Spring Boot 4.0.x。
 - 已具備可用的 Maven 環境。
 
 :::note
@@ -38,7 +38,7 @@ cd base-spring-boot-starter
     <dependency>
         <groupId>io.github.a09090443</groupId>
         <artifactId>base-spring-boot-starter</artifactId>
-        <version>3.5.14.0</version>
+        <version>4.0.0.1</version>
     </dependency>
 </dependencies>
 ```

@@ -25,9 +25,9 @@ sidebar_position: 5
 
 ### 技術選型
 
-- **CXF 4.0.x**：Jakarta EE 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 3.x 配對。
+- **CXF 4.2.x**：Jakarta EE 11 命名空間（`jakarta.jws.*`、`jakarta.xml.bind.*`），與 Spring Boot 4.x / Spring Framework 7 配對。
 - **JAXB DataBinding**：序列化／反序列化層，可透過 `XmlAdapter` 進行欄位級客製化。
-- **Apache HttpClient 4.5.x**：`SoapUtil` 底層 HTTP 傳輸（長期應考慮遷移至 HttpClient 5.x）。
+- **Apache HttpClient 5.x**：`SoapUtil` 底層 HTTP 傳輸（`org.apache.hc.client5` / `core5`，採 try-with-resources 與 response handler）。
 
 ---
 
@@ -728,8 +728,8 @@ try (CloseableHttpClient httpClient = HttpClients.createDefault();
 | 項目 | 說明 |
 |---|---|
 | **Jakarta EE 命名空間** | 本模組使用 `jakarta.xml.bind`、`jakarta.jws` 等命名空間，**不相容 Spring Boot 2.x**（`javax` 命名空間）。 |
-| **CXF 版本** | 確保業務專案的 CXF 版本為 4.0.x（已切換至 Jakarta EE），與本 starter 一致。 |
-| **Apache HttpClient** | 目前使用 HttpClient 4.5.x（舊版，已進入維護模式），長期應考慮遷移至 5.x。 |
+| **CXF 版本** | 確保業務專案的 CXF 版本為 4.2.x（支援 Spring Framework 7 / Jakarta EE 11），與本 starter 一致。 |
+| **Apache HttpClient** | 使用 HttpClient 5.x（`org.apache.hc.client5` / `core5`），由 Spring Boot 4 BOM 管理版本。 |
 
 ---
 

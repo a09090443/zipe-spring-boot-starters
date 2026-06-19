@@ -1,100 +1,36 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="simple_report" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30" whenResourceMissingType="Empty">
-  <property name="com.jasperassistant.designer.Grid" value="false"/>
-  <property name="com.jasperassistant.designer.SnapToGrid" value="false"/>
-  <property name="com.jasperassistant.designer.GridWidth" value="12"/>
-  <property name="com.jasperassistant.designer.GridHeight" value="12"/>
-  <property name="ireport.zoom" value="1.0"/>
-  <property name="ireport.x" value="0"/>
-  <property name="ireport.y" value="0"/>
-  <queryString>
-    <![CDATA[]]>
-  </queryString>
-  <field name="country" class="java.lang.String">
-    <fieldDescription><![CDATA[country]]></fieldDescription>
-  </field>
-  <field name="occupation" class="java.lang.String">
-    <fieldDescription><![CDATA[occupation]]></fieldDescription>
-  </field>
-  <field name="name" class="java.lang.String">
-    <fieldDescription><![CDATA[name]]></fieldDescription>
-  </field>
-  <field name="place" class="java.lang.String">
-    <fieldDescription><![CDATA[place]]></fieldDescription>
-  </field>
-  <group name="dummy">
-    <groupExpression><![CDATA["dummy"]]></groupExpression>
-    <groupHeader>
-      <band height="23">
-        <staticText>
-          <reportElement mode="Opaque" x="0" y="5" width="535" height="15" backcolor="#70A9A9"/>
-          <box>
-            <bottomPen lineWidth="1.0" lineColor="#CCCCCC"/>
-          </box>
-          <textElement/>
-          <text><![CDATA[]]></text>
-        </staticText>
-        <staticText>
-          <reportElement x="136" y="5" width="150" height="15"/>
-          <textElement textAlignment="Center" verticalAlignment="Middle">
-            <font isBold="true"/>
-          </textElement>
-          <text><![CDATA[Occupation]]></text>
-        </staticText>
-        <staticText>
-          <reportElement x="286" y="5" width="128" height="15"/>
-          <textElement textAlignment="Center" verticalAlignment="Middle"/>
-          <text><![CDATA[Place]]></text>
-        </staticText>
-        <staticText>
-          <reportElement x="414" y="5" width="121" height="15"/>
-          <textElement textAlignment="Center" verticalAlignment="Middle">
-            <font isBold="true"/>
-          </textElement>
-          <text><![CDATA[Country]]></text>
-        </staticText>
-        <staticText>
-          <reportElement x="0" y="5" width="136" height="15"/>
-          <textElement textAlignment="Center" verticalAlignment="Middle">
-            <font isBold="true"/>
-          </textElement>
-          <text><![CDATA[Name]]></text>
-        </staticText>
-      </band>
-    </groupHeader>
-  </group>
-  <detail>
-    <band height="16">
-      <staticText>
-        <reportElement mode="Opaque" x="0" y="0" width="535" height="14" backcolor="#E5ECF9"/>
-        <box>
-          <bottomPen lineWidth="0.25" lineColor="#CCCCCC"/>
-        </box>
-        <textElement/>
-        <text><![CDATA[]]></text>
-      </staticText>
-      <textField>
-        <reportElement x="136" y="0" width="150" height="15"/>
-        <textElement textAlignment="Center" verticalAlignment="Middle"/>
-        <textFieldExpression><![CDATA[$F{occupation}]]></textFieldExpression>
-      </textField>
-      <textField>
-        <reportElement x="286" y="0" width="128" height="15"/>
-        <textElement textAlignment="Center" verticalAlignment="Middle"/>
-        <textFieldExpression><![CDATA[$F{place}]]></textFieldExpression>
-      </textField>
-      <textField>
-        <reportElement x="414" y="0" width="121" height="15"/>
-        <textElement textAlignment="Center" verticalAlignment="Middle">
-          <font size="9"/>
-        </textElement>
-        <textFieldExpression><![CDATA[$F{country}]]></textFieldExpression>
-      </textField>
-      <textField>
-        <reportElement x="0" y="0" width="136" height="15"/>
-        <textElement textAlignment="Center" verticalAlignment="Middle"/>
-        <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
-      </textField>
-    </band>
-  </detail>
+<jasperReport name="simple_report" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30" uuid="6e720a5d-c8d8-4f03-bc67-ab81e27e4ca4">
+	<field name="name" class="java.lang.String"/>
+	<field name="occupation" class="java.lang.String"/>
+	<field name="place" class="java.lang.String"/>
+	<field name="country" class="java.lang.String"/>
+	<columnHeader height="20">
+		<element kind="staticText" uuid="b24c82fc-ece7-4649-867b-dab72dfb1d9b" x="0" y="0" width="130" height="15">
+			<text><![CDATA[Name]]></text>
+		</element>
+		<element kind="staticText" uuid="0bc92936-7ff6-488f-9d23-27d86340d13b" x="130" y="0" width="150" height="15">
+			<text><![CDATA[Occupation]]></text>
+		</element>
+		<element kind="staticText" uuid="4f2737a0-5923-4b28-b30e-6a5a80da03b1" x="280" y="0" width="130" height="15">
+			<text><![CDATA[Place]]></text>
+		</element>
+		<element kind="staticText" uuid="0eae17cf-7792-4892-83a2-89e5fa420f77" x="410" y="0" width="125" height="15">
+			<text><![CDATA[Country]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="16">
+			<element kind="textField" uuid="8ccb2dce-911b-4ae5-a093-5287bee2ad1e" x="0" y="0" width="130" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{name}]]></expression>
+			</element>
+			<element kind="textField" uuid="acdfb0d4-420e-45e9-8c26-9e6fb8ff4047" x="130" y="0" width="150" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{occupation}]]></expression>
+			</element>
+			<element kind="textField" uuid="334129f7-f873-45f4-8eab-8282d6e262a4" x="280" y="0" width="130" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{place}]]></expression>
+			</element>
+			<element kind="textField" uuid="81f04f25-b2c2-4164-aa28-db9d9b659dcf" x="410" y="0" width="125" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{country}]]></expression>
+			</element>
+		</band>
+	</detail>
 </jasperReport>

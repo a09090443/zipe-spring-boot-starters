@@ -1,7 +1,7 @@
 package com.zipe.advice;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.zipe.annotation.ResponseResultBody;
 import com.zipe.dto.Result;
 import com.zipe.exception.IResultStatus;
@@ -84,10 +84,10 @@ public class ResponseResultBodyAdvice implements ResponseBodyAdvice<Object> {
         if (body instanceof String || Objects.equals(returnClass, String.class)) {
             // String 回傳型別由 StringHttpMessageConverter 處理，不支援物件轉換，
             // 必須先手動序列化為 JSON 字串，確保回應格式一致。
-            String value = null;
+            String value;
             try {
                 value = objectMapper.writeValueAsString(Result.success(body));
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 throw new RuntimeException(e);
             }
             return value;

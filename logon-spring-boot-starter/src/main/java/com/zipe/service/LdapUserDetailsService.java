@@ -3,6 +3,7 @@ package com.zipe.service;
 import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.exception.LdapException;
 import com.zipe.model.LdapUser;
+import com.zipe.security.GrantedAuthoritiesResolver;
 import com.zipe.util.LdapUtil;
 import com.zipe.util.string.StringConstant;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,6 @@ import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.ldap.LdapContext;
-import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Objects;
 
@@ -35,15 +35,22 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     /** 讀取 LDAP 連線參數（IP、埠號、DN、Domain）所需的設定屬性 */
     private final SecurityPropertyConfig securityPropertyConfig;
 
+    /** 帳號→authorities 的解析擴充點，預設回傳空集合，可由 iam-starter 等覆寫 */
+    private final GrantedAuthoritiesResolver authoritiesResolver;
+
     /**
-     * 建構 {@code LdapUserDetailsService}，注入密碼編碼器與 Security 設定。
+     * 建構 {@code LdapUserDetailsService}，注入密碼編碼器、Security 設定與授權解析器。
      *
      * @param passwordEncoder        Spring Security 密碼編碼器，傳遞給父類別使用
      * @param securityPropertyConfig 包含 LDAP 連線參數的設定屬性物件
+     * @param authoritiesResolver    帳號→authorities 的解析擴充點（容器 Bean，可覆寫）
      */
-    public LdapUserDetailsService(PasswordEncoder passwordEncoder, SecurityPropertyConfig securityPropertyConfig) {
+    public LdapUserDetailsService(PasswordEncoder passwordEncoder,
+                                  SecurityPropertyConfig securityPropertyConfig,
+                                  GrantedAuthoritiesResolver authoritiesResolver) {
         super(passwordEncoder);
         this.securityPropertyConfig = securityPropertyConfig;
+        this.authoritiesResolver = authoritiesResolver;
     }
 
     /**
@@ -104,14 +111,16 @@ public class LdapUserDetailsService extends CommonLoginProcess {
     /**
      * 建立認證成功的 Authentication token。
      *
-     * <p>使用非 null 的權限集合使 token 成為已認證狀態，且不在 token 內保留
-     * 明文密碼（credentials 設為 null），避免敏感資訊殘留於安全內容中。</p>
+     * <p>透過 {@link GrantedAuthoritiesResolver} 依 principal 解析 authorities，使 token
+     * 成為已認證狀態；預設解析器回傳空集合（保留現行行為），引入 iam-starter 後則由
+     * DB 補上群組／權限。token 內不保留明文密碼（credentials 設為 null），避免敏感資訊
+     * 殘留於安全內容中。</p>
      *
      * @param principal 使用者主體（已移除域名的帳號）
      * @return 已認證的 token
      */
-    static UsernamePasswordAuthenticationToken buildAuthenticatedToken(String principal) {
-        return new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
+    UsernamePasswordAuthenticationToken buildAuthenticatedToken(String principal) {
+        return new UsernamePasswordAuthenticationToken(principal, null, authoritiesResolver.resolve(principal));
     }
 
     /**

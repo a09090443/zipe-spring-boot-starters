@@ -6,8 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
-import org.springframework.boot.autoconfigure.quartz.QuartzDataSource;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
+import org.springframework.boot.quartz.autoconfigure.QuartzDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +22,7 @@ import javax.sql.DataSource;
  * <p>
  * 當 {@code spring.quartz.enable=true} 且 {@code spring.quartz.job-store-type=jdbc} 時，
  * 自動讀取 {@code spring.datasource.quartz.*} 與 {@code spring.datasource.hikari.*} 設定，
- * 建立 HikariCP 連線池並以 {@link org.springframework.boot.autoconfigure.quartz.QuartzDataSource}
+ * 建立 HikariCP 連線池並以 {@link org.springframework.boot.quartz.autoconfigure.QuartzDataSource}
  * 標記供 Quartz 排程框架專用，避免與應用程式主要資料來源混用。
  *
  * @author zipe

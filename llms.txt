@@ -1,6 +1,6 @@
 # Zipe Spring Boot Starters
 
-> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、WebService、前端視圖等常用功能的自動配置模組。
+> 自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、帳號群組權限管理、WebService、前端視圖等常用功能的自動配置模組。
 
 This file contains links to documentation sections following the llmstxt.org standard.
 
@@ -11,14 +11,21 @@ This file contains links to documentation sections following the llmstxt.org sta
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/base-starter/examples.md): 本頁提供 `base-spring-boot-starter` 各項工具的實際程式碼範例，涵蓋基礎使用、進階情境與常見問題。所有範例的方法簽章均與原始碼一致。
 - [base-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/base-starter.md): 提供郵件、加解密、文件處理、HTTP 與字串日期等通用工具的基礎 Starter
 - [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/base-starter/quickstart.md): 本頁將帶您在五個步驟內完成 `base-spring-boot-starter` 的引入，並以郵件發送功能進行驗證。
+- [客製化指南](https://a09090443.github.io/zipe-spring-boot-starters/customization.md): 跨 starter 的客製與擴充接點總覽，盤點各模組預留的介面、抽象骨架、可覆寫 Bean 與「以設定值指定 Bean 名稱」機制，協助依需求擴充而不修改 Starter 原始碼。
 - [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/architecture.md): 本文件供接手或深度擴充 `db-spring-boot-starter` 的開發人員閱讀，完整說明模組的設計理念、內部結構與擴充方式。
 - [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/configuration.md): 本頁列出 `db-spring-boot-starter` 的所有可設定屬性。設定主要集中於 `dynamic.*`（對應 `data-source.properties`），用於宣告主資料來源與多組命名資料來源。
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/examples.md): 本頁示範 `db-spring-boot-starter` 的資料來源切換、`BaseJDBC` 封裝與動態 SQL 條件建構的實際用法。所有範例的方法簽章與設定鍵均與原始碼一致。
 - [db-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/db-starter.md): 支援多資料來源動態切換、JDBC 封裝與 SQL 條件建構的資料庫 Starter
 - [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/db-starter/quickstart.md): 本頁示範如何設定兩組資料來源，並以 `@DS` Annotation 在執行期間動態切換。
+- [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter/architecture.md): 本文件面向需要維護、擴充或深入理解 `iam-spring-boot-starter` 的開發人員，涵蓋套件結構、資料模型、與 logon-starter 的整合機制、自動配置原理，以及擴充時的步驟與陷阱。
+- [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter/configuration.md): iam-spring-boot-starter 的 iam.* 設定屬性與資料表結構
+- [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter/examples.md): 權限保護、覆寫授權解析、自訂帳號來源與關閉內建 API 的完整範例
+- [iam-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter.md): 以資料庫儲存帳號／群組／權限的身分與授權管理 Starter，與 logon-starter 無縫整合
+- [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/iam-starter/quickstart.md): 從引入依賴到以資料庫帳號登入並以權限保護端點的最短路徑
 - [整合範例教學](https://a09090443.github.io/zipe-spring-boot-starters/integration.md): 了解如何組合不同 Starter 建構實際應用系統
 - [情境二：多資料來源應用](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-db.md): 使用 base + db Starter 建構動態切換資料來源的應用
-- [情境五：全功能整合](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-full.md): 整合所有 Starter 建構完整的企業應用系統
+- [情境六：全功能整合](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-full.md): 整合所有 Starter 建構完整的企業應用系統
+- [情境五：身分與授權管理](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-iam.md): 使用 db + logon + iam Starter 建構資料庫帳號／群組／權限的身分授權系統
 - [情境三：排程任務應用](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-job.md): 使用 base + job Starter 建構 Quartz 排程系統
 - [情境一：Web 應用含認證](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-web-auth.md): 使用 base + web + logon Starter 建構具登入認證的 Web 應用
 - [情境四：SOAP WebService](https://a09090443.github.io/zipe-spring-boot-starters/integration/scenario-webservice.md): 使用 base + web-service Starter 發布 CXF SOAP 服務
@@ -28,11 +35,11 @@ This file contains links to documentation sections following the llmstxt.org sta
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/job-starter/examples.md): 本頁示範 `job-spring-boot-starter` 的排程撰寫、動態管理與 REST API 操作。所有範例均基於實際類別介面，可直接參考實作。
 - [job-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/job-starter.md): 基於 Quartz 的排程管理 Starter，支援資料庫或記憶體儲存模式
 - [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/job-starter/quickstart.md): 本頁帶您撰寫一個簡單的排程任務，並透過 REST API 或 properties 檔案自動啟用。
-- [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/architecture.md): 本文件面向需要維護、擴充或深入理解 `logon-spring-boot-starter` 的開發人員，涵蓋完整的套件結構、核心類別設計、請求協作流程、自動配置原理，以及實作擴充時的步驟與陷阱。
-- [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/configuration.md): 本頁列出 `logon-spring-boot-starter` 所有可設定屬性，分為 Security 主屬性（`security.*`）與 LDAP 子屬性（`security.ldap.*`）兩大類。
-- [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/examples.md): 本頁提供 `logon-spring-boot-starter` 各功能的完整實作範例，涵蓋取得當前使用者、自訂驗證、稽核日誌、Handler 覆寫等常見情境。
-- [logon-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter.md): 整合 Spring Security 的登入認證 Starter，支援表單登入、LDAP 與自訂驗證
-- [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/quickstart.md): 本頁示範如何啟用表單登入，並在 Controller 中取得當前登入使用者。
+- [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/architecture.md): 架構與開發指南
+- [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/configuration.md): 配置參考
+- [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/examples.md): 使用範例
+- [logon-spring-boot-starter](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter.md): 整合 Spring Security 的登入認證 Starter，支援表單登入、LDAP、自訂驗證與 JWT
+- [快速開始](https://a09090443.github.io/zipe-spring-boot-starters/logon-starter/quickstart.md): 快速開始
 - [架構與開發指南](https://a09090443.github.io/zipe-spring-boot-starters/web-service-starter/architecture.md): 本文件供需要深入了解 `web-service-spring-boot-starter` 內部機制、二次開發或日後維護的開發人員閱讀。內容涵蓋套件結構、核心類別職責、協作流程、AutoConfiguration 原理、擴充範例，以及維護時需留意的陷阱。
 - [配置參考](https://a09090443.github.io/zipe-spring-boot-starters/web-service-starter/configuration.md): 本頁列出 `web-service-spring-boot-starter` 的可設定屬性，前綴為 `web.service.*`，用於設定 CXF Servlet 路徑與各 SOAP 端點的 Bean 對應關係。
 - [使用範例](https://a09090443.github.io/zipe-spring-boot-starters/web-service-starter/examples.md): 本頁示範 `web-service-spring-boot-starter` 的服務端發布、客戶端呼叫、CDATA 處理、欄位轉換器，以及底層 HTTP SOAP 呼叫等用法。

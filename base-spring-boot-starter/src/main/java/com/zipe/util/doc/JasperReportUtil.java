@@ -72,8 +72,9 @@ public class JasperReportUtil {
    */
   public static void exportPdfFile(String jrxmlFile, File exportFile, Map<String, Object> params)
       throws IOException, JRException {
-    OutputStream outputSteam = new FileOutputStream(exportFile);
-    outputSteam.write(exportPdfFile(jrxmlFile, params, null));
+    try (OutputStream outputStream = new FileOutputStream(exportFile)) {
+      outputStream.write(exportPdfFile(jrxmlFile, params, null));
+    }
   }
 
   /**
@@ -88,8 +89,9 @@ public class JasperReportUtil {
    */
   public static void exportPdfFile(String jrxmlFile, File exportFile, Map<String, Object> params,
       JRDataSource dataSource) throws IOException, JRException {
-    OutputStream outputSteam = new FileOutputStream(exportFile);
-    outputSteam.write(exportPdfFile(jrxmlFile, params, dataSource));
+    try (OutputStream outputStream = new FileOutputStream(exportFile)) {
+      outputStream.write(exportPdfFile(jrxmlFile, params, dataSource));
+    }
   }
 
 }

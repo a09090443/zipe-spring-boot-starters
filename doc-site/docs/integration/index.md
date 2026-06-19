@@ -11,12 +11,13 @@ description: 了解如何組合不同 Starter 建構實際應用系統
 
 ## starters_example 專案簡介
 
-`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon` 六個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
+`starters_example` 是一個 Spring Boot 應用程式，它一次引入了 `base`、`web`、`web-service`、`job`、`db`、`logon`、`iam` 七個自製 Starter，並透過單一 `application.yml` 與數個 `*.properties` 檔案完成所有設定。專案示範了以下能力：
 
 - 以 JSP 與 Thymeleaf 同時提供前端頁面（依視圖名稱前綴路由）
 - 以 RESTful API 與 WebFlux SSE 串流提供資料介面
 - 以 Spring Security 提供登入認證，並透過策略模式注入自訂登入日誌
 - 以動態多資料來源連接多個資料庫，支援 `@DS` 與程式化兩種切換方式
+- 以 iam 的帳號／群組／權限模型提供身分與授權資料，並由同一個 `EntityManagerFactory` 與 db-starter 共管 Entity
 - 以 Quartz 提供三種不同模式的排程任務
 - 以 Apache CXF 發布 SOAP WebService 端點
 
@@ -28,18 +29,20 @@ description: 了解如何組合不同 Starter 建構實際應用系統
 | `db-spring-boot-starter` | 多資料來源動態切換、JDBC 封裝 | `spring.jpa.*`、`data-source.properties` |
 | `job-spring-boot-starter` | Quartz 排程管理 | `spring.quartz.*`、`quartz-jobs.properties` |
 | `logon-spring-boot-starter` | Spring Security 登入認證 | `security.*` |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分與授權管理 | `iam.*`（Entity 由 db-starter 自動併入掃描） |
 | `web-service-spring-boot-starter` | Apache CXF SOAP WebService | `web.service.*` |
 | `web-spring-boot-starter` | JSP / Thymeleaf 前端視圖 | `web.*` |
 
 ## 五種組合情境快速導覽
 
-為了讓你能依需求挑選合適的 Starter 組合，本章節整理出五種典型情境，由淺入深：
+為了讓你能依需求挑選合適的 Starter 組合，本章節整理出六種典型情境，由淺入深：
 
 1. [情境一：Web 應用含認證](./scenario-web-auth.md) — `base + web + logon`，適合需要登入保護的管理後台。
 2. [情境二：多資料來源應用](./scenario-db.md) — `base + db`，適合需要連接多個資料庫的系統。
 3. [情境三：排程任務應用](./scenario-job.md) — `base + job`（可選 `db`），適合需要定時執行任務的系統。
 4. [情境四：SOAP WebService](./scenario-webservice.md) — `base + web-service`，適合需要對接 SOAP 協議的企業系統。
-5. [情境五：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
+5. [情境五：身分與授權管理](./scenario-iam.md) — `db + logon + iam`，適合需要資料庫帳號／群組／權限的系統。
+6. [情境六：全功能整合](./scenario-full.md) — 整合所有 Starter，完整呈現 `starters_example` 的實作。
 
 ## 專案目錄結構說明
 
@@ -53,6 +56,7 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
+│   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/authorities/{username}、@PreAuthorize 保護的 /orders/export、/users/manage）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
@@ -81,6 +85,7 @@ starters_example/
 │   ├── quartz-datasource.properties        # Quartz JDBC 模式資料來源（備用）
 │   ├── init/schema.sql                     # 建表（user_main / user_detail，application.yml 實際引用）
 │   ├── init/data.sql                       # 初始資料（application.yml 實際引用）
+│   ├── init/iam-demo.sql                   # iam 示範建表與種子資料（手動套用至主資料源）
 │   ├── init/h2/schema.sql                  # H2 建表（TBL_EMPLOYEES，備用）
 │   ├── init/h2/data.sql                    # H2 初始資料（備用）
 │   ├── jasperreport/*.jrxml                # JasperReport 報表模板
@@ -103,7 +108,7 @@ cd zipe-spring-boot-starters
 
 ### 步驟二：取得 Starter 依賴
 
-範例引用的 Starter（`io.github.a09090443:*:3.5.14.0`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
+範例引用的 Starter（`io.github.a09090443:*:4.0.0.1`）已發布於 **Maven Central**，建構時會自動下載，一般情況**無須額外步驟**。
 
 若你想以本地原始碼建構最新版的 Starter，可於專案根目錄執行 reactor 建構，將各 Starter 安裝至本地 Maven Repository：
 
@@ -125,6 +130,9 @@ cd starters_example
 | Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
+| iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
 | SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
 | H2 Console | `http://localhost:8080/example/h2-console` |
 
@@ -133,7 +141,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `3.5.14`、`zipe.spring.starter.version` 為 `3.5.14.0`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.1`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案

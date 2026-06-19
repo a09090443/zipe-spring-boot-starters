@@ -7,13 +7,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
+        <version>4.0.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>io.github.a09090443</groupId>
     <artifactId>zipe-spring-boot-starters</artifactId>
-    <version>3.5.14.1</version>
+    <version>4.0.0.1</version>
     <packaging>pom</packaging>
     <name>zipe-spring-boot-starters</name>
     <description>Zipe 自製 Spring Boot Starter 集合</description>
@@ -49,6 +49,7 @@
         <module>db-spring-boot-starter</module>
         <module>job-spring-boot-starter</module>
         <module>logon-spring-boot-starter</module>
+        <module>iam-spring-boot-starter</module>
         <module>web-spring-boot-starter</module>
         <module>web-service-spring-boot-starter</module>
     </modules>
@@ -62,13 +63,9 @@
         <commons-collections4.version>4.5.0</commons-collections4.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
-        <logback-ext-spring.version>0.1.5</logback-ext-spring.version>
-        <velocity.version>1.7</velocity.version>
-        <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
+        <velocity-engine-core.version>2.4.1</velocity-engine-core.version>
         <poi.version>5.2.5</poi.version>
-        <jasperreports.version>6.21.3</jasperreports.version>
-        <itext.version>[1.02b,2.1.7]</itext.version>
-        <mail.version>1.6.2</mail.version>
+        <jasperreports.version>7.0.7</jasperreports.version>
         <okhttp3.version>4.12.0</okhttp3.version>
 
         <!-- db-starter 第三方版本 -->
@@ -76,10 +73,12 @@
         <jt400.version>20.0.6</jt400.version>
 
         <!-- web-service-starter 第三方版本 -->
-        <cxf-spring-boot-starter-jaxws.version>4.0.0</cxf-spring-boot-starter-jaxws.version>
-        <cxf-rt-databinding-jaxb.version>4.0.0</cxf-rt-databinding-jaxb.version>
+        <cxf-spring-boot-starter-jaxws.version>4.2.2</cxf-spring-boot-starter-jaxws.version>
+        <cxf-rt-databinding-jaxb.version>4.2.2</cxf-rt-databinding-jaxb.version>
         <jaxws-ri.version>4.0.1</jaxws-ri.version>
-        <httpclient.version>4.5.14</httpclient.version>
+
+        <!-- logon-starter 第三方版本 -->
+        <jjwt.version>0.12.6</jjwt.version>
 
         <!-- build 外掛版本 -->
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
@@ -114,6 +113,11 @@
             </dependency>
             <dependency>
                 <groupId>io.github.a09090443</groupId>
+                <artifactId>iam-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
                 <artifactId>web-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -140,19 +144,9 @@
                 <version>${commons-beanutils.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.logback-extensions</groupId>
-                <artifactId>logback-ext-spring</artifactId>
-                <version>${logback-ext-spring.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.apache.velocity</groupId>
-                <artifactId>velocity</artifactId>
-                <version>${velocity.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>javax.servlet</groupId>
-                <artifactId>javax.servlet-api</artifactId>
-                <version>${javax.servlet-api.version}</version>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity-engine-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.poi</groupId>
@@ -169,15 +163,11 @@
                 <artifactId>jasperreports</artifactId>
                 <version>${jasperreports.version}</version>
             </dependency>
+            <!-- JasperReports 7.x 將 PDF 匯出拆為獨立模組，PDF 後端改用 OpenPDF（取代 com.lowagie:itext） -->
             <dependency>
-                <groupId>com.lowagie</groupId>
-                <artifactId>itext</artifactId>
-                <version>${itext.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.mail</groupId>
-                <artifactId>javax.mail</artifactId>
-                <version>${mail.version}</version>
+                <groupId>net.sf.jasperreports</groupId>
+                <artifactId>jasperreports-pdf</artifactId>
+                <version>${jasperreports.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
@@ -216,10 +206,24 @@
                 <version>${jaxws-ri.version}</version>
                 <type>pom</type>
             </dependency>
+
+            <!-- logon-starter 第三方依賴（JWT 登入模式使用 jjwt） -->
             <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>${httpclient.version}</version>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
