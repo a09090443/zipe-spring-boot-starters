@@ -2,68 +2,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>zipe-spring-boot-starters</artifactId>
+        <version>4.0.0.1</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>io.github.a09090443</groupId>
     <artifactId>base-spring-boot-starter</artifactId>
-    <version>3.2.5.4</version>
     <name>base-spring-boot-starter</name>
     <description>Basic spring boot starter</description>
-    <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-    <developers>
-        <developer>
-            <name>Gary.Tsai</name>
-            <email>zipe.daden@gmail.com</email>
-        </developer>
-    </developers>
-    <scm>
-        <connection>scm:git:git://github.com/a09090443/zipe-spring-boot-starters.git</connection>
-        <developerConnection>scm:git:ssh://github.com/a09090443/zipe-spring-boot-starters.git</developerConnection>
-        <url>https://github.com/a09090443/zipe-spring-boot-starters/tree/master</url>
-    </scm>
-    <distributionManagement>
-        <repository>
-            <id>central</id>
-            <name>central-releases</name>
-            <url>https://s01.oss.sonatype.org/</url>
-        </repository>
-    </distributionManagement>
-
-    <properties>
-        <github.global.server>github</github.global.server>
-        <java.version>17</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <commons-lang.version>2.6</commons-lang.version>
-        <commons-lang3.version>3.13.0</commons-lang3.version>
-        <commons-collections4.version>4.4</commons-collections4.version>
-        <commons-io.version>2.14.0</commons-io.version>
-        <commons-beanutils.version>1.9.4</commons-beanutils.version>
-        <logback.version>1.4.11</logback.version>
-        <logback-ext-spring.version>0.1.5</logback-ext-spring.version>
-        <aspectjweaver.version>1.9.20.1</aspectjweaver.version>
-        <gson.version>2.10.1</gson.version>
-        <velocity.version>1.7</velocity.version>
-        <javax.servlet-api.version>4.0.1</javax.servlet-api.version>
-        <poi.version>5.2.4</poi.version>
-        <jasperreports.version>6.20.6</jasperreports.version>
-        <mail.version>1.6.2</mail.version>
-        <okhttp3.version>4.11.0</okhttp3.version>
-        <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
-        <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
-        <site-maven-plugin.version>0.12</site-maven-plugin.version>
-    </properties>
 
     <dependencies>
         <dependency>
@@ -104,38 +53,28 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Apache Commons Lang -->
-        <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
-            <version>${commons-lang.version}</version>
-        </dependency>
-
+        <!-- Apache Commons Lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang3.version}</version>
         </dependency>
 
         <!-- Apache Commons Collections4 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
-            <version>${commons-collections4.version}</version>
         </dependency>
 
         <!-- Apache Commons IO -->
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>${commons-io.version}</version>
         </dependency>
 
         <!-- Apache Commons BeanUtils -->
         <dependency>
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils</artifactId>
-            <version>${commons-beanutils.version}</version>
             <exclusions>
                 <exclusion>
                     <artifactId>commons-logging</artifactId>
@@ -148,76 +87,54 @@
             </exclusions>
         </dependency>
 
-        <!-- Logback Ext Spring -->
-        <dependency>
-            <groupId>org.logback-extensions</groupId>
-            <artifactId>logback-ext-spring</artifactId>
-            <version>${logback-ext-spring.version}</version>
-        </dependency>
-
         <!-- Logback -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
-            <version>${logback.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
         </dependency>
 
         <!-- Aspect -->
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
-            <version>${aspectjweaver.version}</version>
         </dependency>
 
         <!-- Gson -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
         </dependency>
 
-        <!-- Velocity -->
+        <!-- Velocity 2.x（velocity-engine-core）：改用 commons-lang3，不再依賴 commons-lang 2.x -->
         <dependency>
             <groupId>org.apache.velocity</groupId>
-            <artifactId>velocity</artifactId>
-            <version>${velocity.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>commons-lang</artifactId>
-                    <groupId>commons-lang</groupId>
-                </exclusion>
-            </exclusions>
+            <artifactId>velocity-engine-core</artifactId>
         </dependency>
 
-        <!-- Java Servlet -->
+        <!-- Jakarta Servlet（VelocityUtil Web 模式所需，SB4 改用 jakarta 命名空間） -->
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>${javax.servlet-api.version}</version>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
 
         <!-- POI -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
-            <version>${poi.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
-            <version>${poi.version}</version>
         </dependency>
 
-        <!-- Jsperreport -->
+        <!-- JasperReports 7.x 核心（jackson / commons-beanutils / spring-context 交由 Spring Boot BOM 管理） -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>${jasperreports.version}</version>
             <exclusions>
                 <exclusion>
                     <artifactId>jackson-core</artifactId>
@@ -232,10 +149,6 @@
                     <groupId>org.springframework</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>commons-lang</artifactId>
-                    <groupId>commons-lang</groupId>
-                </exclusion>
-                <exclusion>
                     <artifactId>jackson-annotations</artifactId>
                     <groupId>com.fasterxml.jackson.core</groupId>
                 </exclusion>
@@ -243,97 +156,21 @@
                     <artifactId>jackson-databind</artifactId>
                     <groupId>com.fasterxml.jackson.core</groupId>
                 </exclusion>
-                <exclusion>
-                    <groupId>com.lowagie</groupId>
-                    <artifactId>itext</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
+        <!-- JasperReports PDF 匯出模組（7.x 拆出獨立模組，PDF 後端為 OpenPDF；JasperExportManager 匯出 PDF 需此模組在 classpath） -->
         <dependency>
-            <groupId>com.lowagie</groupId>
-            <artifactId>itext</artifactId>
-            <version>[1.02b,2.1.7]</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- JavaMail -->
-        <dependency>
-            <groupId>com.sun.mail</groupId>
-            <artifactId>javax.mail</artifactId>
-            <version>${mail.version}</version>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
         </dependency>
 
         <!-- Okhttp3 -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>${okhttp3.version}</version>
         </dependency>
 
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.6.3</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <configuration>
-                            <doclint>none</doclint>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
-                        </goals>
-                        <configuration>
-                            <keyname>F15B8450C83032817D560D0C023B9997714356C1</keyname>
-                            <passphraseServerId>F15B8450C83032817D560D0C023B9997714356C1</passphraseServerId>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.4.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <tokenAuth>true</tokenAuth>
-                    <autoPublish>true</autoPublish>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>

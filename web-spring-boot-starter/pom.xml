@@ -2,56 +2,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <groupId>io.github.a09090443</groupId>
+        <artifactId>zipe-spring-boot-starters</artifactId>
+        <version>4.0.0.1</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>io.github.a09090443</groupId>
     <artifactId>web-spring-boot-starter</artifactId>
-    <version>3.2.5.1</version>
     <name>web-spring-boot-starter</name>
     <description>Thymeleaf and Jsp spring boot starter</description>
-    <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-    <developers>
-        <developer>
-            <name>Gary.Tsai</name>
-            <email>zipe.daden@gmail.com</email>
-        </developer>
-    </developers>
-    <scm>
-        <connection>scm:git:git://github.com/a09090443/zipe-spring-boot-starters.git</connection>
-        <developerConnection>scm:git:ssh://github.com/a09090443/zipe-spring-boot-starters.git</developerConnection>
-        <url>https://github.com/a09090443/zipe-spring-boot-starters/tree/master</url>
-    </scm>
-    <distributionManagement>
-        <repository>
-            <id>central</id>
-            <name>central-releases</name>
-            <url>https://s01.oss.sonatype.org/</url>
-        </repository>
-    </distributionManagement>
-
-    <properties>
-        <github.global.server>github</github.global.server>
-        <java.version>17</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <jstl-api.version>3.0.0</jstl-api.version>
-        <jstl.version>3.0.1</jstl.version>
-        <base-spring-boot-starter.version>3.2.5.1</base-spring-boot-starter.version>
-        <maven-deploy-plugin.version>3.1.1</maven-deploy-plugin.version>
-        <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
-        <site-maven-plugin.version>0.12</site-maven-plugin.version>
-    </properties>
 
     <dependencies>
         <dependency>
@@ -90,90 +51,17 @@
         <dependency>
             <groupId>jakarta.servlet.jsp.jstl</groupId>
             <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
-            <version>${jstl-api.version}</version>
         </dependency>
         <dependency>
             <groupId>org.glassfish.web</groupId>
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
-            <version>${jstl.version}</version>
-        </dependency>
-
-
-        <dependency>
-            <groupId>org.apache.tomcat.embed</groupId>
-            <artifactId>tomcat-embed-jasper</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <!-- Spring boot starters -->
         <dependency>
             <groupId>io.github.a09090443</groupId>
             <artifactId>base-spring-boot-starter</artifactId>
-            <version>${base-spring-boot-starter.version}</version>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.6.3</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <configuration>
-                            <doclint>none</doclint>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
-                        </goals>
-                        <configuration>
-                            <keyname>F15B8450C83032817D560D0C023B9997714356C1</keyname>
-                            <passphraseServerId>F15B8450C83032817D560D0C023B9997714356C1</passphraseServerId>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.4.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <tokenAuth>true</tokenAuth>
-                    <autoPublish>true</autoPublish>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>

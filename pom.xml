@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 根 pom 仍繼承 Spring Boot parent -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <groupId>io.github.a09090443</groupId>
+    <artifactId>zipe-spring-boot-starters</artifactId>
+    <version>4.0.0.1</version>
+    <packaging>pom</packaging>
+    <name>zipe-spring-boot-starters</name>
+    <description>Zipe 自製 Spring Boot Starter 集合</description>
+    <url>https://github.com/a09090443/zipe-spring-boot-starters</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>Gary.Tsai</name>
+            <email>zipe.daden@gmail.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git://github.com/a09090443/zipe-spring-boot-starters.git</connection>
+        <developerConnection>scm:git:ssh://github.com/a09090443/zipe-spring-boot-starters.git</developerConnection>
+        <url>https://github.com/a09090443/zipe-spring-boot-starters/tree/master</url>
+    </scm>
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>central-releases</name>
+            <url>https://s01.oss.sonatype.org/</url>
+        </repository>
+    </distributionManagement>
+
+    <modules>
+        <module>base-spring-boot-starter</module>
+        <module>db-spring-boot-starter</module>
+        <module>job-spring-boot-starter</module>
+        <module>logon-spring-boot-starter</module>
+        <module>iam-spring-boot-starter</module>
+        <module>web-spring-boot-starter</module>
+        <module>web-service-spring-boot-starter</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- base-starter 第三方版本（未被 Spring Boot BOM 管理者才在此宣告） -->
+        <commons-collections4.version>4.5.0</commons-collections4.version>
+        <commons-io.version>2.22.0</commons-io.version>
+        <commons-beanutils.version>1.11.0</commons-beanutils.version>
+        <velocity-engine-core.version>2.4.1</velocity-engine-core.version>
+        <poi.version>5.2.5</poi.version>
+        <jasperreports.version>7.0.7</jasperreports.version>
+        <okhttp3.version>4.12.0</okhttp3.version>
+
+        <!-- db-starter 第三方版本 -->
+        <p6spy.version>3.9.1</p6spy.version>
+        <jt400.version>20.0.6</jt400.version>
+
+        <!-- web-service-starter 第三方版本 -->
+        <cxf-spring-boot-starter-jaxws.version>4.2.2</cxf-spring-boot-starter-jaxws.version>
+        <cxf-rt-databinding-jaxb.version>4.2.2</cxf-rt-databinding-jaxb.version>
+        <jaxws-ri.version>4.0.1</jaxws-ri.version>
+
+        <!-- logon-starter 第三方版本 -->
+        <jjwt.version>0.12.6</jjwt.version>
+
+        <!-- build 外掛版本 -->
+        <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
+        <gpg.keyname>063A3F99C99FC14AB63FA41F451A84C7C09C90F0</gpg.keyname>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 內部 starter（reactor 內依版本解析） -->
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>base-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>db-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>job-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>logon-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>iam-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>web-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.a09090443</groupId>
+                <artifactId>web-service-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- base-starter 第三方依賴（commons-lang3 / logback / aspectjweaver / gson 交由 Spring Boot BOM 管理） -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>${commons-collections4.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>${commons-beanutils.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.velocity</groupId>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity-engine-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.sf.jasperreports</groupId>
+                <artifactId>jasperreports</artifactId>
+                <version>${jasperreports.version}</version>
+            </dependency>
+            <!-- JasperReports 7.x 將 PDF 匯出拆為獨立模組，PDF 後端改用 OpenPDF（取代 com.lowagie:itext） -->
+            <dependency>
+                <groupId>net.sf.jasperreports</groupId>
+                <artifactId>jasperreports-pdf</artifactId>
+                <version>${jasperreports.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp3.version}</version>
+            </dependency>
+
+            <!-- db-starter 第三方依賴（mssql-jdbc / mysql-connector-j / mariadb-java-client 交由 Spring Boot BOM 管理） -->
+            <dependency>
+                <groupId>p6spy</groupId>
+                <artifactId>p6spy</artifactId>
+                <version>${p6spy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.sf.jt400</groupId>
+                <artifactId>jt400</artifactId>
+                <version>${jt400.version}</version>
+            </dependency>
+
+            <!-- web-starter 第三方依賴（jstl-api / glassfish jstl 交由 Spring Boot BOM 管理） -->
+
+            <!-- web-service-starter 第三方依賴 -->
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-spring-boot-starter-jaxws</artifactId>
+                <version>${cxf-spring-boot-starter-jaxws.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-databinding-jaxb</artifactId>
+                <version>${cxf-rt-databinding-jaxb.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.xml.ws</groupId>
+                <artifactId>jaxws-ri</artifactId>
+                <version>${jaxws-ri.version}</version>
+                <type>pom</type>
+            </dependency>
+
+            <!-- logon-starter 第三方依賴（JWT 登入模式使用 jjwt） -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- 所有子模組共用：附帶 sources jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- Javadoc Plugin -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>${maven-javadoc-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <configuration>
+                                    <doclint>none</doclint>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- GPG Plugin -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <keyname>${gpg.keyname}</keyname>
+                                    <passphraseServerId>${gpg.keyname}</passphraseServerId>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Central Publishing Plugin -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
+                            <autoPublish>true</autoPublish>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

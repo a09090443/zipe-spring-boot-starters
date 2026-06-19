@@ -1,0 +1,21 @@
+# iam-starter 整合測試設定：以記憶體 H2 離線執行，由 Hibernate 依實體標註建表（僅測試範圍）。
+spring:
+  datasource:
+    url: jdbc:h2:mem:iamtest;DB_CLOSE_DELAY=-1;MODE=LEGACY
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+
+# logon 安全性設定：整合測試僅需取得 PasswordEncoder 與預設 resolver，採 BASIC 模式。
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /public/**
+  login-uri: ""

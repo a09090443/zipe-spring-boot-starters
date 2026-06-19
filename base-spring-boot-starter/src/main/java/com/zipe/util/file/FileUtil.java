@@ -2,7 +2,7 @@ package com.zipe.util.file;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -12,6 +12,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * 檔案操作工具類別，封裝 Apache Commons IO 的 {@link FileUtils} 常用功能，
+ * 提供檔案比較、查詢、讀取、寫入、複製、移動、刪除等靜態方法。
+ * <p>
+ * 所有方法均為 {@code static}，無需實例化即可使用。
+ * 當底層操作失敗時，刪除類方法會改為 JVM 結束時強制刪除，以確保資源最終釋放。
+ * </p>
+ */
 public class FileUtil {
     /***************************************************************
      * 檔案比較
@@ -137,9 +145,9 @@ public class FileUtil {
      */
     public static Long sizeOf(File file) throws IOException {
         if (file.isDirectory()) {
-            return FileUtils.sizeOf(file);
-        } else {
             return FileUtils.sizeOfDirectory(file);
+        } else {
+            return FileUtils.sizeOf(file);
         }
 
     }
@@ -184,6 +192,7 @@ public class FileUtil {
      */
     public static void writeLines(File file, String encoding, List<String> lines, String lineEnding, boolean append)
             throws IOException {
+        // lineEnding 為空白時，讓 FileUtils 使用系統預設換行符號（System.lineSeparator()）
         if (StringUtils.isBlank(lineEnding)) {
             FileUtils.writeLines(file, encoding, lines, append);
         } else {
@@ -303,6 +312,7 @@ public class FileUtil {
             ftemp = new File(path);
             FileUtils.forceDelete(ftemp);
         } catch (IOException e) {
+            // 若立即刪除失敗（例如檔案被鎖定），改為登記在 JVM 結束時刪除，避免資源殘留
             FileUtils.forceDeleteOnExit(ftemp);
         }
     }
@@ -326,6 +336,7 @@ public class FileUtil {
         try {
             FileUtils.forceDelete(file);
         } catch (IOException e) {
+            // 若立即刪除失敗（例如檔案被鎖定），改為登記在 JVM 結束時刪除，避免資源殘留
             FileUtils.forceDeleteOnExit(file);
         }
     }
@@ -371,13 +382,18 @@ public class FileUtil {
     }
 
     /**
-     * 取得檔案來源於 classpath
+     * 從 classpath 取得檔案物件。
+     * <p>
+     * 會自動去除路徑開頭的 {@code /}，以符合 {@link ClassLoader#getResource(String)} 不接受
+     * 絕對路徑格式的規範。若資源不存在於 classpath，則回傳 {@code null}。
+     * </p>
      *
-     * @param filePath
-     * @return
+     * @param filePath classpath 相對路徑（允許以 {@code /} 開頭，會自動修正）
+     * @return 對應的 {@link File} 物件；若資源不存在則回傳 {@code null}
      */
     public static File getFileFromClasspath(String filePath) {
         ClassLoader classLoader = FileUtil.class.getClassLoader();
+        // ClassLoader#getResource 不接受以 '/' 開頭的路徑，先移除開頭斜線
         String replacePath = filePath.replaceFirst("/", "");
         URL resource = classLoader.getResource(replacePath);
         if (Objects.nonNull(resource)) {
@@ -386,6 +402,11 @@ public class FileUtil {
         return null;
     }
 
+    /**
+     * 手動測試進入點（僅供開發測試，非對外 API）。
+     *
+     * @param args 命令列引數（未使用）
+     */
     public static void main(String[] args) {
         File file1 = new File("d://a/1.txt");
         File file2 = new File("d://b/");

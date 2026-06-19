@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CI 專用 Maven settings，供 publish-maven-central workflow 使用。
+  此檔案不含任何機密：所有認證資訊皆於執行期由環境變數（GitHub Secrets）注入。
+
+  - server id=central：Central Portal 發布認證，對應 pom.xml release profile 的
+    central-publishing-maven-plugin <publishingServerId>central</publishingServerId>
+  - server id=<gpg.keyname>：提供 GPG 簽章 passphrase，id 必須與根 pom.xml 的
+    ${gpg.keyname} 一致（maven-gpg-plugin 的 passphraseServerId）。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <servers>
+        <server>
+            <id>central</id>
+            <username>${env.MAVEN_CENTRAL_USERNAME}</username>
+            <password>${env.MAVEN_CENTRAL_PASSWORD}</password>
+        </server>
+        <server>
+            <id>063A3F99C99FC14AB63FA41F451A84C7C09C90F0</id>
+            <passphrase>${env.MAVEN_GPG_PASSPHRASE}</passphrase>
+        </server>
+    </servers>
+</settings>

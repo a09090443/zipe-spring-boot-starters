@@ -4,6 +4,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * 資料驗證工具類別，提供常用格式的正規表達式常數與對應的靜態驗證方法。
+ * <p>
+ * 支援的驗證類型包含：Email、電話號碼、手機號碼、URL、數字（整數／浮點數）、
+ * 日期、年齡、郵遞區號、英文字母、身份證（中國大陸格式）以及台灣身分證字號（ROC PID）。
+ * </p>
+ * <p>
+ * 所有方法均為靜態方法，無需實例化即可直接使用。
+ * </p>
+ *
  * @author : Gary Tsai
  * @created : @Date 2021/1/4 下午 01:07
  **/
@@ -115,208 +124,213 @@ public class Validation {
      * 匹配數字組成的字串 [0-9]*
      */
     public static final String STR_NUM = "[0-9]*";
+    /**
+     * 台灣身分證字號預先編譯的正規表達式 Pattern。
+     * 第一碼為縣市代碼字母（排除 I），第二碼為性別碼（1=男，2=女），後接 8 位數字。
+     * 預先編譯可避免每次呼叫 {@link #isValidTWPID(String)} 時重複編譯，提升效能。
+     */
     public static final Pattern TWPID_PATTERN = Pattern
             .compile("[ABCDEFGHJKLMNPQRSTUVXYWZIO][12]\\d{8}");
 ////------------------驗證方法
 
     /**
-     * 判斷欄位是否為空 符合返回ture
+     * 判斷字串是否為空值（null 或空白字串）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待檢查的字串
+     * @return 若字串為 {@code null} 或去除前後空白後長度為 0，則回傳 {@code true}；否則回傳 {@code false}
      */
     public static synchronized boolean StrisNull(String str) {
         return null == str || str.trim().length() <= 0 ? true : false;
     }
 
     /**
-     * 判斷欄位是非空 符合返回ture
+     * 判斷字串是否為非空值。
      *
-     * @param str
-     * @return boolean
+     * @param str 待檢查的字串
+     * @return 若字串不為 {@code null} 且去除前後空白後長度大於 0，則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean StrNotNull(String str) {
         return !StrisNull(str);
     }
 
     /**
-     * 字串null轉空
+     * 將 {@code null} 字串轉換為空字串，非 {@code null} 則原樣回傳。
      *
-     * @param str
-     * @return boolean
+     * @param str 待轉換的字串，允許為 {@code null}
+     * @return 若 {@code str} 為空值則回傳 {@code ""}；否則回傳原字串
      */
     public static String nulltoStr(String str) {
         return StrisNull(str) ? "" : str;
     }
 
     /**
-     * 字串null賦值預設值
+     * 將 {@code null} 字串替換為指定的預設值，非 {@code null} 則原樣回傳。
      *
-     * @param str    目標字串
-     * @param defaut 預設值
-     * @return String
+     * @param str    目標字串，允許為 {@code null}
+     * @param defaut 當 {@code str} 為空值時要回傳的預設值
+     * @return 若 {@code str} 為空值則回傳 {@code defaut}；否則回傳原字串
      */
     public static String nulltoStr(String str, String defaut) {
         return StrisNull(str) ? defaut : str;
     }
 
     /**
-     * 判斷欄位是否為Email 符合返回ture
+     * 判斷字串是否符合 Email 格式。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合 Email 格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isEmail(String str) {
         return Regular(str, EMAIL);
     }
 
     /**
-     * 判斷是否為電話號碼 符合返回ture
+     * 判斷字串是否符合電話號碼格式（含區碼）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合電話號碼格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isPhone(String str) {
         return Regular(str, PHONE);
     }
 
     /**
-     * 判斷是否為手機號碼 符合返回ture
+     * 判斷字串是否符合手機號碼格式（13x / 14x / 15x / 17x / 18x 開頭，共 11 碼）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合手機號碼格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isMobile(String str) {
         return Regular(str, MOBILE);
     }
 
     /**
-     * 判斷是否為Url 符合返回ture
+     * 判斷字串是否符合 URL 格式（支援 http、www、ftp 等協定）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合 URL 格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isUrl(String str) {
         return Regular(str, URL);
     }
 
     /**
-     * 判斷欄位是否為數字 正負整數 正負浮點數 符合返回ture
+     * 判斷欄位是否為數字（正負整數或正負浮點數）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合數字格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isNumber(String str) {
         return Regular(str, DOUBLE);
     }
 
     /**
-     * 判斷欄位是否為INTEGER 符合返回ture
+     * 判斷欄位是否為整數（含正整數、負整數與零）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合整數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isInteger(String str) {
         return Regular(str, INTEGER);
     }
 
     /**
-     * 判斷欄位是否為正整數正規表示式 >=0 符合返回ture
+     * 判斷欄位是否為非負整數（&gt;= 0）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合非負整數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isINTEGER_NEGATIVE(String str) {
         return Regular(str, INTEGER_NEGATIVE);
     }
 
     /**
-     * 判斷欄位是否為負整數正規表示式 <=0 符合返回ture
+     * 判斷欄位是否為非正整數（&lt;= 0）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合非正整數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isINTEGER_POSITIVE(String str) {
         return Regular(str, INTEGER_POSITIVE);
     }
 
     /**
-     * 判斷欄位是否為DOUBLE 符合返回ture
+     * 判斷欄位是否為浮點數（含正負浮點數與零）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合浮點數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isDouble(String str) {
         return Regular(str, DOUBLE);
     }
 
     /**
-     * 判斷欄位是否為正浮點數正規表示式 >=0 符合返回ture
+     * 判斷欄位是否為非負浮點數（&gt;= 0）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合非負浮點數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isDOUBLE_NEGATIVE(String str) {
         return Regular(str, DOUBLE_NEGATIVE);
     }
 
     /**
-     * 判斷欄位是否為負浮點數正規表示式 <=0 符合返回ture
+     * 判斷欄位是否為非正浮點數（&lt;= 0）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合非正浮點數格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isDOUBLE_POSITIVE(String str) {
         return Regular(str, DOUBLE_POSITIVE);
     }
 
     /**
-     * 判斷欄位是否為日期 符合返回ture
+     * 判斷欄位是否為有效日期（支援多種分隔符格式，涵蓋西元 1800 年以後的合法日期，含閏年判斷）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合日期格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isDate(String str) {
         return Regular(str, DATE_ALL);
     }
 
     /**
-     * 驗證2010-12-10
+     * 判斷欄位是否符合 YYYY-MM-DD 格式的嚴格日期（含閏年二月 29 日驗證）。
      *
-     * @param str
-     * @return
+     * @param str 待驗證的字串，格式須為 YYYY-MM-DD（例如 2010-12-10）
+     * @return 符合 YYYY-MM-DD 日期格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isDate1(String str) {
         return Regular(str, DATE_FORMAT1);
     }
 
     /**
-     * 判斷欄位是否為年齡 符合返回ture
+     * 判斷欄位是否為合法年齡（0 至 120 歲之間的整數）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合年齡範圍則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isAge(String str) {
         return Regular(str, AGE);
     }
 
     /**
-     * 判斷欄位是否超長
-     * 字串為空返回fasle, 超過長度{leng}返回ture 反之返回false
+     * 判斷字串長度是否超過指定上限。
+     * 字串為 {@code null} 或空白時視為未超長，直接回傳 {@code false}。
      *
-     * @param str
-     * @param leng
-     * @return boolean
+     * @param str  待檢查的字串，允許為 {@code null}
+     * @param leng 長度上限（不含）
+     * @return 字串去除前後空白後長度超過 {@code leng} 則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isLengOut(String str, int leng) {
         return StrisNull(str) ? false : str.trim().length() > leng;
     }
 
     /**
-     * 判斷欄位是否為身份證 符合返回ture
+     * 判斷欄位是否符合中國大陸身份證號碼格式（15 碼舊版或 18 碼新版）。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合身份證號碼格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isIdCard(String str) {
         if (StrisNull(str)) return false;
@@ -337,19 +351,27 @@ public class Validation {
      * 南投縣(M)、彰化縣(N)、新竹市(O)、雲林縣(P)、嘉義縣(Q)、臺南縣(R)、
      * 高雄縣(S)、屏東縣(T)、花蓮縣(U)、臺東縣(V)、金門縣(W)、澎湖縣(X)、
      * 陽明山(Y)、連江縣(Z)
+     *
+     * @param twpid 待驗證的台灣身分證字號字串（不區分大小寫）
+     * @return 身分證字號格式與校驗碼皆正確則回傳 {@code true}；否則回傳 {@code false}
      * @since 2006/07/19
      */
     public static boolean isValidTWPID(String twpid) {
         boolean result = false;
+        // 縣市代碼字母對應表，索引值加 10 即為兩位數代碼（例如 A → 索引 0 → 代碼 10）
         String pattern = "ABCDEFGHJKLMNPQRSTUVXYWZIO";
         if (TWPID_PATTERN.matcher(twpid.toUpperCase()).matches()) {
+            // 取得首碼字母對應的數值（10~35）
             int code = pattern.indexOf(twpid.toUpperCase().charAt(0)) + 10;
             int sum = 0;
+            // 依加權公式計算檢查碼：X1 + 9*X2 + 8*D1 + ... + 1*D8 + D9
+            // 其中 X1 為代碼十位數，X2 為代碼個位數，D1~D9 為後 9 碼數字
             sum = (int) (code / 10) + 9 * (code % 10) + 8 * (twpid.charAt(1) - '0')
                     + 7 * (twpid.charAt(2) - '0') + 6 * (twpid.charAt(3) - '0')
                     + 5 * (twpid.charAt(4) - '0') + 4 * (twpid.charAt(5) - '0')
                     + 3 * (twpid.charAt(6) - '0') + 2 * (twpid.charAt(7) - '0')
                     + 1 * (twpid.charAt(8) - '0') + (twpid.charAt(9) - '0');
+            // 總和可被 10 整除表示校驗碼正確
             if ( (sum % 10) == 0) {
                 result = true;
             }
@@ -357,50 +379,50 @@ public class Validation {
         return result;
     }
     /**
-     * 判斷欄位是否為郵編 符合返回ture
+     * 判斷欄位是否為 6 位數郵遞區號格式。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 符合郵遞區號格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isCode(String str) {
         return Regular(str, CODE);
     }
 
     /**
-     * 判斷字串是不是全部是英文字母
+     * 判斷字串是否全部由英文字母（A-Z、a-z）組成。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 全為英文字母則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isEnglish(String str) {
         return Regular(str, STR_ENG);
     }
 
     /**
-     * 判斷字串是不是全部是英文字母 數字
+     * 判斷字串是否全部由英文字母（A-Z、a-z）與數字（0-9）組成。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 全為英文字母與數字則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isENG_NUM(String str) {
         return Regular(str, STR_ENG_NUM);
     }
 
     /**
-     * 判斷字串是不是全部是英文字母 數字 下劃線
+     * 判斷字串是否全部由英文字母、數字與底線（_）組成。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 全為英文字母、數字或底線則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isENG_NUM_(String str) {
         return Regular(str, STR_ENG_NUM_);
     }
 
     /**
-     * 過濾特殊字串 返回過濾後的字串
+     * 過濾字串中的特殊符號，回傳去除特殊字元後的結果。
      *
-     * @param str
-     * @return boolean
+     * @param str 待過濾的字串
+     * @return 去除所有特殊字元並去除前後空白後的字串
      */
     public static String filterStr(String str) {
         Pattern p = Pattern.compile(STR_SPECIAL);
@@ -409,19 +431,20 @@ public class Validation {
     }
 
     /**
-     * 校驗機構程式碼格式
+     * 校驗機構程式碼格式（格式：8 碼大寫英數字 + 連字號 + 1 碼大寫英數字）。
      *
-     * @return
+     * @param str 待驗證的字串
+     * @return 符合機構程式碼格式則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isJigouCode(String str) {
         return Regular(str, JIGOU_CODE);
     }
 
     /**
-     * 判斷字串是不是數字組成
+     * 判斷字串是否全部由數字（0-9）組成。
      *
-     * @param str
-     * @return boolean
+     * @param str 待驗證的字串
+     * @return 全為數字則回傳 {@code true}；否則回傳 {@code false}
      */
     public static boolean isSTR_NUM(String str) {
         return Regular(str, STR_NUM);

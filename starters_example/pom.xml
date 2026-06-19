@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.0.6</version>
+    <version>4.0.0</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   <groupId>com.example</groupId>
@@ -18,23 +18,11 @@
   <properties>
     <java.version>17</java.version>
     <jaxws-ri.version>4.0.1</jaxws-ri.version>
-    <webjars-bootstrap.version>5.2.3</webjars-bootstrap.version>
-    <webjars-jquery.version>3.6.4</webjars-jquery.version>
+    <webjars-bootstrap.version>5.3.8</webjars-bootstrap.version>
+    <webjars-jquery.version>3.7.1</webjars-jquery.version>
     <webjars-locator.version>0.46</webjars-locator.version>
-    <zipe.spring.starter.version>3.0.6.1</zipe.spring.starter.version>
+    <zipe.spring.starter.version>4.0.0.1</zipe.spring.starter.version>
   </properties>
-
-  <repositories>
-    <repository>
-      <id>zipe-spring-boot-starters</id>
-      <!-- //raw.github.com/用戶名/倉庫名/分支名 -->
-      <url>https://raw.github.com/a09090443/zipe-spring-boot-starters/mvn-repo</url>
-      <snapshots>
-        <enabled>true</enabled>
-        <updatePolicy>always</updatePolicy>
-      </snapshots>
-    </repository>
-  </repositories>
 
   <dependencies>
 
@@ -62,38 +50,44 @@
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>base-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>web-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>web-service-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>job-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>db-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.zipe</groupId>
+      <groupId>io.github.a09090443</groupId>
       <artifactId>logon-spring-boot-starter</artifactId>
+      <version>${zipe.spring.starter.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.github.a09090443</groupId>
+      <artifactId>iam-spring-boot-starter</artifactId>
       <version>${zipe.spring.starter.version}</version>
     </dependency>
 
@@ -109,6 +103,20 @@
       </exclusions>
     </dependency>
 
+    <!-- SB4 將 MockMvc 測試切片（@AutoConfigureMockMvc）移至獨立工件 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- 提供 @WithMockUser 等安全測試支援（controller 測試需帶認證身分） -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Compile jsp -->
     <dependency>
       <groupId>org.apache.tomcat.embed</groupId>
@@ -120,6 +128,13 @@
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- PostgreSQL driver（驗證跨資料庫類型動態切換；版本由 Spring Boot BOM 管理） -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
 
@@ -140,6 +155,12 @@
   <build>
     <finalName>example</finalName>
     <resources>
+      <!-- 預設資源目錄（application.yml、data-source.properties、init SQL、jasperreport 模板等）。
+           一旦明確宣告 <resources> 就會覆蓋 Maven 預設值，故須手動補回此目錄，否則 src/main/resources 不會被打包。 -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
       <resource>
         <directory>src/main/webapp</directory>
         <!--這裡必須是META-INF/resources-->

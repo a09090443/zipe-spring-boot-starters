@@ -6,8 +6,14 @@ import lombok.Getter;
 import lombok.ToString;
 
 /**
- * 後端回傳給前端的json格式
- * 返回格式可參考 org.springframework.boot.web.servlet.error.DefaultErrorAttributes
+ * 後端回傳給前端的統一 JSON 回應封裝。
+ * <p>
+ * 每個回應包含狀態碼（{@code code}）、訊息（{@code message}）與資料本體（{@code data}），
+ * 供前端統一解析處理。回傳格式可參考
+ * {@code org.springframework.boot.web.servlet.error.DefaultErrorAttributes}。
+ * </p>
+ *
+ * @param <T> 資料本體的型別
  */
 @Getter
 @ToString

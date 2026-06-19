@@ -1,0 +1,79 @@
+name: 發布至 Maven Central
+
+# 觸發時機：
+# - 於 GitHub 建立並發布 Release（含 tag）時自動發布；發布版本「以 tag 為準」，
+#   會於 build 前以 tag 名稱覆寫各模組版本，故 pom.xml 不必先手動改版。
+#   tag 格式須為 v<版本> 或 <版本>，版本沿用 <SpringBoot版本>.<流水號>，
+#   例如：v3.5.14.1（開頭的 v 會自動去除）。
+# - 於 Actions 頁面手動執行（備用，無 tag，沿用 pom.xml 當前版本）。
+#
+# 發布成功後（僅 Release 觸發）會把該版本回寫至預設分支的 pom.xml 並 commit，
+# 使版控中的版本與實際發布版本保持一致（需 contents: write 權限）。
+#
+# 必要的 GitHub Secrets（Settings → Secrets and variables → Actions）：
+# - MAVEN_CENTRAL_USERNAME：Central Portal 產生的 token 使用者名稱
+# - MAVEN_CENTRAL_PASSWORD：Central Portal 產生的 token 密碼
+# - GPG_PRIVATE_KEY：armored 格式 GPG 私鑰（gpg --armor --export-secret-keys <keyid>）
+# - GPG_PASSPHRASE：上述 GPG 私鑰的 passphrase
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 發布後需 push 回寫版本至預設分支
+
+jobs:
+  publish:
+    name: 建置並發布
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 JDK 17 並匯入 GPG 私鑰
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: 由 Release tag 設定發布版本
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::無法由 tag 取得版本（GITHUB_REF_NAME 為空）"
+            exit 1
+          fi
+          echo "以 tag 設定版本為：$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mvn -B versions:set -DnewVersion="$VERSION" -DprocessAllModules -DgenerateBackupPoms=false
+
+      - name: 啟用 release profile 建置並發布至 Maven Central
+        run: mvn -B -Prelease -s .github/maven-settings.xml clean deploy
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: 回寫版本至預設分支
+        if: github.event_name == 'release'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 取出最新預設分支（-f 捨棄 deploy 期間 versions:set 留下的工作區改動）
+          git fetch origin "$DEFAULT_BRANCH"
+          git checkout -f -B "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"
+          # 在預設分支上設定相同版本
+          mvn -B versions:set -DnewVersion="$VERSION" -DprocessAllModules -DgenerateBackupPoms=false
+          if git diff --quiet; then
+            echo "預設分支版本已是 $VERSION，略過回寫"
+          else
+            git commit -am "設定: 發布 $VERSION 後回寫 pom 版本 [skip ci]"
+            git push origin "$DEFAULT_BRANCH"
+          fi

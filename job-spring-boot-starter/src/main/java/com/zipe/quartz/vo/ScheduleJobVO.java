@@ -8,6 +8,13 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 排程任務的 View Object，用於在前端與後端之間傳遞排程設定資訊。
+ * <p>
+ * 包含排程名稱、群組、執行類別、Cron 表示式、時間區間、執行與使用狀態，
+ * 以及開始／結束時間、額外參數等完整排程描述資料。
+ * </p>
+ */
 @Data
 public class ScheduleJobVO implements Serializable {
     @Serial

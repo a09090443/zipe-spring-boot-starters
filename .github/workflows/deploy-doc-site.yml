@@ -1,0 +1,67 @@
+name: 部署 doc-site 至 GitHub Pages
+
+# 觸發時機：
+# - push 到 master 且異動 doc-site/（避免無關變更觸發部署）
+# - 於 Actions 頁面手動執行
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'doc-site/**'
+      - '.github/workflows/deploy-doc-site.yml'
+  workflow_dispatch:
+
+# GitHub Pages 部署所需權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一時間只保留一個部署，新的進行中部署不取消既有完成步驟
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 建置
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: doc-site
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: doc-site/package-lock.json
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: 建置（含 postbuild 產生 llms.txt）
+        run: npm run build
+
+      - name: 設定 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上傳建置產物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: doc-site/build
+
+  deploy:
+    name: 部署
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署至 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

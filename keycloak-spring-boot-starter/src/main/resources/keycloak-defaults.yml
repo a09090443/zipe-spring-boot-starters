@@ -75,7 +75,7 @@ keycloak:
       jgroupsUdpMcastAddr: "234.56.78.90"
       nodeName: "localhost"
       siteName: ""
-      clustered: fase
+      clustered: false
       async: false
       sessionsOwners: 1
       l1Lifespan: 600000
