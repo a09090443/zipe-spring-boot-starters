@@ -3515,6 +3515,227 @@ public class ReportService {
 
 ---
 
+## example-kotlin（Kotlin 範例）
+
+
+`example-kotlin` 是 [`starters_example`](../integration/index.md) 的 **Kotlin 對應版**，以 Kotlin + Gradle 1:1 重寫同一套整合範例，展示 zipe-spring-boot-starters 各模組在 **Kotlin 專案**中的使用方式。它與 `starters_example` 的套件結構（`com.example.*`）、類別名稱、方法簽章與對外端點**完全對齊**，差別僅在語言、建構工具與測試框架——因此兩版範例可互相對照，方便 Kotlin 使用者直接套用。
+
+## 技術規格
+
+| 面向 | 內容 |
+|---|---|
+| 語言 | Kotlin 2.2.x |
+| 平台 | Spring Boot 4.0.0 / Java 17（bytecode target 17） |
+| 建構工具 | Gradle（Kotlin DSL，`build.gradle.kts`） |
+| 測試框架 | Kotest（`FunSpec` + `kotest-extensions-spring`） |
+| Starter 座標 | `io.github.a09090443:*-spring-boot-starter:4.0.0.1`（七個 starter） |
+
+:::note 為何另存一份 Kotlin 範例
+`starters_example` 以 Java + Maven 呈現；`example-kotlin` 則保留相同功能，改以 Kotlin 慣例（`data class`、`val/var`、null 安全、不使用 Lombok）與 Gradle 建構，作為 Kotlin 專案引入這些 Starter 的參考實作。功能本身的詳細說明請參閱[整合範例教學](../integration/index.md)，本章節聚焦於 Kotlin 版的取得、啟動與語言層面的差異。
+:::
+
+## 涵蓋情境
+
+與 `starters_example` 相同，一次整合全部七個 Starter：
+
+| Starter | 在範例中的用途 |
+|---|---|
+| `base-spring-boot-starter` | 加解密（CryptoUtil）、Excel 匯入匯出、JasperReport 報表、HTTP 工具 |
+| `db-spring-boot-starter` | 多資料來源動態切換（`@DS` / `DataSourceHolder`）、BaseJDBC、SQL 外化 |
+| `job-spring-boot-starter` | Quartz 排程（Annotation、DB、Properties 三種模式） |
+| `logon-spring-boot-starter` | Spring Security 登入認證（含 JWT cookie 混合模式） |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分授權，以 `@PreAuthorize` 保護端點 |
+| `web-spring-boot-starter` | Thymeleaf 視圖、JSP 與統一回應格式 |
+| `web-service-spring-boot-starter` | Apache CXF SOAP WebService 服務端與客戶端 |
+
+## 專案目錄結構
+
+```
+example-kotlin/
+├── build.gradle.kts                          # Gradle Kotlin DSL 建構腳本
+├── settings.gradle.kts
+├── gradle/wrapper/                           # Gradle 8.14 wrapper
+├── src/main/kotlin/com/example/
+│   ├── Application.kt                        # Spring Boot 入口（runApplication）
+│   ├── config/                               # 安全設定（basic.users 覆寫、custom DbAuthProvider、JWT cookie 混合、登入日誌）
+│   ├── controller/                           # RestfulController、WebController、IamDemoController
+│   ├── service/                              # ExampleService、DBExampleService（多資料源）
+│   ├── job/                                  # 三種 Quartz 排程模式
+│   ├── model/ + repository/                  # JPA Entity（class + var）與 Repository
+│   ├── jdbc/ExampleJdbc.kt                   # 繼承 BaseJDBC
+│   └── webservice/                           # CXF SOAP 介面與實作
+├── src/main/resources/                       # application.yml、init SQL、iam-demo.sql、jasperreport、quartz、logback
+├── src/main/webapp/WEB-INF/                  # JSP / Thymeleaf 視圖
+├── src/postman/                              # Postman / SOAP 測試集合
+└── src/test/kotlin/com/example/              # Kotest 測試（FunSpec + SpringExtension）
+```
+
+## 延伸閱讀
+
+- [快速啟動](./quickstart.md) — 取得依賴、啟動專案、驗證端點
+- [Kotlin 化重點](./kotlin-notes.md) — 與 `starters_example` 的語言層面差異與建構設定
+- [整合範例教學](../integration/index.md) — 各 Starter 協同運作的功能說明（與本範例同樣適用）
+
+---
+
+## Kotlin 化重點
+
+
+本頁說明 `example-kotlin` 相對於 [`starters_example`](../integration/index.md) 在**語言與建構層面**的差異。兩者的功能、套件結構、端點與方法簽章一致；差異僅在於 Kotlin 的慣用寫法與 Gradle 設定。
+
+## 與 starters_example 的差異對照
+
+| 面向 | starters_example | example-kotlin |
+|---|---|---|
+| 語言 | Java 17 | Kotlin 2.2.x |
+| 建構工具 | Maven（`pom.xml`、`mvnw`） | Gradle Kotlin DSL（`build.gradle.kts`、`gradlew`） |
+| 測試框架 | JUnit 5 + Spring Test | Kotest（`FunSpec` + `kotest-extensions-spring` 的 `SpringExtension`） |
+| 樣板簡化 | Lombok（`@Slf4j`、`@Data` 等） | Kotlin 慣例（`val/var`、字串模板、單運算式函式），不使用 Lombok |
+| Null 安全 | 由 Java 慣例處理 | Kotlin 型別系統強制（`-Xjsr305=strict`） |
+| JPA Entity | 標準 Java class | Kotlin `class` + `var` 屬性（`kotlin("plugin.jpa")` no-arg 外掛） |
+
+## build.gradle.kts 重點
+
+```kotlin
+plugins {
+    id("org.springframework.boot") version "4.0.0"
+    id("io.spring.dependency-management") version "1.1.7"
+    kotlin("jvm") version "2.2.0"
+    kotlin("plugin.spring") version "2.2.0"   // 對 @Configuration/@Component 等套用 all-open
+    kotlin("plugin.jpa") version "2.2.0"      // 對 @Entity 產生無參建構子（no-arg）
+}
+
+java {
+    // 不鎖定 toolchain languageVersion，改由執行 Gradle 的 JDK（17 以上）編譯，
+    // 避免在僅安裝較新 JDK 的環境上找不到 17 toolchain。
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()   // 供解析本地 mvn install 的 4.0.0.1 Starter
+}
+```
+
+- **七個 Starter** 以 `io.github.a09090443:*-spring-boot-starter:4.0.0.1` 引入。
+- `kotlin-reflect` 為 Spring + Kotlin 必備。
+- JSP 編譯所需的 `tomcat-embed-jasper` 以 `compileOnly` 引入（對應 Maven 的 `provided`）；H2、PostgreSQL 以 `runtimeOnly`；devtools 以 `developmentOnly`。
+
+## JPA Entity 寫法
+
+Entity 採一般 `class` + `var` 屬性（非 `data class`），以保留與 Java 來源相同的 Hibernate 風格自訂 `equals`/`hashCode` 策略；`kotlin("plugin.jpa")` 會為其產生 JPA 所需的無參建構子。
+
+```kotlin
+@Entity
+@Table(name = "user_main")
+class UserMain {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null
+    var name: String? = null
+    var gender: String? = null
+    // equals/hashCode 沿用 Hibernate 最佳實務（以 Hibernate.getClass 區分代理）
+}
+```
+
+## 測試（Kotest）
+
+測試以 Kotest 的 `FunSpec` 撰寫，並透過 `kotest-extensions-spring` 的 `SpringExtension` 整合 Spring context；需要注入 Bean 的測試以「主建構子參數注入 + spec body lambda」表達，等同 Java 的 `@Autowired` 建構子注入。
+
+```kotlin
+abstract class TestBase(body: FunSpec.() -> Unit = {}) : FunSpec(body) {
+    init { extension(SpringExtension) }
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class RestControllerTest(private val mockMvc: MockMvc) : TestBase({
+    test("sayHello 回應問候字串") {
+        mockMvc.perform(get("/rest/sayHello").param("name", "John").with(httpBasic("admin", "admin")))
+            .andExpect(status().isOk)
+    }
+})
+```
+
+- Controller 測試沿用 `spring-security-test` 的 `httpBasic(...)` 帶認證身分，與 Java 版測試的驗證意圖一致。
+- 部分測試（多資料來源、SOAP 客戶端、Excel 匯出寫檔）與 `starters_example` 同樣依賴外部環境（資料庫、執行中的服務、檔案路徑），僅在具備該環境時才會完整通過。
+
+---
+
+## 快速啟動
+
+
+## 環境需求
+
+- **JDK 17 以上**（範例產出 Java 17 bytecode；`build.gradle.kts` 不鎖定 toolchain，由執行 Gradle 的 JDK 編譯，故安裝較新的 JDK 亦可）
+- 內附 **Gradle 8.14 wrapper**，無須另行安裝 Gradle
+
+## 步驟一：取得專案原始碼
+
+```bash
+git clone https://github.com/a09090443/zipe-spring-boot-starters.git
+cd zipe-spring-boot-starters
+```
+
+## 步驟二：取得 Starter 依賴
+
+`example-kotlin` 引用 `io.github.a09090443:*-spring-boot-starter:4.0.0.1`，`build.gradle.kts` 同時設定了 `mavenCentral()` 與 `mavenLocal()`。
+
+- 若該版本已發布於 **Maven Central**，建構時會自動下載，無須額外步驟。
+- 若要以**本地原始碼**建構最新版 Starter（例如剛改過 starter 程式碼），請先於專案根目錄將七個 Starter 安裝至本地 Maven Repository，Gradle 才能透過 `mavenLocal()` 解析：
+
+```bash
+mvn -DskipTests install
+```
+
+## 步驟三：啟動範例專案
+
+```bash
+cd example-kotlin
+./gradlew bootRun
+```
+
+僅編譯（不啟動）：
+
+```bash
+./gradlew compileKotlin compileTestKotlin
+```
+
+執行測試（Kotest）：
+
+```bash
+./gradlew test
+```
+
+## 驗證端點
+
+啟動成功後（context-path 為 `/example`，port `8080`），可透過以下端點驗證各功能：
+
+| 功能 | 端點 |
+|---|---|
+| Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
+| JSP 頁面 | `http://localhost:8080/example/jsp` |
+| REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| WebFlux SSE 串流 | `http://localhost:8080/example/rest/flux` |
+| iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
+| iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
+| SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
+| H2 Console | `http://localhost:8080/example/h2-console` |
+
+可透過 `src/postman/Example.postman_collection.json` 匯入 Postman 進行 API 與 SOAP 測試。
+
+:::tip 登入帳密與安全模式
+範例預設 `security.verification-type: basic`，並以 `security.basic.users` 提供 `user01/1234`（具 `ORDER_EXPORT`）與 `user02/abcd`（另具 `USER_MANAGE`），可直接體驗 `@PreAuthorize` 權限保護端點。`security.jwt.enabled` 與 `example.hybrid-jwt.enabled` 預設皆為 `false`；設定方式與 `starters_example` 完全相同，詳見 [logon-starter 文件](../logon-starter/configuration.md)。
+:::
+
+:::note 資料庫與 SQL 初始化
+與 `starters_example` 一致：內建 **H2 記憶體資料庫**並開啟 H2 Console；`spring.sql.init.mode` 設為 `never`，故 `init/schema.sql`、`init/data.sql` 與 `init/iam-demo.sql` **不會在啟動時自動執行**，需要時請自行於 H2 Console 載入。完整驗證多資料來源（`example1` / `example2`）時才需準備對應的資料庫環境。
+:::
+
+---
+
 ## 架構與開發指南(Iam-starter)
 
 
