@@ -8895,6 +8895,10 @@ curl http://localhost:8080/whoami \
 
 未帶 token 或 token 無效 / 過期時回傳 `401 Unauthorized`。
 
+:::warning JWT 開啟後「沒有表單登入頁」
+`jwt.enabled: true` 是純無狀態 API 模式：filter chain **不套用 `formLogin`**，因此沒有瀏覽器表單登入頁，未帶 token 的請求一律回 **401**（而非導向登入頁）；`login-uri` / `login-success-uri` / `login-failure-uri` 與三個登入 Handler 皆不生效。用瀏覽器直接開頁面、期待出現登入表單在此模式下不會發生——它是給前後端分離 / 行動 App / API 客戶端用的。若要「保留表單登入頁、又用 JWT 取代 session」，見下方的混合模式範例。
+:::
+
 :::note 登入驗證來源與權限查詢
 **登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
 
@@ -8943,6 +8947,50 @@ public class JwtBeanConfig {
 
 :::warning JWT 模式的角色控制
 與其他模式相同，`@PreAuthorize` 需要 `UserDetails` 帶有正確的 `GrantedAuthority`。JWT 模式下權限來自查權限的 `UserDetailsService`，請在覆寫的 `loadUserByUsername()` 中填入角色清單。
+:::
+
+### 範例十：表單登入頁 + JWT cookie 混合模式
+
+內建 `jwt.enabled` 是純無狀態 API（無表單登入頁）。若要**保留瀏覽器表單登入頁、又以 JWT cookie 取代 server session**，不要開 `jwt.enabled`，改自宣告一條 `SecurityFilterChain`：表單登入成功後簽 token 寫 HttpOnly cookie，後續請求由自訂 filter 從 cookie 讀 token 驗證（STATELESS）。
+
+`starters_example` 提供可切換的完整示範（`example.hybrid-jwt.enabled=true` 啟用，預設關閉）：
+
+- `com.example.config.JwtCookieAuthenticationFilter`：從 cookie 讀 JWT、驗證後設定 `SecurityContext`（對應內建 `JwtAuthenticationFilter` 的 header 版）。
+- `com.example.config.JwtCookieSecurityConfig`：宣告混合 `SecurityFilterChain`——`formLogin` + 簽 token 寫 cookie 的 `successHandler` + 上述 cookie filter + 登出清 cookie，Session 為 `STATELESS`。
+
+關鍵骨架：
+
+```java
+@Bean
+public SecurityFilterChain hybridJwtFilterChain(HttpSecurity http,
+        BasicUserServiceImpl basicUserService, PasswordEncoder passwordEncoder,
+        JwtTokenProvider tokenProvider, JwtProperties jwtProperties) throws Exception {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(basicUserService);
+    provider.setPasswordEncoder(passwordEncoder);
+    var cookieFilter = new JwtCookieAuthenticationFilter(tokenProvider, basicUserService, "JWT_TOKEN");
+
+    http.authenticationManager(new ProviderManager(provider))
+        .authorizeHttpRequests(a -> a.anyRequest().authenticated())
+        .formLogin(form -> form.permitAll().successHandler((req, res, auth) -> {
+            String token = tokenProvider.generateToken(auth.getName());
+            Cookie cookie = new Cookie("JWT_TOKEN", token);
+            cookie.setHttpOnly(true);
+            cookie.setMaxAge((int) jwtProperties.getExpirationSeconds());
+            res.addCookie(cookie);
+            res.sendRedirect(req.getContextPath() + "/home");
+        }))
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .csrf(AbstractHttpConfigurer::disable)
+        .addFilterBefore(cookieFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+:::note `JwtTokenProvider` 的取得
+`jwt.enabled=false` 時 logon 不會建立 `JwtTokenProvider` Bean，混合設定需自行宣告
+（`new JwtTokenProvider(jwtProperties)`，由 Spring 觸發其 `@PostConstruct init()`）；`JwtProperties`
+由 logon 以 `@EnableConfigurationProperties` 註冊、恆存在，可直接注入。啟用混合模式時請保持
+`security.jwt.enabled=false`，否則會與 logon 內建的 `jwtSecurityFilterChain` 並存而衝突。
 :::
 
 ---
