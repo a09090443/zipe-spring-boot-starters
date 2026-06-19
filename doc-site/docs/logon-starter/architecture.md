@@ -29,7 +29,7 @@ sidebar_position: 5
 ### 限制與取捨
 
 - `SecurityConfiguration` 上的類別層級**無任何 `@ConditionalOnXxx` 條件**：只要引入依賴，`SecurityConfiguration` 無條件生效。但各 `@Bean` 方法皆標註 `@ConditionalOnMissingBean`，業務專案宣告同型別 Bean（含整鏈覆寫 `SecurityFilterChain`）即可取代預設實作，不會衝突。
-- BASIC 模式的 `BasicUserServiceImpl` 為 **hardcoded stub**（帳號 `admin`，密碼 `admin`），僅適合開發測試，生產環境必須切換至 CUSTOM 模式或覆寫此 Bean。
+- BASIC 模式的 `BasicUserServiceImpl` 讀取 `security.basic.users` 作為帳號來源（支援明文與 `{bcrypt}` 預雜湊密碼、各帶權限）；**未設定 `users` 時 fallback 回內建的 `admin/admin`**（hardcoded，僅適合開發測試）。生產環境請以 `security.basic.users` 設定、覆寫此 Bean，或切換至 CUSTOM 模式。
 - JWT 是與 `verification-type`（憑證來源）**正交的登入後狀態策略**，由 `security.jwt.enabled` 控制，而非第四種 verification-type。啟用時採用**獨立的 `jwtSecurityFilterChain`**（`@ConditionalOnProperty(security.jwt.enabled=true)`），先行註冊使預設 `filterChain` 的 `@ConditionalOnMissingBean(SecurityFilterChain.class)` 自動退讓，兩者不會同時存在。**登入驗帳密重用 `verification-type` 的 provider 選擇邏輯**（`resolveAuthenticationProvider`），故 LDAP/CUSTOM + JWT 皆可；唯每次請求查權限用的 `UserDetailsService` 預設為 BASIC 的 `BasicUserServiceImpl`，LDAP/CUSTOM + JWT 時須覆寫之。
 
 ---
@@ -48,8 +48,10 @@ logon-spring-boot-starter/
     │   │   └── SecurityBaseService.java              # 業務 Service 繼承的基底類別，封裝從 HttpSession 取出 SysUserVO 的邏輯
     │   ├── config/
     │   │   ├── LdapPropertyConfig.java               # @ConfigurationProperties(prefix="security.ldap")，LDAP 連線屬性
+    │   │   ├── BasicUserPropertyConfig.java          # security.basic 子屬性，持有可自訂的 BASIC 使用者清單
+    │   │   ├── BasicUser.java                        # 單一 BASIC 使用者（username / password / authorities）
     │   │   ├── SecurityInitializer.java              # 繼承 AbstractSecurityWebApplicationInitializer，傳統 WAR 部署時確保 Security Filter 正確初始化
-    │   │   └── SecurityPropertyConfig.java           # @ConfigurationProperties(prefix="security")，所有 Security 主屬性（含巢狀 LdapPropertyConfig）
+    │   │   └── SecurityPropertyConfig.java           # @ConfigurationProperties(prefix="security")，所有 Security 主屬性（含巢狀 LdapPropertyConfig / BasicUserPropertyConfig）
     │   ├── enums/
     │   │   ├── UserEnum.java                         # 特殊使用者類型（SYSTEM / ADMIN），ADMIN 具動態密碼特權
     │   │   └── VerificationTypeEnum.java             # 驗證模式（BASIC / LDAP / CUSTOM），提供大小寫不敏感的 getEnum() 解析
@@ -71,7 +73,7 @@ logon-spring-boot-starter/
     │   ├── model/
     │   │   └── LdapUser.java                         # LDAP 驗證後的資料傳輸物件（userId / name / email / ldapDn / isEnabled）
     │   ├── service/
-    │   │   ├── BasicUserServiceImpl.java             # 實作 UserDetailsService，BASIC 模式的 hardcoded fallback（admin/admin）
+    │   │   ├── BasicUserServiceImpl.java             # 實作 UserDetailsService，讀 security.basic.users 自訂帳號，未設定時 fallback 回 admin/admin
     │   │   ├── CommonLoginProcess.java               # 抽象類別，實作 AuthenticationProvider，統一 authenticate() 並提供 ADMIN 動態密碼機制
     │   │   ├── CustomLogonLogRecord.java             # 登入稽核回呼介面，業務專案實作後由三個 Handler 呼叫
     │   │   └── LdapUserDetailsService.java           # 繼承 CommonLoginProcess，實作 verifyNormalUser()，與 AD/LDAP 互動
@@ -119,7 +121,7 @@ logon-spring-boot-starter/
 | `authenticationProvider(HttpSecurity, BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 套用 frame-options / csrf 後，呼叫 `resolveAuthenticationProvider(...)` 取得對應 provider，以 `ProviderManager` 包成本 chain 的 `AuthenticationManager` 並透過 `http.authenticationManager(...)` **明確指定**。確保表單登入與 HTTP Basic 一致採用此 provider；避免容器存在多個 `AuthenticationProvider` Bean（如 CUSTOM provider 與 `ldapUserDetailsService`）時，Spring Boot 放棄組裝全域 `AuthenticationManager`、使 HTTP Basic 落到預設 `DaoAuthenticationProvider` |
 | `resolveAuthenticationProvider(BasicUserServiceImpl, LdapUserDetailsService, PasswordEncoder)` | 依 `VerificationTypeEnum` 回傳 provider：`LDAP` 回傳 `LdapUserDetailsService`；`CUSTOM` 從 ApplicationContext 取指定 Bean；`BASIC`（預設 / null）以 `BasicUserServiceImpl` + `PasswordEncoder` 組 `DaoAuthenticationProvider`。**同時供表單登入與 JWT 的 `AuthenticationManager` 重用**，確保兩種狀態策略憑證來源一致 |
 | `switchSecurity()` | `security.enable=false` 時回傳 `["/**"]`（全路徑放行）；否則回傳 `allow-uris` 切分後的陣列 |
-| `passwordEncoder()` | `@Bean @ConditionalOnMissingBean`，回傳 `BCryptPasswordEncoder` |
+| `passwordEncoder()` | `@Bean @ConditionalOnMissingBean`，回傳 `PasswordEncoderFactories.createDelegatingPasswordEncoder()`（委派式編碼器，依 `{id}` 前綴比對、以 BCrypt 編碼新密碼） |
 | `sessionRegistry()` | `@Bean @ConditionalOnMissingBean`，回傳 `SessionRegistryImpl`，供並行 Session 控制使用 |
 
 **注冊的 Bean 清單：**
@@ -129,8 +131,8 @@ logon-spring-boot-starter/
 | Bean 名稱 | 型別 | 覆寫條件 | 說明 |
 |---|---|---|---|
 | `filterChain` | `SecurityFilterChain` | `@ConditionalOnMissingBean(SecurityFilterChain.class)` | 主過濾鏈；進階使用者可宣告自己的 `SecurityFilterChain` Bean 整鏈覆寫 |
-| `passwordEncoder` | `PasswordEncoder` | `@ConditionalOnMissingBean` | BCrypt 密碼編碼器；覆寫後會經參數注入傳遞給 `basicUserServiceImpl` / `ldapUserDetailsService` 及 BASIC 模式的 `DaoAuthenticationProvider` |
-| `basicUserServiceImpl` | `BasicUserServiceImpl` | `@ConditionalOnMissingBean` | BASIC 模式 UserDetailsService（hardcoded stub），以參數注入 `PasswordEncoder` |
+| `passwordEncoder` | `PasswordEncoder` | `@ConditionalOnMissingBean` | 委派式密碼編碼器（`DelegatingPasswordEncoder`，依 `{id}` 前綴比對、以 BCrypt 編碼新密碼，相容既有 BCrypt 雜湊）；覆寫後會經參數注入傳遞給 `basicUserServiceImpl` / `ldapUserDetailsService` 及 BASIC 模式的 `DaoAuthenticationProvider` |
+| `basicUserServiceImpl` | `BasicUserServiceImpl` | `@ConditionalOnMissingBean` | BASIC 模式 UserDetailsService；以參數注入 `PasswordEncoder`，並讀取 `security.basic.users`（未設定時 fallback 回 `admin/admin`） |
 | `ldapUserDetailsService` | `LdapUserDetailsService` | `@ConditionalOnMissingBean` | LDAP 模式 AuthenticationProvider（無論驗證類型均建立），以參數注入 `PasswordEncoder` |
 | `sessionRegistry` | `SessionRegistry` | `@ConditionalOnMissingBean` | Session 並行控制登錄 |
 | `loginSuccessHandler` | `LoginSuccessHandler` | `@ConditionalOnMissingBean` | 登入成功處理器 |
@@ -278,7 +280,7 @@ logon-spring-boot-starter/
 
 | 值 | 說明 |
 |---|---|
-| `BASIC` | 使用 `BasicUserServiceImpl`（DaoAuthenticationProvider + BCrypt，hardcoded stub） |
+| `BASIC` | 使用 `BasicUserServiceImpl`（DaoAuthenticationProvider + 委派式編碼器）；帳號來自 `security.basic.users`，未設定時 fallback 回 `admin/admin` |
 | `LDAP` | 使用 `LdapUserDetailsService`（JNDI 連線 AD/LDAP） |
 | `CUSTOM` | 使用 `security.custom-bean-name` 指定的 `AuthenticationProvider` Bean |
 
@@ -435,7 +437,7 @@ IDE 自動補全由 `spring-boot-configuration-processor`（optional 依賴）�
 @Bean
 @ConditionalOnMissingBean
 public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
 }
 
 @Bean
@@ -749,12 +751,13 @@ Jakarta EE 11，無命名空間不一致問題。
 
 ### 設計注意事項
 
-#### 注意 1：BasicUserServiceImpl 為 Hardcoded Stub，不適用生產環境
+#### 注意 1：BASIC 模式的帳號來源與 fallback
 
-BASIC 模式下，`BasicUserServiceImpl` 只允許帳號 `admin`，密碼硬編碼為 `admin`。**生產環境必須**：
+BASIC 模式下，`BasicUserServiceImpl` 優先讀取 `security.basic.users`（可設定多組帳密與權限，密碼支援明文與 `{bcrypt}` 預雜湊）。**未設定 `users` 時 fallback 回 hardcoded 的 `admin/admin`**，僅適合開發測試。**生產環境**請擇一：
 
-- 改用 CUSTOM 模式，提供真實資料庫查詢的 `AuthenticationProvider`，或
-- 以同名 Bean `basicUserServiceImpl` 覆寫，提供正確的 `UserDetailsService` 實作
+- 以 `security.basic.users` 設定真實帳密（密碼填 `{bcrypt}` 預雜湊，勿在設定檔寫死明文），或
+- 以同名 Bean `basicUserServiceImpl` 覆寫，提供從資料庫等外部來源查詢的 `UserDetailsService`，或
+- 改用 CUSTOM 模式，提供真實資料庫查詢的 `AuthenticationProvider`
 
 #### 注意 2：customLoginConfigure 的 STATELESS 與 Session 並行控制語義衝突
 

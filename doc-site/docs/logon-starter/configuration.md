@@ -29,6 +29,21 @@ sidebar_position: 3
 | `security.custom-record-log-bean` | String | 無 | `record-log-enable=true` 時必填；業務端 `CustomLogonLogRecord` Bean 的名稱 |
 | `security.custom-bean-name` | String | 無 | `verification-type=custom` 時必填；業務端 `AuthenticationProvider` Bean 的名稱 |
 
+## BASIC 使用者子屬性（`security.basic.*`）
+
+僅在 `security.verification-type: basic` 時生效。設定 `security.basic.users` 後，BASIC 模式的使用者來源改為此清單；**未設定時 fallback 回內建的 `admin/admin`**（開發測試用，向後相容）。對應 `BasicUserPropertyConfig` / `BasicUser`。
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `security.basic.users` | List | 空清單 | 可登入的使用者清單；為空時 fallback 回內建 `admin/admin` |
+| `security.basic.users[i].username` | String | 無 | 登入帳號 |
+| `security.basic.users[i].password` | String | 無 | 登入密碼。支援**明文**（載入時自動以 `PasswordEncoder` 編碼）與**帶 `{id}` 前綴的預雜湊值**（如 `{bcrypt}$2a$...`，原值採用、依前綴比對） |
+| `security.basic.users[i].authorities` | List&lt;String&gt; | 空清單 | 權限清單，每個字串直接轉為 `SimpleGrantedAuthority`，**不自動加 `ROLE_` 前綴**（要當角色請自行寫 `ROLE_xxx`） |
+
+:::note 引入 iam-starter 時此設定不生效
+引入 `iam-spring-boot-starter` 後，`IamUserDetailsService` 會接管 BASIC 模式的帳號查詢、改查 `iam_account` 資料表，`security.basic.users` 不再被使用。此設定適用於**未引入 iam、純 logon BASIC** 的情境。
+:::
+
 ## JWT 子屬性（`security.jwt.*`）
 
 設定 `security.jwt.enabled: true` 時生效，與 `verification-type` 正交（可疊加於 basic / ldap / custom 任一憑證來源）。對應 `JwtProperties`。
@@ -59,9 +74,9 @@ sidebar_position: 3
 
 ## 完整 application.yml 範例
 
-### BASIC 模式（開發測試用）
+### BASIC 模式（內建 admin/admin，開發測試用）
 
-帳號固定為 `admin`，密碼固定為 `admin`，僅適合快速驗證功能。
+未設定 `security.basic.users` 時，帳號密碼 fallback 為內建的 `admin`／`admin`，僅適合快速驗證功能。
 
 ```yaml
 security:
@@ -73,6 +88,29 @@ security:
   allow-uris: /static/**,/public/**,/resources/**
   csrf-enabled: false
 ```
+
+### BASIC 模式（自訂帳密）
+
+設定 `security.basic.users` 後，由清單載入帳號，取代內建的 `admin/admin`。密碼可填明文或帶 `{id}` 前綴的預雜湊值：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /static/**,/public/**,/resources/**
+  basic:
+    users:
+      - username: user01
+        password: 1234                      # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [admin, viewer]
+      - username: user02
+        password: '{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'  # 預雜湊
+        authorities: [viewer]
+```
+
+:::tip 正式環境請勿在設定檔寫死明文密碼
+建議改填 `{bcrypt}` 前綴的預雜湊值（可用 Spring 的 `PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("...")` 產生），或覆寫 `basicUserServiceImpl` Bean 改由資料庫等外部來源載入。
+:::
 
 ### LDAP 模式
 
@@ -220,13 +258,13 @@ security:
 :::
 
 :::note 密碼編碼
-模組內建 `BCryptPasswordEncoder`（Bean 名稱 `passwordEncoder`），BASIC 模式的密碼比對使用 BCrypt。CUSTOM 模式的業務 `AuthenticationProvider` 可直接注入此 Bean 進行密碼比對：
+模組內建 `passwordEncoder` Bean，採 `PasswordEncoderFactories.createDelegatingPasswordEncoder()`（委派式編碼器）：依密碼的 `{id}` 前綴（如 `{bcrypt}`）選擇對應演算法比對，並以 BCrypt 編碼新密碼，對既有的 BCrypt 雜湊完全相容。如此 `security.basic.users` 可同時接受明文與帶前綴的預雜湊密碼。CUSTOM 模式的業務 `AuthenticationProvider` 可直接注入此 Bean 進行密碼比對：
 
 ```java
 @Autowired
 private PasswordEncoder passwordEncoder;
 
-// 比對使用者輸入密碼與資料庫儲存的 BCrypt hash
+// 比對使用者輸入密碼與儲存的雜湊（儲存值建議帶 {bcrypt} 前綴）
 boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
 ```
 :::

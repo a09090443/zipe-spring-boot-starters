@@ -32,10 +32,11 @@ import org.springframework.stereotype.Component;
  * 由 {@code basic} 改為 {@code custom}，並確認 {@code security.custom-bean-name}
  * 指向本 Bean 名稱 {@code dbAuthProvider} 即可。</p>
  *
- * <p>密碼比對說明：{@code data.sql} 內寫入的是 BCrypt 雜湊字串，
+ * <p>密碼比對說明：{@code data.sql} 內寫入的是 BCrypt 雜湊字串（無 {@code {id}} 前綴），
  * 因此這裡使用 {@link PasswordEncoder#matches(CharSequence, String)} 將使用者輸入的
  * 原始密碼與資料庫中的雜湊值比對；{@code logon-spring-boot-starter} 預設提供的
- * {@code PasswordEncoder} Bean 即為 {@code BCryptPasswordEncoder}。</p>
+ * {@code PasswordEncoder} Bean 為委派式 {@code DelegatingPasswordEncoder}，已設定以
+ * {@code BCryptPasswordEncoder} 作為無前綴雜湊的比對後援，故可直接比對既有的 {@code $2a$} 雜湊。</p>
  *
  * @author Gary Tsai
  */
@@ -52,7 +53,7 @@ public class DbAuthProvider extends CommonLoginProcess {
     /**
      * 建構 {@code DbAuthProvider}，注入密碼編碼器、登入帳號 Repository 與授權解析器。
      *
-     * @param passwordEncoder     Spring Security 密碼編碼器（BCrypt），傳遞給父類別使用
+     * @param passwordEncoder     Spring Security 密碼編碼器（委派式，相容無前綴 BCrypt），傳遞給父類別使用
      * @param userLoginRepository 登入帳號資料存取介面
      * @param authoritiesResolver iam 授權解析器，用於登入成功後補上群組／權限
      */

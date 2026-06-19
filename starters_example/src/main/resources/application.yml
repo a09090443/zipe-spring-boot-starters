@@ -68,6 +68,15 @@ security:
   #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
   login-success-uri: /jsp # 登入成功後的頁面
   login-failure-uri: /login # 登入失敗 redirect 回登入頁（失敗處理採 redirect，預設登入頁產生器會 render /login；註：搭配自訂 LoginFailureHandler 時 /login?error 不被產生器認得，故用 /login，需錯誤提示請改用自訂登入頁）
+  # === BASIC 模式自訂帳密（security.basic.users）===
+  # 本範例帶 iam，basic 模式帳號由 iam 的 IamUserDetailsService 接管（改查 iam_account），
+  #   故以下 security.basic.users 在本範例「不生效」，僅示範「移除 iam 依賴、純 logon basic」時的用法：
+  #   未設定 users 時 fallback 回內建 admin/admin；設定後改用清單，密碼支援明文與 {bcrypt} 預雜湊。
+  # basic:
+  #   users:
+  #     - username: user01
+  #       password: 1234            # 明文，啟動時自動以 BCrypt 編碼；正式環境建議改 {bcrypt} 預雜湊
+  #       authorities: [admin]      # 直接成為 authority，不自動加 ROLE_ 前綴
   # === JWT 無狀態登入（與 verification-type 正交，可疊加於 basic/ldap/custom）===
   # 將 jwt.enabled 改成 true，即在現有 verification-type 之上改用 JWT 無狀態登入。
   # 啟用後：POST /api/login (帳密依 verification-type，本範例 custom 為 user01/1234) 取得 token，

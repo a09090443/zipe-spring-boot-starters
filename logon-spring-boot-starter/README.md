@@ -5,6 +5,7 @@ Spring Security 認證整合模組，以兩個正交設定組合登入方式：�
 ## 主要功能
 
 - 三種憑證來源：`BASIC`（表單）、`LDAP`（目錄服務）、`CUSTOM`（自訂），由 `verification-type` 切換
+- BASIC 模式可由 `security.basic.users` 自訂多組帳密與權限（支援明文與 `{bcrypt}` 預雜湊），未設定時 fallback 回內建 `admin/admin`
 - JWT 無狀態登入（正交疊加）：`security.jwt.enabled=true` 即在任一憑證來源之上改發 token；內建 `/api/login`，支援 HS256 / RS256，token 僅存 username、每次查 `UserDetailsService` 取權限
 - Session 管理與多 Session 控制
 - 登入成功／失敗／登出事件處理器
@@ -29,6 +30,11 @@ security.enable=true
 
 # 憑證來源：BASIC、LDAP、CUSTOM
 security.verification-type=BASIC
+
+# BASIC 模式自訂帳密（選填，未設定時 fallback 回內建 admin/admin）
+# security.basic.users[0].username=user01
+# security.basic.users[0].password=1234
+# security.basic.users[0].authorities[0]=admin
 
 # JWT 無狀態登入（與 verification-type 正交，可疊加於任一憑證來源）
 # security.jwt.enabled=true

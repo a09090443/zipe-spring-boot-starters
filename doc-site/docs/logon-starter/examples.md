@@ -94,6 +94,36 @@ public class SecuredController {
 
 ## 進階使用範例
 
+### BASIC 模式：以 `security.basic.users` 自訂帳密
+
+不引入 iam、僅用 logon 的 BASIC 模式時，可由設定檔自訂多組帳密與權限，取代內建的 `admin/admin`。密碼支援明文（啟動時自動編碼）與帶 `{id}` 前綴的預雜湊值（如 `{bcrypt}`）：
+
+```yaml
+security:
+  enable: true
+  verification-type: basic
+  allow-uris: /static/**,/public/**
+  basic:
+    users:
+      - username: user01
+        password: 1234            # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [admin, viewer]
+      - username: user02
+        password: '{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'  # 預雜湊（明文為 password）
+        authorities: [viewer]
+```
+
+要點：
+
+- `authorities` 內字串直接成為 `SimpleGrantedAuthority`，**不自動加 `ROLE_` 前綴**；搭配 `@PreAuthorize("hasRole('admin')")` 等需要角色時，請自行寫成 `ROLE_admin`。
+- 未設定 `security.basic.users` 時 fallback 回內建 `admin/admin`（向後相容）。
+- 密碼比對由委派式 `passwordEncoder`（`DelegatingPasswordEncoder`）依 `{id}` 前綴處理，故明文與 `{bcrypt}` 可混用。
+- 產生 `{bcrypt}` 預雜湊值：`PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("password")`。
+
+:::note 引入 iam-starter 時此設定不生效
+引入 `iam-spring-boot-starter` 後，`IamUserDetailsService` 會接管 BASIC 模式帳號查詢、改查 `iam_account`，`security.basic.users` 不再被使用。
+:::
+
 ### 範例四：CUSTOM 模式——業務資料庫帳號驗證
 
 這是最常見的擴充場景。繼承 `CommonLoginProcess` 自動獲得 ADMIN 動態密碼機制，只需實作 `verifyNormalUser()` 提供資料庫查詢邏輯。
@@ -326,7 +356,7 @@ curl http://localhost:8080/whoami \
 :::note 登入驗證來源與權限查詢
 **登入**（`/api/login`）的帳密驗證依 `verification-type` 走 BASIC / LDAP / CUSTOM —— JWT 的 `AuthenticationManager` 重用與表單登入相同的 provider 選擇邏輯，因此 `verification-type: ldap` + `jwt.enabled: true` 即為「LDAP 驗證 + 發 JWT」。
 
-**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（`admin/admin` stub）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
+**每次請求**則以 token 內的 username 透過 `UserDetailsService.loadUserByUsername()` 查最新權限，故停用帳號或調權限可即時生效。預設查權限用 BASIC 的 `BasicUserServiceImpl`（讀 `security.basic.users`，未設定時為 `admin/admin`）；LDAP/CUSTOM + JWT 時因無法僅以 username 查詢，請覆寫 `basicUserServiceImpl`（見下個範例）。
 :::
 
 ### 範例九：覆寫 JWT 內建端點與查權限來源

@@ -36,6 +36,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -439,14 +441,27 @@ public class SecurityConfiguration {
     /**
      * 建立並回傳 BCrypt 密碼編碼器。
      *
+     * <p>採用 {@link PasswordEncoderFactories#createDelegatingPasswordEncoder()}，依密碼的
+     * {@code {id}} 前綴（如 {@code {bcrypt}}）選擇對應演算法比對，並以 bcrypt 編碼新密碼。
+     * 如此 {@code security.basic.users} 可同時接受明文與帶前綴的預雜湊密碼。</p>
+     *
+     * <p>另以 {@link DelegatingPasswordEncoder#setDefaultPasswordEncoderForMatches} 設定
+     * {@link BCryptPasswordEncoder} 作為「無 {@code {id}} 前綴」時的比對後援，**向後相容既有
+     * 資料庫中無前綴的純 BCrypt 雜湊**（例如 CUSTOM 模式以 {@code passwordEncoder.matches}
+     * 比對舊資料），避免升級後既有帳號無法登入。</p>
+     *
      * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 {@link PasswordEncoder} Bean 即可覆寫。</p>
      *
-     * @return {@link BCryptPasswordEncoder} 實例
+     * @return {@link PasswordEncoder} 委派式編碼器實例
      */
     @Bean
     @ConditionalOnMissingBean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        DelegatingPasswordEncoder encoder =
+                (DelegatingPasswordEncoder) PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        // 無 {id} 前綴的舊雜湊（如既有 DB 的 $2a$ BCrypt）以 BCrypt 比對，保留向後相容
+        encoder.setDefaultPasswordEncoderForMatches(new BCryptPasswordEncoder());
+        return encoder;
     }
 
     /**
@@ -455,13 +470,16 @@ public class SecurityConfiguration {
      * <p>標註 {@link ConditionalOnMissingBean}，業務專案宣告同型別 Bean 即可覆寫。
      * 密碼編碼器以方法參數注入，確保取得容器中的 Bean（含使用者覆寫版）。</p>
      *
+     * <p>注入 {@link SecurityPropertyConfig}，使 {@code security.basic.users} 設定的帳號可作為
+     * BASIC 模式的使用者來源；未設定時 fallback 回內建 {@code admin/admin}。</p>
+     *
      * @param passwordEncoder 密碼編碼器（容器 Bean，含使用者覆寫版）
      * @return {@link BasicUserServiceImpl} 實例
      */
     @Bean
     @ConditionalOnMissingBean
     public BasicUserServiceImpl basicUserServiceImpl(PasswordEncoder passwordEncoder) {
-        return new BasicUserServiceImpl(passwordEncoder);
+        return new BasicUserServiceImpl(passwordEncoder, securityPropertyConfig);
     }
 
     /**

@@ -69,7 +69,7 @@ web:
 
 security:
   enable: true
-  verification-type: basic          # 使用內建帳密 admin/admin
+  verification-type: basic          # 未設 security.basic.users 時用內建帳密 admin/admin
   allow-uris: /static/**            # 白名單路徑（不需登入）
   login-success-uri: /home          # 登入成功跳轉
   login-failure-uri: /login         # 登入失敗 redirect 回登入頁（勿用 /login?error，自訂 failureHandler 下產生器不認得）
@@ -81,7 +81,7 @@ security:
 :::note Spring Security 預設行為與覆寫方式
 `logon-spring-boot-starter` 透過 `verification-type` 提供三種**憑證來源**：
 
-- `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`，預設帳密為 `admin/admin`。
+- `basic`：使用內建 `DaoAuthenticationProvider` + `BasicUserServiceImpl`。可由 `security.basic.users` 自訂多組帳密與權限（密碼支援明文與 `{bcrypt}` 預雜湊）；未設定時 fallback 回內建 `admin/admin`。
 - `ldap`：連接 LDAP 目錄服務，需另行設定 `security.ldap.*`。
 - `custom`：從 Spring Context 取出 `security.custom-bean-name` 指定的 Bean（須實作 `AuthenticationProvider`）。
 
@@ -193,7 +193,7 @@ public class LogonLogRecord implements CustomLogonLogRecord {
 只要實作這個介面，即可將登出入事件接到既有的稽核系統、資料庫或外部監控平台，而無須修改 Starter 本身。
 
 :::tip 進一步切換驗證來源
-若內建 `admin/admin` 無法滿足需求，可將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean，即可接上自家的使用者資料庫或 SSO 系統。詳見下方「業務端自訂登入（CUSTOM 模式）」一節。
+若內建 `admin/admin` 無法滿足需求：帳號少而固定時，可在 `basic` 模式以 `security.basic.users` 設定多組帳密與權限；需接自家使用者資料庫或 SSO 時，將 `verification-type` 改為 `custom`，並提供一個實作 `AuthenticationProvider` 的 Bean。後者詳見下方「業務端自訂登入（CUSTOM 模式）」一節。
 :::
 
 ## 業務端自訂登入（CUSTOM 模式）
@@ -229,7 +229,7 @@ INSERT INTO user_login (LoginId, Password) VALUES('user02', '$2a$10$1Ihk8NP/mi1b
 
 ### 步驟二：實作自訂 AuthenticationProvider
 
-`starters_example` 中的 `DbAuthProvider` 完整實作如下（`com.example.config.DbAuthProvider`）。`@Component("dbAuthProvider")` 的 Bean 名稱即為 `application.yml` 中 `security.custom-bean-name` 所指定者；`PasswordEncoder` 由 `logon-spring-boot-starter` 預設提供（`BCryptPasswordEncoder`），可直接注入比對：
+`starters_example` 中的 `DbAuthProvider` 完整實作如下（`com.example.config.DbAuthProvider`）。`@Component("dbAuthProvider")` 的 Bean 名稱即為 `application.yml` 中 `security.custom-bean-name` 所指定者；`PasswordEncoder` 由 `logon-spring-boot-starter` 預設提供（委派式 `DelegatingPasswordEncoder`，相容無前綴的既有 BCrypt 雜湊），可直接注入比對：
 
 ```java
 @Slf4j

@@ -51,8 +51,9 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 | `SecurityConfiguration` | `autoconfiguration` | `@AutoConfiguration` 唯一入口，配置 `SecurityFilterChain` 與所有 Bean |
 | `SecurityPropertyConfig` | `config` | 屬性綁定（prefix: `security`），持有所有 Security 設定 |
 | `LdapPropertyConfig` | `config` | 屬性綁定（prefix: `security.ldap`），持有 LDAP 連線設定 |
+| `BasicUserPropertyConfig` / `BasicUser` | `config` | 屬性綁定（prefix: `security.basic`），BASIC 模式可自訂帳密與權限的使用者清單 |
 | `CommonLoginProcess` | `service` | `AuthenticationProvider` 抽象骨架，統一登入流程與 ADMIN 動態密碼 |
-| `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`（hardcoded stub，僅適合開發測試） |
+| `BasicUserServiceImpl` | `service` | BASIC 模式的 `UserDetailsService`；讀 `security.basic.users` 自訂帳號，未設定時 fallback 回內建 `admin/admin` |
 | `LdapUserDetailsService` | `service` | LDAP 模式，繼承 `CommonLoginProcess`，與 AD/LDAP 互動 |
 | `CustomLogonLogRecord` | `service` | 稽核日誌回呼介面，業務專案自行實作 |
 | `GrantedAuthoritiesResolver` | `security` | 「帳號→authorities」解析 SPI，預設回空集合，可由 iam-starter 等覆寫 |
@@ -82,5 +83,6 @@ description: 整合 Spring Security 的登入認證 Starter，支援表單登入
 - 組織已建置 AD / LDAP → 使用 `ldap` 驗證
 - 帳號自管於資料庫 → 使用 `custom` 驗證，實作 `CommonLoginProcess.verifyNormalUser()`
 - 前後端分離 / 行動 App / 無狀態 API → 在上述任一憑證來源加上 `security.jwt.enabled: true`，以 token 取代 session
-- 快速開發 / 測試環境 → 使用 `basic`（注意：預設帳密為 `admin/admin`，上線前必須切換）
+- 帳號少且固定 → 使用 `basic` 並以 `security.basic.users` 設定多組帳密與權限（密碼可填 `{bcrypt}` 預雜湊）
+- 快速開發 / 測試環境 → 使用 `basic`（未設 `security.basic.users` 時預設帳密為 `admin/admin`，上線前必須改設定或切換模式）
 :::

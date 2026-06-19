@@ -75,4 +75,7 @@ public class SecurityPropertyConfig {
 
     /** LDAP 驗證相關屬性，對應 {@code security.ldap.*} 設定區塊。 */
     private LdapPropertyConfig ldap = new LdapPropertyConfig();
+
+    /** BASIC 模式使用者設定，對應 {@code security.basic.*} 設定區塊。 */
+    private BasicUserPropertyConfig basic = new BasicUserPropertyConfig();
 }
