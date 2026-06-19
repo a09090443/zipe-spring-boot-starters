@@ -1,7 +1,4 @@
-INSERT INTO UserMain (Name) VALUES('Tom');
-INSERT INTO UserMain (Name) VALUES('Jen');
-INSERT INTO UserMain (Name) VALUES('Andy');
-
-INSERT INTO UserDetail (Name, Gender) VALUES('Tom', 'M');
-INSERT INTO UserDetail (Name, Gender) VALUES('Jen', 'F');
-INSERT INTO UserDetail (Name, Gender) VALUES('Andy', 'M');
+INSERT INTO TBL_EMPLOYEES (first_name, last_name, email) VALUES
+('Lokesh', 'Gupta', 'abc@gmail.com'),
+('Deja', 'Vu', 'xyz@email.com'),
+('Caption', 'America', 'cap@marvel.com');

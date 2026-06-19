@@ -1,74 +1,112 @@
 spring:
   application:
-    name: example-kotlin
+    name: example
   main:
     allow-bean-definition-overriding: true
+  config:
+    import: classpath:resources.properties
+  # job-spring-boot-starter
+  quartz:
+    enable: true # 是否開啟 Job 功能
+    job-store-type: memory #jdbc-資料庫、memory 記憶體
   # db-spring-boot-starter
   jpa:
     hibernate:
       ddl-auto: none # service 啟動時 database 自動建立機制 (create, create-drop, update, validate)
     show-sql: false # 顯示 Sql 語法
-    base:
-      packages: com.example # Jpa repository package
-  # job-spring-boot-starter
-  quartz:
-    enable: true # 是否開啟 Job 功能
-    job-store-type: memory #jdbc-資料庫、memory 記憶體
-  config:
-    import: classpath:resources.properties
+    # 註：JPA repository 掃描由 @EnableJpaRepositories 決定（見 Application.java），
+    #     非 Spring Boot 內建屬性的 spring.jpa.base.packages（該屬性無效、不被任何程式讀取）。
   h2:
     console:
       enabled: true
+  sql:
+    init:
+      mode: never
+      schema-locations: classpath:init/schema.sql
+      data-locations: classpath:init/data.sql
 
 server:
+  port: 8080
   servlet:
     context-path: /example
-  port: 8080
 
 # web-service-spring-boot-starter
 web:
   resource:
     pathPattern: /static/** # 靜態資源 Uri
     location: /WEB-INF/static/ # 靜態資源對應目錄，預設是在 /WEB-INF 目錄下
+  jsp:
+    enable: true # jsp page 開關
+    viewNames: jsp/* # jsp 對應 uri
+    stuff: .jsp # jsp 副檔名
   thymeleaf:
     enable: true # thymeleaf page 開關
-    viewNames: html/*, thymeleaf/* # thymeleaf 對應 uri
+    viewNames: /*, html/*, thymeleaf/* # thymeleaf 對應 uri
     stuff: .html # thymeleaf 副檔名
     templateMode: HTML # thymeleaf 模式
   # web-service-spring-boot-starter
   service:
-    uri-mapping: /webservice/* # web service 對應 Uri，http://localhost:8080/webservice?wsdl
+    uri-mapping: /webservice/* # web service 對應 Uri，http://localhost:8080/{spring.application.name}/webservice?wsdl
     map:
       example:
         beanName: exampleWebServiceImpl # example 資源對應的 bean
-        uri-mapping: /example # web service 資源對應 Uri，http://localhost:8080/webservice/example?wsdl
+        uri-mapping: /example # web service 資源對應 Uri，http://localhost:8080/{spring.application.name}/webservice/example?wsdl
 
-# logon-spring-boot-starter
+# logon-spring-boot-starter（本範例帶 iam，改用 basic + security.basic.users 體驗自訂帳密：user01/1234、user02/abcd）
 security:
   enable: true # security 開關
-  verification-type: basic #basic 內建基本驗證(帳密:admin/admin)，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)
-  custom-bean-name: test # 自訂登入方式，請填入 bean name
+  verification-type: basic #憑證來源：basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)。JWT 為正交設定，見下方 jwt.enabled
+  # 本範例改用 basic：帳密與權限直接由下方 security.basic.users 提供（user01/1234、user02/abcd）。
+  #   因本範例帶 iam，basic 模式預設會由 iam 的 IamUserDetailsService 接管帳號查詢（改查 iam_account），
+  #   使 security.basic.users 不生效；故範例以 com.example.config.BasicUserServiceConfig 宣告 logon 的
+  #   BasicUserServiceImpl Bean 覆寫該接管，使下方 security.basic.users 生效（登入與授權皆來自設定檔）。
+  #   移除 BasicUserServiceConfig 即可恢復 iam 帳號表接管；改回 custom 登入則設 verification-type=custom。
+  # custom-bean-name: dbAuthProvider # 僅 verification-type=custom 時需要，對應 com.example.config.DbAuthProvider
   record-log-enable: true # 紀錄事件 Log
   custom-record-log-bean: logonLogRecord # 自訂使用者登出入紀錄，record-log-enable 須為 true
-  allow-uris: /resources/**,/static/**,/webservice/** # 設定不須授權即可登入的 Uri
-#  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
-  login-success-uri: /thymeleaf # 登入成功後的頁面
-  login-failure-uri: /login # 登入失敗的頁面
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 設定不須授權即可登入的 Uri（含 iam 整合示範端點）
+  #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
+  login-success-uri: /jsp # 登入成功後的頁面
+  login-failure-uri: /login # 登入失敗 redirect 回登入頁（失敗處理採 redirect，預設登入頁產生器會 render /login；註：搭配自訂 LoginFailureHandler 時 /login?error 不被產生器認得，故用 /login，需錯誤提示請改用自訂登入頁）
+  # === BASIC 模式自訂帳密（security.basic.users，本範例已透過 BasicUserServiceConfig 啟用）===
+  # 帳密與權限直接由設定檔提供；authorities 填 /iam-demo 端點所需的權限即可體驗 @PreAuthorize：
+  #   user01 僅 ORDER_EXPORT（可 /iam-demo/orders/export，不可 /iam-demo/users/manage）；
+  #   user02 另有 USER_MANAGE（兩個端點皆可）。authorities 字串直接成為 authority，不自動加 ROLE_ 前綴。
+  basic:
+    users:
+      - username: user01
+        password: 1234 # 明文，啟動時自動以 BCrypt 編碼；正式環境建議改 {bcrypt} 預雜湊
+        authorities: [ORDER_EXPORT]
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
+  # === JWT 無狀態登入（與 verification-type 正交，可疊加於 basic/ldap/custom）===
+  # 將 jwt.enabled 改成 true，即在現有 verification-type 之上改用 JWT「無狀態」登入。
+  # ⚠ 重要：JWT 開啟後是純無狀態 API 模式——「沒有表單登入頁」，未帶 token 的請求一律回 HTTP 401
+  #   （不再導向登入頁）；login-uri / login-success-uri / login-failure-uri 與三個登入 Handler 皆不生效。
+  # 登入改走：POST /api/login（帳密依 verification-type，本範例 basic 為 user01/1234）取得 token，
+  #   後續請求帶 Authorization: Bearer <token> 存取受保護資源；不再使用表單登入與 session。
+  # 內建 JwtLoginController 與 JwtAuthenticationFilter 皆可由業務端覆寫。
+  # 若想「保留瀏覽器表單登入頁、又以 JWT cookie 取代 session」（混合模式），不要開這裡的 jwt.enabled，
+  #   改設下方 example.hybrid-jwt.enabled=true（見 com.example.config.JwtCookieSecurityConfig）。
+  jwt:
+    enabled: false # 設為 true 啟用 JWT 無狀態登入（純 API，無表單登入頁）
+    # HS256 對稱式密鑰，長度至少 32 位元組（正式環境請以環境變數注入，勿寫死於設定檔）。
+    secret: example-jwt-secret-key-please-change-in-production
+    # algorithm: HS256 # 預設 HS256；改用 RS256 時改填 private-key-location / public-key-location
+    # expiration-seconds: 3600 # token 有效秒數，預設 3600
+    # login-uri: /api/login # 內建登入端點路徑，預設 /api/login
   ldap:
     ip: 127.0.0.1 # Ldap 主機
     domain: ldap.zipe.com # Ldap domain name
     port: 389 # Ldap port
     dn: DC=zipe,DC=local # Ldap dn
 
-# base-spring-boot-starter
-mail:
-  debug-enable: true # 是否開啟 debug 模式
-  username: zipe # Username
-  pa55word: zipe # Password
-  enable-encrypt: false # 密碼是否有加密
-  host: 127.0.0.1 # Mail server ip
-  port: 25 # Mail server port
-  smtp-auth-enable: true # 是否開啟 smtp 認證
-  sender: zipe@localhost.com # 寄送者 mail address
-  transport-protocol: smtp # 郵件傳輸協定
-  smtp-start-tls-enable: true # Smtp tls 加密是否開啟
+# 範例專屬開關
+example:
+  # 「表單登入頁 + JWT cookie」混合模式（見 com.example.config.JwtCookieSecurityConfig）：
+  #   保留瀏覽器表單登入頁，但登入成功後以 JWT 寫入 HttpOnly cookie 取代 server session，
+  #   後續請求由 JwtCookieAuthenticationFilter 從 cookie 讀 token 驗證。
+  # 啟用時請保持上方 security.jwt.enabled=false（否則與 logon 內建的 jwtSecurityFilterChain 衝突）。
+  hybrid-jwt:
+    enabled: false # 設為 true 啟用混合模式

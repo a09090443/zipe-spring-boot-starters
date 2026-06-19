@@ -1,20 +1,17 @@
 package com.example.service
 
-import com.example.model.UserDetail
-import com.example.model.UserMain
-
+/**
+ * 通用範例服務介面，示範 example-kotlin 模組的基本服務層用法。
+ *
+ * 實作類別由 Spring 容器管理，供 Controller 層注入使用。
+ */
 interface ExampleService {
-    fun findUserByName(name: String): UserMain?
 
-    fun findUserInfoByName(name: String): UserDetail?
-
-    fun findUserByJdbc(name: String): List<UserMain>?
-
-    fun saveOrUpdateUser(userMain: UserMain): UserMain
-
-    fun saveOrUpdateInfo(userDetail: UserDetail): UserDetail
-
-    fun deleteUser(userMain: UserMain)
-
-    fun deleteInfo(userDetail: UserDetail)
+    /**
+     * 依傳入的姓名產生問候語字串。
+     *
+     * @param name 欲問候的對象名稱
+     * @return 格式化後的問候語字串
+     */
+    fun sayHello(name: String): String
 }
