@@ -191,7 +191,7 @@ public class DbAuthProvider extends CommonLoginProcess {
 }
 ```
 
-對應設定（`starters_example` 已預先把 `custom-bean-name` 指向真實存在的 `dbAuthProvider`，從 `basic` 切到 `custom` 只需改一行）：
+對應設定（`starters_example` 預設為 `basic` + `security.basic.users`，要切到 `custom` 只需把 `verification-type` 改為 `custom` 並取消註解 `custom-bean-name`）：
 
 ```yaml
 security:

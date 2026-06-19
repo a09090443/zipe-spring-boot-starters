@@ -139,8 +139,15 @@ web:
 
 security:
   enable: true
-  verification-type: custom          # 範例預設（帶 iam）；登入查 user_login 表
-  custom-bean-name: dbAuthProvider
+  verification-type: basic           # 範例預設（帶 iam）；帳密由 security.basic.users 提供
+  basic:
+    users:
+      - username: user01
+        password: 1234
+        authorities: [ORDER_EXPORT]
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
   allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
@@ -169,7 +176,7 @@ security:
     │       ▼                                                            │
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
-    │  │   verification-type: custom (user01/1234、user02/abcd)       │ │
+    │  │   verification-type: basic.users (user01/1234、user02/abcd)  │ │
     │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
@@ -253,7 +260,7 @@ cd starters_example
 | 排程（XmlJob） | 觀察日誌 | 每 15 秒一筆 `ExampleXmlJob` log |
 | 排程（AnnotationJob） | 觀察日誌 | 每 20 秒一筆 `ExampleAnnotationJob` log |
 
-登入頁預設帳密為 `user01/1234`（或 `user02/abcd`，範例帶 iam、預設 custom 模式），登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:user01`。
+登入頁預設帳密為 `user01/1234`（或 `user02/abcd`，範例帶 iam、預設 basic + `security.basic.users` 模式），登入成功跳轉 `/jsp`，並在日誌看到 `測試登入紀錄:user01`。
 
 ### 整合測試的執行方式
 

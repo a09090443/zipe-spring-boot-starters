@@ -52,31 +52,34 @@ web:
         beanName: exampleWebServiceImpl # example 資源對應的 bean
         uri-mapping: /example # web service 資源對應 Uri，http://localhost:8080/{spring.application.name}/webservice/example?wsdl
 
-# logon-spring-boot-starter（本範例帶 iam，預設 custom 登入：user01/1234、user02/abcd）
+# logon-spring-boot-starter（本範例帶 iam，改用 basic + security.basic.users 體驗自訂帳密：user01/1234、user02/abcd）
 security:
   enable: true # security 開關
-  verification-type: custom #憑證來源：basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)。JWT 為正交設定，見下方 jwt.enabled
-  # 本範例預設 custom：以 user_login 資料表(帳密:user01/1234、user02/abcd)做 DB 驗證，
-  #   登入後的群組／權限由 iam 解析，可直接體驗 /iam-demo 的 @PreAuthorize 權限端點。
-  # 註：因本範例帶 iam，basic 模式下 iam 的 IamUserDetailsService 會接管帳號查詢、改查 iam_account，
-  #   而種子資料無 admin（其他帳號密碼為 NULL），故 basic 表單登入無法使用；若要用 basic，
-  #   請改在 iam-demo.sql 為帳號填入真實 BCrypt 密碼，或移除 iam 依賴。
-  custom-bean-name: dbAuthProvider # 自訂登入方式，請填入 bean name(對應 com.example.config.DbAuthProvider 的 @Component 名稱)
+  verification-type: basic #憑證來源：basic 內建基本驗證，ldap LDAP驗證，custom 自訂驗證(需定義 custom-bean-name)。JWT 為正交設定，見下方 jwt.enabled
+  # 本範例改用 basic：帳密與權限直接由下方 security.basic.users 提供（user01/1234、user02/abcd）。
+  #   因本範例帶 iam，basic 模式預設會由 iam 的 IamUserDetailsService 接管帳號查詢（改查 iam_account），
+  #   使 security.basic.users 不生效；故範例以 com.example.config.BasicUserServiceConfig 宣告 logon 的
+  #   BasicUserServiceImpl Bean 覆寫該接管，使下方 security.basic.users 生效（登入與授權皆來自設定檔）。
+  #   移除 BasicUserServiceConfig 即可恢復 iam 帳號表接管；改回 custom 登入則設 verification-type=custom。
+  # custom-bean-name: dbAuthProvider # 僅 verification-type=custom 時需要，對應 com.example.config.DbAuthProvider
   record-log-enable: true # 紀錄事件 Log
   custom-record-log-bean: logonLogRecord # 自訂使用者登出入紀錄，record-log-enable 須為 true
   allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 設定不須授權即可登入的 Uri（含 iam 整合示範端點）
   #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
   login-success-uri: /jsp # 登入成功後的頁面
   login-failure-uri: /login # 登入失敗 redirect 回登入頁（失敗處理採 redirect，預設登入頁產生器會 render /login；註：搭配自訂 LoginFailureHandler 時 /login?error 不被產生器認得，故用 /login，需錯誤提示請改用自訂登入頁）
-  # === BASIC 模式自訂帳密（security.basic.users）===
-  # 本範例帶 iam，basic 模式帳號由 iam 的 IamUserDetailsService 接管（改查 iam_account），
-  #   故以下 security.basic.users 在本範例「不生效」，僅示範「移除 iam 依賴、純 logon basic」時的用法：
-  #   未設定 users 時 fallback 回內建 admin/admin；設定後改用清單，密碼支援明文與 {bcrypt} 預雜湊。
-  # basic:
-  #   users:
-  #     - username: user01
-  #       password: 1234            # 明文，啟動時自動以 BCrypt 編碼；正式環境建議改 {bcrypt} 預雜湊
-  #       authorities: [admin]      # 直接成為 authority，不自動加 ROLE_ 前綴
+  # === BASIC 模式自訂帳密（security.basic.users，本範例已透過 BasicUserServiceConfig 啟用）===
+  # 帳密與權限直接由設定檔提供；authorities 填 /iam-demo 端點所需的權限即可體驗 @PreAuthorize：
+  #   user01 僅 ORDER_EXPORT（可 /iam-demo/orders/export，不可 /iam-demo/users/manage）；
+  #   user02 另有 USER_MANAGE（兩個端點皆可）。authorities 字串直接成為 authority，不自動加 ROLE_ 前綴。
+  basic:
+    users:
+      - username: user01
+        password: 1234 # 明文，啟動時自動以 BCrypt 編碼；正式環境建議改 {bcrypt} 預雜湊
+        authorities: [ORDER_EXPORT]
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
   # === JWT 無狀態登入（與 verification-type 正交，可疊加於 basic/ldap/custom）===
   # 將 jwt.enabled 改成 true，即在現有 verification-type 之上改用 JWT 無狀態登入。
   # 啟用後：POST /api/login (帳密依 verification-type，本範例 custom 為 user01/1234) 取得 token，

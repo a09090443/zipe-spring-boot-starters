@@ -265,25 +265,34 @@ public class DbAuthProvider extends CommonLoginProcess {
 `data.sql` 寫入的是 BCrypt 雜湊字串（非明文），因此 `verifyNormalUser()` 使用 `passwordEncoder.matches(rawPassword, hashedPassword)` 比對。若你的既有資料庫存的是明文密碼，請改以 `rawPassword.equals(storedPassword)` 等方式，或先將既有資料轉為 BCrypt 雜湊。
 :::
 
-### 步驟三：範例預設即為 custom（帶 iam）
+### 步驟三：範例預設即為 basic + security.basic.users（帶 iam）
 
-`starters_example` 因同時引入 iam-starter，**預設即為 `verification-type: custom`**：登入帳密查 `user_login` 表（`dbAuthProvider`），登入後的群組／權限由 iam 解析，可直接體驗 `/iam-demo` 的權限端點。`custom-bean-name` 已預先指向真實存在的 `dbAuthProvider` Bean：
+`starters_example` 雖同時引入 iam-starter，**預設改用 `verification-type: basic`**，並以 `security.basic.users` 自訂帳密與權限，示範 BASIC 模式自訂帳密：
 
 ```yaml
 security:
   enable: true
-  verification-type: custom          # 範例預設；登入查 user_login 表
-  custom-bean-name: dbAuthProvider   # 對應 com.example.config.DbAuthProvider 的 @Component 名稱
+  verification-type: basic           # 範例預設；帳密由 security.basic.users 提供
+  basic:
+    users:
+      - username: user01
+        password: 1234                # 明文，啟動時自動以 BCrypt 編碼
+        authorities: [ORDER_EXPORT]   # 對齊 /iam-demo 端點所需權限
+      - username: user02
+        password: abcd
+        authorities: [ORDER_EXPORT, USER_MANAGE]
 ```
 
 可用的測試帳號：
 
-| 帳號 | 密碼 | 驗證方式 |
+| 帳號 | 密碼 | 授權（來自 basic.users） |
 |---|---|---|
-| `admin` | 當日日期 `yyyyMMdd`（例如 `20260614`） | 父類別 `CommonLoginProcess.verifySpecialUser()` 動態密碼 |
-| `user01` | `1234` | `DbAuthProvider.verifyNormalUser()` 查 `user_login` 表 |
-| `user02` | `abcd` | 同上 |
+| `user01` | `1234` | `ORDER_EXPORT` |
+| `user02` | `abcd` | `ORDER_EXPORT`、`USER_MANAGE` |
 
-:::warning 帶 iam 時為何不用 basic
-本範例帶 iam，basic 模式下 iam 的 `IamUserDetailsService` 會接管帳號查詢、改查 `iam_account`；而 `iam-demo.sql` 種子資料無 `admin`、其他帳號 password 為 NULL，故 **basic 表單登入無法使用**。因此範例預設改採 custom。若想用 basic，請於 `iam-demo.sql` 為帳號（含 `admin`）填入真實 BCrypt 密碼雜湊，或移除 iam 依賴（純 web+logon 情境下 basic 的 `admin/admin` 仍如上半部所述可用）。
+:::note 帶 iam 時讓 basic.users 生效的關鍵
+本範例帶 iam，basic 模式預設會由 iam 的 `IamUserDetailsService` 接管帳號查詢、改查 `iam_account`，使 `security.basic.users` 不生效。範例以 `com.example.config.BasicUserServiceConfig` 在應用層宣告 logon 的 `BasicUserServiceImpl` Bean，使 iam 的 `iamUserDetailsService` 因 `@ConditionalOnMissingBean` 退讓，`security.basic.users` 才會生效。此時**登入與授權皆來自設定檔**（authorities 刻意填入 iam-demo 所需的 `ORDER_EXPORT` / `USER_MANAGE`），不再經 iam 帳號表與群組／權限解析。
+
+- 想改回「iam 帳號表 + 群組權限解析」驗證：移除 `BasicUserServiceConfig` 即可恢復 iam 接管。
+- 想改回 CUSTOM（查 `user_login` 表）：設 `verification-type: custom` 並設 `custom-bean-name: dbAuthProvider`。
 :::

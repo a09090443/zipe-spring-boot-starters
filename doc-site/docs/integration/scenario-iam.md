@@ -96,11 +96,11 @@ mysql --default-character-set=utf8mb4 -u user1 -p example1 < src/main/resources/
 |---|---|---|---|
 | `alice` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | 供 `/iam-demo/authorities/{username}` 展示授權解析 |
 | `bob` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | 同上 |
-| `user01` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | 對應 custom 登入帳號 `user01/1234`，登入後帶此授權 |
-| `user02` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | 對應 custom 登入帳號 `user02/abcd`，登入後帶此授權 |
+| `user01` | `USER` | `ROLE_USER`、`ORDER_EXPORT` | iam 表對帳號 `user01` 的解析結果（`/iam-demo/authorities/user01` 可見） |
+| `user02` | `ADMIN` | `ROLE_ADMIN`、`ORDER_EXPORT`、`USER_MANAGE` | iam 表對帳號 `user02` 的解析結果（`/iam-demo/authorities/user02` 可見） |
 
 > 群組 `code` 套用 `iam.group.role-prefix`（預設 `ROLE_`）；權限 `code` 原樣作為 authority。
-> `user01`／`user02` 的 `username` 刻意對齊 `user_login` 的登入帳號，使其登入後能依帳號解析出 iam 授權（見下節）。
+> `user01`／`user02` 的 `username` 刻意對齊登入帳號。**注意**：範例預設以 `security.basic.users` 登入，登入後帶的是 basic.users 的 authorities（已對齊上表的 `ORDER_EXPORT`／`USER_MANAGE`）；上表是 iam 表自身的群組／權限解析結果，可透過 `/iam-demo/authorities/{username}` 獨立檢視（與登入授權來源無關，見下節）。
 
 ## 示範程式
 
@@ -178,19 +178,24 @@ public String manageUsers() {
 | iam 帳號分頁查詢 | `GET /example/iam-demo/accounts` | 含 alice／bob／user01／user02 的分頁 JSON |
 | iam 內建帳號 API | `GET /example/api/iam/accounts` | iam 內建 CRUD（受 security 保護，需登入） |
 
-權限保護端點需**先以 custom 登入**（表單登入 `/example/login`，取得帶 iam 授權的 session）後再存取：
+權限保護端點需**先登入**（表單登入 `/example/login`）後再存取。範例預設以 `security.basic.users` 登入，登入者的 authorities **直接來自設定檔**（已刻意對齊下列權限）：
 
-| 登入帳號 | 群組 | `GET /example/iam-demo/orders/export`（需 `ORDER_EXPORT`） | `GET /example/iam-demo/users/manage`（需 `USER_MANAGE`） |
+| 登入帳號 | authorities（來自 basic.users） | `GET /example/iam-demo/orders/export`（需 `ORDER_EXPORT`） | `GET /example/iam-demo/users/manage`（需 `USER_MANAGE`） |
 |---|---|---|---|
-| `user01/1234` | `USER` | ✅ `訂單已匯出` | ⛔ HTTP 403 |
-| `user02/abcd` | `ADMIN` | ✅ `訂單已匯出` | ✅ `已進入使用者管理` |
+| `user01/1234` | `ORDER_EXPORT` | ✅ `訂單已匯出` | ⛔ HTTP 403 |
+| `user02/abcd` | `ORDER_EXPORT`、`USER_MANAGE` | ✅ `訂單已匯出` | ✅ `已進入使用者管理` |
 | 未登入 | — | 導向登入頁 | 導向登入頁 |
 
 > 雖然 `/iam-demo/**` 在 `security.allow-uris` 中（URL 層放行），但 `@PreAuthorize` 是**方法層**授權、獨立於 URL 規則之外，因此仍會依登入者的 authorities 把關。
 
-## 以 iam 帳號表登入（選用）
+> iam 表的「帳號 → 群組 → 權限」解析仍可透過 `GET /example/iam-demo/authorities/{username}` 獨立展示——該端點直接呼叫 `DbGrantedAuthoritiesResolver`，與登入後的授權來源（此處為 basic.users）無關。
 
-範例預設為 `custom` 登入模式（`DbAuthProvider` 走 `user_login` 表）。若要改由 **iam 帳號表**驗證登入，將 `security.verification-type` 改為 `basic`：此時 iam 的 `IamUserDetailsService` 會自動取代 logon 內建的 `admin/admin` stub，登入帳號改讀 `iam_account`（需在 `iam-demo.sql` 為帳號填入真實 BCrypt 密碼雜湊）。授權部分無論哪種模式都由 `DbGrantedAuthoritiesResolver` 提供。
+## 切換登入帳號來源（選用）
+
+範例預設以 **basic + `security.basic.users`** 登入：帳密與授權皆來自設定檔，透過 `com.example.config.BasicUserServiceConfig` 在應用層宣告 logon 的 `BasicUserServiceImpl`、覆寫 iam 的帳號接管而生效。若要改由其他來源驗證登入：
+
+- **改走 iam 帳號表（授權由 `DbGrantedAuthoritiesResolver` 解析）**：移除 `BasicUserServiceConfig`，維持 `verification-type: basic`，iam 的 `IamUserDetailsService` 即接管、改讀 `iam_account`（需在 `iam-demo.sql` 為帳號填入真實 BCrypt 密碼雜湊）。
+- **改走 `user_login` 表（CUSTOM）**：設 `verification-type: custom` 並 `custom-bean-name: dbAuthProvider`（`DbAuthProvider` 驗帳密、授權再由 iam resolver 疊上）。
 
 :::note 執行期需求
 本情境的執行期與整個 `starters_example` 一致，需主資料源（MySQL `example1`）就緒。程式與設定可獨立以 `mvn -o test-compile` 編譯驗證；完整啟動驗證請備妥 MySQL 並先套用 `iam-demo.sql`。
