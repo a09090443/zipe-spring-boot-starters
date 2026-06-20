@@ -59,6 +59,7 @@ cd example-kotlin
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
 | WebFlux SSE 串流 | `http://localhost:8080/example/rest/flux` |
+| 多資料來源切換 API | `http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1`（換 `ds` 觀察切換，已放行免登入） |
 | iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
 | iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
 | iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |

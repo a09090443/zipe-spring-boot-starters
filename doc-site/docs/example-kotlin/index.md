@@ -47,7 +47,7 @@ example-kotlin/
 ├── src/main/kotlin/com/example/
 │   ├── Application.kt                        # Spring Boot 入口（runApplication）
 │   ├── config/                               # 安全設定（basic.users 覆寫、custom DbAuthProvider、JWT cookie 混合、登入日誌）
-│   ├── controller/                           # RestfulController、WebController、IamDemoController
+│   ├── controller/                           # RestfulController、DbExampleController（多資料源切換 API）、WebController、IamDemoController
 │   ├── service/                              # ExampleService、DBExampleService（多資料源）
 │   ├── job/                                  # 三種 Quartz 排程模式
 │   ├── model/ + repository/                  # JPA Entity（class + var）與 Repository

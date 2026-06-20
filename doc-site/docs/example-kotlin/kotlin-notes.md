@@ -78,7 +78,7 @@ abstract class TestBase(body: FunSpec.() -> Unit = {}) : FunSpec(body) {
 @AutoConfigureMockMvc
 class RestControllerTest(private val mockMvc: MockMvc) : TestBase({
     test("sayHello 回應問候字串") {
-        mockMvc.perform(get("/rest/sayHello").param("name", "John").with(httpBasic("admin", "admin")))
+        mockMvc.perform(get("/rest/sayHello").param("name", "John").with(httpBasic("user01", "1234")))
             .andExpect(status().isOk)
     }
 })
