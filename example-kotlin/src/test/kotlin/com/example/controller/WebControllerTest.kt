@@ -8,8 +8,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 /**
- * Web 視圖端點整合測試：以 BASIC 模式（admin/admin）認證後分別存取 Thymeleaf 與 JSP 頁面，
- * 驗證皆回應 HTTP 200。
+ * Web 視圖端點整合測試：以 BASIC 模式（user01/1234，帳密來自 security.basic.users）認證後
+ * 分別存取 Thymeleaf 與 JSP 頁面，驗證皆回應 HTTP 200。
  */
 @AutoConfigureMockMvc
 class WebControllerTest(
@@ -17,10 +17,10 @@ class WebControllerTest(
 ) : TestBase({
 
     test("testThymeleaf") {
-        mockMvc.perform(get("/thymeleaf").with(httpBasic("admin", "admin"))).andExpect(status().isOk)
+        mockMvc.perform(get("/thymeleaf").with(httpBasic("user01", "1234"))).andExpect(status().isOk)
     }
 
     test("testJsp") {
-        mockMvc.perform(get("/jsp").with(httpBasic("admin", "admin"))).andExpect(status().isOk)
+        mockMvc.perform(get("/jsp").with(httpBasic("user01", "1234"))).andExpect(status().isOk)
     }
 })
