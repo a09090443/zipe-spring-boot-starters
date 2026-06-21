@@ -1,11 +1,8 @@
-CREATE TABLE `UserMain` (
-                            `Id` int(11) NOT NULL AUTO_INCREMENT,
-                            `Name` varchar(100) NOT NULL,
-                            PRIMARY KEY (`Id`)
-);
+DROP TABLE IF EXISTS TBL_EMPLOYEES;
 
-CREATE TABLE `UserDetail` (
-                              `Name` varchar(100) NOT NULL,
-                              `Gender` varchar(1) NOT NULL,
-                              PRIMARY KEY (`Name`)
+CREATE TABLE TBL_EMPLOYEES (
+                               id INT AUTO_INCREMENT  PRIMARY KEY,
+                               first_name VARCHAR(250) NOT NULL,
+                               last_name VARCHAR(250) NOT NULL,
+                               email VARCHAR(250) DEFAULT NULL
 );

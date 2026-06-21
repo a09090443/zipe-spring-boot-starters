@@ -191,6 +191,73 @@ public UserDetail getUserDetailByName(String name) {
 
 `@DS` 的 `value` 預設為 `"common"`，實務上應明確指定為設定中存在的資料源名稱（如 `@DS("example2")`）。AOP 切面 `DynamicDataSourceAspect` 標記 `@Order(-1)`，確保在 `@Transactional` 之前執行（交易開始前就要確定資料來源）。
 
+### 方式三：以參數動態指定資料來源
+
+除了前兩種「切換目標寫死在程式碼」的方式，`DBExampleService` 另提供以參數傳入資料來源名稱的多載，讓呼叫端在執行期決定要查哪個資料源：
+
+```java
+@Override
+public UserMain getUserMainByName(String name, String dataSourceName) {
+    try {
+        DataSourceHolder.setDataSourceName(dataSourceName);  // 切換至指定資料源
+        return userMainRepository.findUserByName(name);
+    } finally {
+        DataSourceHolder.clearDataSourceName();              // 查詢後清除 ThreadLocal
+    }
+}
+```
+
+以 `try/finally` 包覆，確保查詢結束後一定清除 `DataSourceHolder`，避免執行緒池重用時殘留錯誤的資料來源名稱。
+
+## 透過 REST API 實測切換（DbExampleController）
+
+`starters_example` 提供 `DbExampleController`，將上述「以參數指定資料來源」的能力開放為 HTTP 端點，可直接用瀏覽器或 `curl` 觀察切換效果：
+
+```java
+@RestController
+@RequestMapping("/rest/db")
+public class DbExampleController {
+
+    @GetMapping("/user")
+    public ResponseEntity<UserMain> getUser(
+            @RequestParam String name,
+            @RequestParam(name = "ds", defaultValue = "example1") String dataSourceName) {
+        UserMain userMain = dbExampleService.getUserMainByName(name, dataSourceName);
+        return ResponseEntity.ofNullable(userMain);
+    }
+}
+```
+
+| 參數 | 說明 | 預設值 |
+|---|---|---|
+| `name` | 欲查詢的使用者名稱 | （必填） |
+| `ds` | 目標資料來源名稱（須為 `data-source.properties` 實際存在的資料源） | `example1` |
+
+搭配各資料源的**獨有標記資料**即可驗證切換是否真正生效——查得資料回傳 `200`，查無資料回傳 `404`：
+
+```bash
+# 切到 example1（MySQL）查 example1 獨有資料 → 200，查得到
+curl "http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1"
+
+# 切到 example2 查 example1 的獨有資料 → 404，查不到（證明確實路由到 example2）
+curl "http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example2"
+
+# 切到 PostgreSQL 查其獨有資料 → 200
+curl "http://localhost:8080/example/rest/db/user?name=OnlyPostgres&ds=postgres"
+```
+
+也可直接在**瀏覽器**貼上上述網址觀察結果（200 顯示 JSON、404 顯示空白／錯誤頁）。
+
+:::note 為什麼這支端點免登入？
+範例採用 logon-starter 的**表單登入**模式（`anyRequest().authenticated()`），未認證的請求會被導向 `/login` 登入頁。為方便用瀏覽器直接示範切換效果，本範例已把 `/rest/db/**` 加入 `security.allow-uris` 放行（與 `/iam-demo/**` 等示範端點同樣做法）。
+
+若改成**保留認證**來測試，移除 `allow-uris` 中的 `/rest/db/**` 後，可：
+- **瀏覽器**：先到 `http://localhost:8080/example/login` 以 `user01/1234`（或 `user02/abcd`）登入，再貼上 API 網址；或
+- **curl**：該 chain 同時啟用 HTTP Basic，可帶 `-u user01:1234` 存取。
+
+帳密由 `security.basic.users` 提供（本範例為 `user01/1234`、`user02/abcd`），非 `admin/admin`。
+:::
+
 :::warning ThreadLocal 切換的注意事項
 資料來源切換是以 `ThreadLocal`（`DataSourceHolder`）實作，因此有以下幾點需特別留意：
 
@@ -260,5 +327,11 @@ assertNull(userMainRepository.findUserByName("OnlyExample1"));     // PostgreSQL
 
 四個斷言僅在查詢「真正跨資料庫類型路由」時才能同時成立——若切換失效而 fallback 至同一資料來源，`assertNull` 必然失敗。
 
-PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`），跨方言的限制請參閱
+PostgreSQL 驅動（`org.postgresql:postgresql`）已由 `db-spring-boot-starter` 內建提供（同 SQL Server / MySQL / MariaDB / AS400），本範例無須自行宣告依賴。跨方言的限制請參閱
 [db-starter 設定文件的「跨資料庫類型的方言限制」](../db-starter/configuration.md#混用不同資料庫類型mysql--postgresql)。
+
+:::note 三個資料來源皆經 P6Spy 監控
+
+本範例三個資料來源皆以 `jdbc:p6spy:` 前綴監控。因 PostgreSQL 驅動已列入 Starter 內建 `spy.properties` 的 `driverlist`，PostgreSQL 連線（含 `CrossDbSwitchTest`）開箱即可被 P6Spy 代理並記錄，無須在範例端覆寫 `spy.properties`。
+
+:::

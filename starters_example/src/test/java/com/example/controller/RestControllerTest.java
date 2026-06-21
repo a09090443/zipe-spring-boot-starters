@@ -23,8 +23,8 @@ class RestControllerTest extends TestBase {
 
   @Test
   void sayHelloTest() throws Exception {
-    // BASIC 模式以 admin/admin 認證後存取受保護端點
-    this.mockMvc.perform(get("/rest/sayHello?name=John").with(httpBasic("admin", "admin")))
+    // BASIC 模式以 user01/1234 認證後存取受保護端點（帳密來自 security.basic.users）
+    this.mockMvc.perform(get("/rest/sayHello?name=John").with(httpBasic("user01", "1234")))
         .andDo(print()).andExpect(status().isOk())
         .andExpect(content().string(containsString("Hello,  John!")));
   }

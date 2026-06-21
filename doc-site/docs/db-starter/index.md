@@ -35,7 +35,7 @@ description: 支援多資料來源動態切換、JDBC 封裝與 SQL 條件建構
 :::note 安裝前置作業
 引入前請先於 `db-spring-boot-starter` 目錄執行 `./mvnw clean install`，將模組安裝至本地 Maven Repository。
 
-本 Starter 已內建以下 JDBC 驅動（compile scope）：SQL Server（`mssql-jdbc`）、MySQL（`mysql-connector-j`）、MariaDB（`mariadb-java-client`）、AS400（`jt400`）。若不需要某驅動，可在業務專案以 `<exclusion>` 排除。
+本 Starter 走通用 JDBC + HikariCP，**機制上支援任何 JDBC 相容資料庫**；其中已內建以下驅動（compile scope，開箱即用，且皆已列入 P6Spy `driverlist`）：SQL Server（`mssql-jdbc`）、MySQL（`mysql-connector-j`）、MariaDB（`mariadb-java-client`）、PostgreSQL（`postgresql`）、AS400（`jt400`）。Oracle、DB2 LUW 等其他資料庫需自行加入驅動依賴。完整分類、AS400 特殊處理與 P6Spy 的 `driverlist` 注意事項，詳見[配置參考 — 支援的資料庫類型](./configuration.md#支援的資料庫類型)。
 :::
 
 ## 主要類別

@@ -95,6 +95,15 @@ const sidebars = {
         'integration/scenario-full',
       ],
     },
+    {
+      type: 'category',
+      label: 'example-kotlin（Kotlin 範例）',
+      link: { type: 'doc', id: 'example-kotlin/index' },
+      items: [
+        'example-kotlin/quickstart',
+        'example-kotlin/kotlin-notes',
+      ],
+    },
   ],
 };
 

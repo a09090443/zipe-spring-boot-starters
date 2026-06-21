@@ -9,6 +9,7 @@ paths:
   - web-spring-boot-starter/**
   - keycloak-spring-boot-starter/**
   - starters_example/**
+  - example-kotlin/**
 ---
 
 # 文件同步規則（doc-sync）
@@ -30,7 +31,7 @@ paths:
 - ⛔ 對使用者宣稱「完成」「修好了」「都正常」「可以了」之前
 - ⛔ 結束一段程式碼變更工作、準備收尾之前
 
-涵蓋路徑：`*-spring-boot-starter/`、`starters_example/`（即本檔 frontmatter `paths` 所列）。
+涵蓋路徑：`*-spring-boot-starter/`、`starters_example/`、`example-kotlin/`（即本檔 frontmatter `paths` 所列）。
 
 **需同步的文件範圍（缺一不可）：**
 - `doc-site/docs/`（各 starter 與 integration 的技術文件）
@@ -85,6 +86,7 @@ paths:
 | `web-spring-boot-starter/` | `doc-site/docs/web-starter/` |
 | `keycloak-spring-boot-starter/` | （文件目錄待建立） |
 | `starters_example/` | `doc-site/docs/integration/` |
+| `example-kotlin/` | `doc-site/docs/example-kotlin/` |
 
 每個 starter 文件目錄下包含以下五份文件：
 

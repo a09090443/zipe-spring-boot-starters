@@ -20,10 +20,10 @@ class WebControllerTest extends TestBase {
 
   @Test
   void testThymeleaf() throws Exception {
-    this.mockMvc.perform(get("/thymeleaf").with(httpBasic("admin", "admin"))).andExpect(status().isOk());
+    this.mockMvc.perform(get("/thymeleaf").with(httpBasic("user01", "1234"))).andExpect(status().isOk());
   }
   @Test
   void testJsp() throws Exception {
-    this.mockMvc.perform(get("/jsp").with(httpBasic("admin", "admin"))).andExpect(status().isOk());
+    this.mockMvc.perform(get("/jsp").with(httpBasic("user01", "1234"))).andExpect(status().isOk());
   }
 }

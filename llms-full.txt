@@ -2798,6 +2798,32 @@ String cacheKey = resource.toString() + resource.fileName()
 
 :::
 
+## 支援的資料庫類型
+
+本 Starter 透過通用的 JDBC + HikariCP 建立連線，**機制上支援任何 JDBC 相容的資料庫**：只要在 `data-source-map` 提供正確的 `url` 與 `driverClassName`，並確保對應的 JDBC 驅動位於 classpath，即可使用。依「驅動是否已內建」與「程式是否有特殊處理」可分為三類。
+
+### 一、已內建驅動（開箱即用）
+
+下列驅動已以 compile scope 隨 Starter 引入，無須另外加依賴：
+
+| 資料庫 | 內建驅動 artifact | driverClassName（原生） |
+|---|---|---|
+| SQL Server | `com.microsoft.sqlserver:mssql-jdbc` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
+| MySQL | `com.mysql:mysql-connector-j` | `com.mysql.cj.jdbc.Driver` |
+| MariaDB | `org.mariadb.jdbc:mariadb-java-client` | `org.mariadb.jdbc.Driver` |
+| PostgreSQL | `org.postgresql:postgresql` | `org.postgresql.Driver` |
+| AS400（DB2 for i） | `net.sf.jt400:jt400` | `com.ibm.as400.access.AS400JDBCDriver` |
+
+這些驅動的類別名稱也都已列入 Starter 內建 `spy.properties` 的 `driverlist`，因此**搭配 `jdbc:p6spy:` 前綴監控可開箱即用**，無須額外設定。若不需要某個驅動，可在業務專案以 `<exclusion>` 排除。
+
+### 二、需自行加入驅動
+
+其他 JDBC 資料庫（如 Oracle、DB2 LUW 等）機制上同樣支援，但驅動未隨 Starter 提供，需自行於業務專案 `pom.xml` 加入依賴（版本可交由 Spring Boot BOM 管理）。此類資料庫若要搭配 `jdbc:p6spy:` 前綴，還需在自訂的 `spy.properties` 將其驅動類別補進 `driverlist`（因 `deregisterdrivers=true`，未列入者會被反註冊而無法被 P6Spy 代理）；不使用 P6Spy（直接以原生驅動與 URL 連線）則無此限。詳見下方〈P6Spy 監控設定〉。
+
+### 三、AS400 的特殊處理
+
+AS400 驅動與部分 HikariCP 進階參數不相容。模組偵測到 `url` 中含 `as400`（不分大小寫）時，會走專屬建立邏輯：略過 `baseHikariConfig()` 的效能調校，且 `connectionTestQuery` 改為 `VALUES 1`（而非一般資料庫的 `SELECT 1`）。其餘所有資料庫一律走標準建立流程，無資料庫專屬分支。
+
 ## 頂層屬性
 
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
@@ -2867,7 +2893,7 @@ P6Spy **不透過 Spring 屬性設定**，而是透過靜態的 `spy.properties`
 | spy.properties 鍵 | 預設值 | 說明 |
 |---|---|---|
 | `appender` | `com.p6spy.engine.spy.appender.Slf4JLogger` | 日誌輸出器，使用 SLF4J |
-| `driverlist` | SQL Server / AS400 / MySQL | 已知驅動清單（新增其他資料庫時需在 `driverlist` 補上） |
+| `driverlist` | SQL Server / AS400 / MySQL / MariaDB / PostgreSQL | 已知驅動清單，**涵蓋全部五種內建驅動**，故這些資料庫搭配 `jdbc:p6spy:` 前綴可開箱即用。使用非內建資料庫（如 Oracle、DB2 LUW）並搭配 `jdbc:p6spy:` 前綴時，需在自訂的 `spy.properties` 補上對應驅動，否則因 `deregisterdrivers=true` 而無法被 P6Spy 代理 |
 | `outagedetection` | `true` | 啟用慢查詢偵測 |
 | `outagedetectioninterval` | `2`（秒） | 超過此時間的 SQL 被標記為慢查詢 |
 | `excludecategories` | `info,debug,result,batc,resultset` | 排除非 SQL 執行的日誌類型 |
@@ -2939,15 +2965,13 @@ dynamic.data-source-map[postgres].pa55word=pgpass
 dynamic.data-source-map[postgres].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
 
-PostgreSQL driver 並未隨 Starter 提供，引用方需自行加入依賴（版本可交由 Spring Boot BOM 管理）：
+PostgreSQL 驅動（`org.postgresql:postgresql`）已隨 Starter 內建，且已列入 `driverlist`，故上例的 `jdbc:p6spy:postgresql://` 監控可直接運作，無須額外加入依賴或修改 `spy.properties`。
 
-```xml
-<dependency>
-  <groupId>org.postgresql</groupId>
-  <artifactId>postgresql</artifactId>
-  <scope>runtime</scope>
-</dependency>
-```
+:::tip 整合範例已實際示範
+
+`starters_example`（與其 Kotlin 對應版 `example-kotlin`）已內建 MySQL ↔ PostgreSQL 的跨資料庫類型動態切換示範，含初始化腳本與切換驗證測試（`CrossDbSwitchTest`）。完整資料源對照、測試資料初始化與驗證方式，參閱[整合範例 — 跨資料庫類型動態切換](../integration/scenario-db.md#跨資料庫類型動態切換mysql--postgresql)。
+
+:::
 
 :::warning 跨資料庫類型的方言限制
 
@@ -2985,6 +3009,27 @@ dynamic.data-source-map[common].username=user400
 dynamic.data-source-map[common].pa55word=pass400
 dynamic.data-source-map[common].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
+
+### MariaDB 資料來源
+
+MariaDB 驅動（`mariadb-java-client`）已內建，可直接以原生驅動連線：
+
+```properties
+dynamic.primary=master
+dynamic.entity-scan=com.example
+dynamic.is-encrypt=false
+
+dynamic.data-source-map[master].url=jdbc:mariadb://localhost:3306/mydb?characterEncoding=UTF-8&serverTimezone=Asia/Taipei
+dynamic.data-source-map[master].username=root
+dynamic.data-source-map[master].pa55word=your_password
+dynamic.data-source-map[master].driverClassName=org.mariadb.jdbc.Driver
+```
+
+:::warning MariaDB 搭配 P6Spy
+
+如需以 P6Spy 監控 MariaDB（URL 改為 `jdbc:p6spy:mariadb://...`、驅動改為 `com.p6spy.engine.spy.P6SpyDriver`），須先在自訂的 `spy.properties` 將 `org.mariadb.jdbc.Driver` 補進 `driverlist`，因內建 `driverlist` 未包含 MariaDB。
+
+:::
 
 ## 分頁 SQL 模板（使用 Paging 功能時必填）
 
@@ -3293,7 +3338,7 @@ public class OrderService {
 :::note 安裝前置作業
 引入前請先於 `db-spring-boot-starter` 目錄執行 `./mvnw clean install`，將模組安裝至本地 Maven Repository。
 
-本 Starter 已內建以下 JDBC 驅動（compile scope）：SQL Server（`mssql-jdbc`）、MySQL（`mysql-connector-j`）、MariaDB（`mariadb-java-client`）、AS400（`jt400`）。若不需要某驅動，可在業務專案以 `<exclusion>` 排除。
+本 Starter 走通用 JDBC + HikariCP，**機制上支援任何 JDBC 相容資料庫**；其中已內建以下驅動（compile scope，開箱即用，且皆已列入 P6Spy `driverlist`）：SQL Server（`mssql-jdbc`）、MySQL（`mysql-connector-j`）、MariaDB（`mariadb-java-client`）、PostgreSQL（`postgresql`）、AS400（`jt400`）。Oracle、DB2 LUW 等其他資料庫需自行加入驅動依賴。完整分類、AS400 特殊處理與 P6Spy 的 `driverlist` 注意事項，詳見[配置參考 — 支援的資料庫類型](./configuration.md#支援的資料庫類型)。
 :::
 
 ## 主要類別
@@ -3511,6 +3556,228 @@ public class ReportService {
 
 若類別層級和方法層級都有 `@DS`，**類別層級優先**，方法層級的 `@DS` 會被忽略。
 
+:::
+
+---
+
+## example-kotlin（Kotlin 範例）
+
+
+`example-kotlin` 是 [`starters_example`](../integration/index.md) 的 **Kotlin 對應版**，以 Kotlin + Gradle 1:1 重寫同一套整合範例，展示 zipe-spring-boot-starters 各模組在 **Kotlin 專案**中的使用方式。它與 `starters_example` 的套件結構（`com.example.*`）、類別名稱、方法簽章與對外端點**完全對齊**，差別僅在語言、建構工具與測試框架——因此兩版範例可互相對照，方便 Kotlin 使用者直接套用。
+
+## 技術規格
+
+| 面向 | 內容 |
+|---|---|
+| 語言 | Kotlin 2.2.x |
+| 平台 | Spring Boot 4.0.0 / Java 17（bytecode target 17） |
+| 建構工具 | Gradle（Kotlin DSL，`build.gradle.kts`） |
+| 測試框架 | Kotest（`FunSpec` + `kotest-extensions-spring`） |
+| Starter 座標 | `io.github.a09090443:*-spring-boot-starter:4.0.0.1`（七個 starter） |
+
+:::note 為何另存一份 Kotlin 範例
+`starters_example` 以 Java + Maven 呈現；`example-kotlin` 則保留相同功能，改以 Kotlin 慣例（`data class`、`val/var`、null 安全、不使用 Lombok）與 Gradle 建構，作為 Kotlin 專案引入這些 Starter 的參考實作。功能本身的詳細說明請參閱[整合範例教學](../integration/index.md)，本章節聚焦於 Kotlin 版的取得、啟動與語言層面的差異。
+:::
+
+## 涵蓋情境
+
+與 `starters_example` 相同，一次整合全部七個 Starter：
+
+| Starter | 在範例中的用途 |
+|---|---|
+| `base-spring-boot-starter` | 加解密（CryptoUtil）、Excel 匯入匯出、JasperReport 報表、HTTP 工具 |
+| `db-spring-boot-starter` | 多資料來源動態切換（`@DS` / `DataSourceHolder`）、BaseJDBC、SQL 外化 |
+| `job-spring-boot-starter` | Quartz 排程（Annotation、DB、Properties 三種模式） |
+| `logon-spring-boot-starter` | Spring Security 登入認證（含 JWT cookie 混合模式） |
+| `iam-spring-boot-starter` | 帳號／群組／權限身分授權，以 `@PreAuthorize` 保護端點 |
+| `web-spring-boot-starter` | Thymeleaf 視圖、JSP 與統一回應格式 |
+| `web-service-spring-boot-starter` | Apache CXF SOAP WebService 服務端與客戶端 |
+
+## 專案目錄結構
+
+```
+example-kotlin/
+├── build.gradle.kts                          # Gradle Kotlin DSL 建構腳本
+├── settings.gradle.kts
+├── gradle/wrapper/                           # Gradle 8.14 wrapper
+├── src/main/kotlin/com/example/
+│   ├── Application.kt                        # Spring Boot 入口（runApplication）
+│   ├── config/                               # 安全設定（basic.users 覆寫、custom DbAuthProvider、JWT cookie 混合、登入日誌）
+│   ├── controller/                           # RestfulController、DbExampleController（多資料源切換 API）、WebController、IamDemoController
+│   ├── service/                              # ExampleService、DBExampleService（多資料源）
+│   ├── job/                                  # 三種 Quartz 排程模式
+│   ├── model/ + repository/                  # JPA Entity（class + var）與 Repository
+│   ├── jdbc/ExampleJdbc.kt                   # 繼承 BaseJDBC
+│   └── webservice/                           # CXF SOAP 介面與實作
+├── src/main/resources/                       # application.yml、data-source.properties、init SQL、iam-demo.sql、jasperreport、quartz、logback
+├── src/main/webapp/WEB-INF/                  # JSP / Thymeleaf 視圖
+├── src/postman/                              # Postman / SOAP 測試集合
+└── src/test/kotlin/com/example/              # Kotest 測試（FunSpec + SpringExtension）
+```
+
+## 延伸閱讀
+
+- [快速啟動](./quickstart.md) — 取得依賴、啟動專案、驗證端點
+- [Kotlin 化重點](./kotlin-notes.md) — 與 `starters_example` 的語言層面差異與建構設定
+- [整合範例教學](../integration/index.md) — 各 Starter 協同運作的功能說明（與本範例同樣適用）
+
+---
+
+## Kotlin 化重點
+
+
+本頁說明 `example-kotlin` 相對於 [`starters_example`](../integration/index.md) 在**語言與建構層面**的差異。兩者的功能、套件結構、端點與方法簽章一致；差異僅在於 Kotlin 的慣用寫法與 Gradle 設定。
+
+## 與 starters_example 的差異對照
+
+| 面向 | starters_example | example-kotlin |
+|---|---|---|
+| 語言 | Java 17 | Kotlin 2.2.x |
+| 建構工具 | Maven（`pom.xml`、`mvnw`） | Gradle Kotlin DSL（`build.gradle.kts`、`gradlew`） |
+| 測試框架 | JUnit 5 + Spring Test | Kotest（`FunSpec` + `kotest-extensions-spring` 的 `SpringExtension`） |
+| 樣板簡化 | Lombok（`@Slf4j`、`@Data` 等） | Kotlin 慣例（`val/var`、字串模板、單運算式函式），不使用 Lombok |
+| Null 安全 | 由 Java 慣例處理 | Kotlin 型別系統強制（`-Xjsr305=strict`） |
+| JPA Entity | 標準 Java class | Kotlin `class` + `var` 屬性（`kotlin("plugin.jpa")` no-arg 外掛） |
+
+## build.gradle.kts 重點
+
+```kotlin
+plugins {
+    id("org.springframework.boot") version "4.0.0"
+    id("io.spring.dependency-management") version "1.1.7"
+    kotlin("jvm") version "2.2.0"
+    kotlin("plugin.spring") version "2.2.0"   // 對 @Configuration/@Component 等套用 all-open
+    kotlin("plugin.jpa") version "2.2.0"      // 對 @Entity 產生無參建構子（no-arg）
+}
+
+java {
+    // 不鎖定 toolchain languageVersion，改由執行 Gradle 的 JDK（17 以上）編譯，
+    // 避免在僅安裝較新 JDK 的環境上找不到 17 toolchain。
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()   // 供解析本地 mvn install 的 4.0.0.1 Starter
+}
+```
+
+- **七個 Starter** 以 `io.github.a09090443:*-spring-boot-starter:4.0.0.1` 引入。
+- `kotlin-reflect` 為 Spring + Kotlin 必備。
+- JSP 編譯所需的 `tomcat-embed-jasper` 以 `compileOnly` 引入（對應 Maven 的 `provided`）；H2 以 `runtimeOnly`；devtools 以 `developmentOnly`。PostgreSQL 等 JDBC 驅動已由 `db-spring-boot-starter` 內建提供，無須在此宣告。
+
+## JPA Entity 寫法
+
+Entity 採一般 `class` + `var` 屬性（非 `data class`），以保留與 Java 來源相同的 Hibernate 風格自訂 `equals`/`hashCode` 策略；`kotlin("plugin.jpa")` 會為其產生 JPA 所需的無參建構子。
+
+```kotlin
+@Entity
+@Table(name = "user_main")
+class UserMain {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null
+    var name: String? = null
+    var gender: String? = null
+    // equals/hashCode 沿用 Hibernate 最佳實務（以 Hibernate.getClass 區分代理）
+}
+```
+
+## 測試（Kotest）
+
+測試以 Kotest 的 `FunSpec` 撰寫，並透過 `kotest-extensions-spring` 的 `SpringExtension` 整合 Spring context；需要注入 Bean 的測試以「主建構子參數注入 + spec body lambda」表達，等同 Java 的 `@Autowired` 建構子注入。
+
+```kotlin
+abstract class TestBase(body: FunSpec.() -> Unit = {}) : FunSpec(body) {
+    init { extension(SpringExtension) }
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class RestControllerTest(private val mockMvc: MockMvc) : TestBase({
+    test("sayHello 回應問候字串") {
+        mockMvc.perform(get("/rest/sayHello").param("name", "John").with(httpBasic("user01", "1234")))
+            .andExpect(status().isOk)
+    }
+})
+```
+
+- Controller 測試沿用 `spring-security-test` 的 `httpBasic(...)` 帶認證身分，與 Java 版測試的驗證意圖一致。
+- 部分測試（多資料來源、SOAP 客戶端、Excel 匯出寫檔）與 `starters_example` 同樣依賴外部環境（資料庫、執行中的服務、檔案路徑），僅在具備該環境時才會完整通過。
+
+---
+
+## 快速啟動
+
+
+## 環境需求
+
+- **JDK 17 以上**（範例產出 Java 17 bytecode；`build.gradle.kts` 不鎖定 toolchain，由執行 Gradle 的 JDK 編譯，故安裝較新的 JDK 亦可）
+- 內附 **Gradle 8.14 wrapper**，無須另行安裝 Gradle
+
+## 步驟一：取得專案原始碼
+
+```bash
+git clone https://github.com/a09090443/zipe-spring-boot-starters.git
+cd zipe-spring-boot-starters
+```
+
+## 步驟二：取得 Starter 依賴
+
+`example-kotlin` 引用 `io.github.a09090443:*-spring-boot-starter:4.0.0.1`，`build.gradle.kts` 同時設定了 `mavenCentral()` 與 `mavenLocal()`。
+
+- 若該版本已發布於 **Maven Central**，建構時會自動下載，無須額外步驟。
+- 若要以**本地原始碼**建構最新版 Starter（例如剛改過 starter 程式碼），請先於專案根目錄將七個 Starter 安裝至本地 Maven Repository，Gradle 才能透過 `mavenLocal()` 解析：
+
+```bash
+mvn -DskipTests install
+```
+
+## 步驟三：啟動範例專案
+
+```bash
+cd example-kotlin
+./gradlew bootRun
+```
+
+僅編譯（不啟動）：
+
+```bash
+./gradlew compileKotlin compileTestKotlin
+```
+
+執行測試（Kotest）：
+
+```bash
+./gradlew test
+```
+
+## 驗證端點
+
+啟動成功後（context-path 為 `/example`，port `8080`），可透過以下端點驗證各功能：
+
+| 功能 | 端點 |
+|---|---|
+| Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
+| JSP 頁面 | `http://localhost:8080/example/jsp` |
+| REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| WebFlux SSE 串流 | `http://localhost:8080/example/rest/flux` |
+| 多資料來源切換 API | `http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1`（換 `ds` 觀察切換，已放行免登入） |
+| iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
+| iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
+| iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
+| SOAP WSDL | `http://localhost:8080/example/webservice/example?wsdl` |
+| H2 Console | `http://localhost:8080/example/h2-console` |
+
+可透過 `src/postman/Example.postman_collection.json` 匯入 Postman 進行 API 與 SOAP 測試。
+
+:::tip 登入帳密與安全模式
+範例預設 `security.verification-type: basic`，並以 `security.basic.users` 提供 `user01/1234`（具 `ORDER_EXPORT`）與 `user02/abcd`（另具 `USER_MANAGE`），可直接體驗 `@PreAuthorize` 權限保護端點。`security.jwt.enabled` 與 `example.hybrid-jwt.enabled` 預設皆為 `false`；設定方式與 `starters_example` 完全相同，詳見 [logon-starter 文件](../logon-starter/configuration.md)。
+:::
+
+:::note 資料庫與 SQL 初始化
+與 `starters_example` 一致：內建 **H2 記憶體資料庫**並開啟 H2 Console；`spring.sql.init.mode` 設為 `never`，故 `init/schema.sql`、`init/data.sql` 與 `init/iam-demo.sql` **不會在啟動時自動執行**，需要時請自行於 H2 Console 載入。完整驗證多資料來源（`example1` / `example2`）時才需準備對應的資料庫環境。
 :::
 
 ---
@@ -4174,13 +4441,14 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
+│   │   ├── DbExampleController.java         # 多資料來源切換 API（/rest/db/user?name=&ds=）
 │   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/authorities/{username}、@PreAuthorize 保護的 /orders/export、/users/manage）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
 │   │   ├── ExampleServiceImpl.java         # sayHello 實作
 │   │   ├── DBExampleService.java           # 多資料來源服務介面
-│   │   └── DBExampleServiceImpl.java       # @DS / DataSourceHolder 切換示範
+│   │   └── DBExampleServiceImpl.java       # @DS / DataSourceHolder / 參數指定 三種切換示範
 │   ├── job/
 │   │   ├── ExampleAnnotationJob.java       # @Scheduled 模式
 │   │   ├── ExampleDbJob.java               # 資料庫模式
@@ -4248,6 +4516,7 @@ cd starters_example
 | Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| 多資料來源切換 API | `http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1`（換 `ds` 觀察切換，已放行免登入） |
 | iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
 | iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
 | iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |
@@ -4455,6 +4724,73 @@ public UserDetail getUserDetailByName(String name) {
 
 `@DS` 的 `value` 預設為 `"common"`，實務上應明確指定為設定中存在的資料源名稱（如 `@DS("example2")`）。AOP 切面 `DynamicDataSourceAspect` 標記 `@Order(-1)`，確保在 `@Transactional` 之前執行（交易開始前就要確定資料來源）。
 
+### 方式三：以參數動態指定資料來源
+
+除了前兩種「切換目標寫死在程式碼」的方式，`DBExampleService` 另提供以參數傳入資料來源名稱的多載，讓呼叫端在執行期決定要查哪個資料源：
+
+```java
+@Override
+public UserMain getUserMainByName(String name, String dataSourceName) {
+    try {
+        DataSourceHolder.setDataSourceName(dataSourceName);  // 切換至指定資料源
+        return userMainRepository.findUserByName(name);
+    } finally {
+        DataSourceHolder.clearDataSourceName();              // 查詢後清除 ThreadLocal
+    }
+}
+```
+
+以 `try/finally` 包覆，確保查詢結束後一定清除 `DataSourceHolder`，避免執行緒池重用時殘留錯誤的資料來源名稱。
+
+## 透過 REST API 實測切換（DbExampleController）
+
+`starters_example` 提供 `DbExampleController`，將上述「以參數指定資料來源」的能力開放為 HTTP 端點，可直接用瀏覽器或 `curl` 觀察切換效果：
+
+```java
+@RestController
+@RequestMapping("/rest/db")
+public class DbExampleController {
+
+    @GetMapping("/user")
+    public ResponseEntity<UserMain> getUser(
+            @RequestParam String name,
+            @RequestParam(name = "ds", defaultValue = "example1") String dataSourceName) {
+        UserMain userMain = dbExampleService.getUserMainByName(name, dataSourceName);
+        return ResponseEntity.ofNullable(userMain);
+    }
+}
+```
+
+| 參數 | 說明 | 預設值 |
+|---|---|---|
+| `name` | 欲查詢的使用者名稱 | （必填） |
+| `ds` | 目標資料來源名稱（須為 `data-source.properties` 實際存在的資料源） | `example1` |
+
+搭配各資料源的**獨有標記資料**即可驗證切換是否真正生效——查得資料回傳 `200`，查無資料回傳 `404`：
+
+```bash
+# 切到 example1（MySQL）查 example1 獨有資料 → 200，查得到
+curl "http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1"
+
+# 切到 example2 查 example1 的獨有資料 → 404，查不到（證明確實路由到 example2）
+curl "http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example2"
+
+# 切到 PostgreSQL 查其獨有資料 → 200
+curl "http://localhost:8080/example/rest/db/user?name=OnlyPostgres&ds=postgres"
+```
+
+也可直接在**瀏覽器**貼上上述網址觀察結果（200 顯示 JSON、404 顯示空白／錯誤頁）。
+
+:::note 為什麼這支端點免登入？
+範例採用 logon-starter 的**表單登入**模式（`anyRequest().authenticated()`），未認證的請求會被導向 `/login` 登入頁。為方便用瀏覽器直接示範切換效果，本範例已把 `/rest/db/**` 加入 `security.allow-uris` 放行（與 `/iam-demo/**` 等示範端點同樣做法）。
+
+若改成**保留認證**來測試，移除 `allow-uris` 中的 `/rest/db/**` 後，可：
+- **瀏覽器**：先到 `http://localhost:8080/example/login` 以 `user01/1234`（或 `user02/abcd`）登入，再貼上 API 網址；或
+- **curl**：該 chain 同時啟用 HTTP Basic，可帶 `-u user01:1234` 存取。
+
+帳密由 `security.basic.users` 提供（本範例為 `user01/1234`、`user02/abcd`），非 `admin/admin`。
+:::
+
 :::warning ThreadLocal 切換的注意事項
 資料來源切換是以 `ThreadLocal`（`DataSourceHolder`）實作，因此有以下幾點需特別留意：
 
@@ -4524,8 +4860,14 @@ assertNull(userMainRepository.findUserByName("OnlyExample1"));     // PostgreSQL
 
 四個斷言僅在查詢「真正跨資料庫類型路由」時才能同時成立——若切換失效而 fallback 至同一資料來源，`assertNull` 必然失敗。
 
-PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`），跨方言的限制請參閱
+PostgreSQL 驅動（`org.postgresql:postgresql`）已由 `db-spring-boot-starter` 內建提供（同 SQL Server / MySQL / MariaDB / AS400），本範例無須自行宣告依賴。跨方言的限制請參閱
 [db-starter 設定文件的「跨資料庫類型的方言限制」](../db-starter/configuration.md#混用不同資料庫類型mysql--postgresql)。
+
+:::note 三個資料來源皆經 P6Spy 監控
+
+本範例三個資料來源皆以 `jdbc:p6spy:` 前綴監控。因 PostgreSQL 驅動已列入 Starter 內建 `spy.properties` 的 `driverlist`，PostgreSQL 連線（含 `CrossDbSwitchTest`）開箱即可被 P6Spy 代理並記錄，無須在範例端覆寫 `spy.properties`。
+
+:::
 
 ---
 
@@ -4675,7 +5017,7 @@ security:
         authorities: [ORDER_EXPORT, USER_MANAGE]
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
-  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**,/rest/db/**
   login-success-uri: /jsp
   login-failure-uri: /login
   ldap:
@@ -4702,7 +5044,7 @@ security:
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
     │  │   verification-type: basic.users (user01/1234、user02/abcd)  │ │
-    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
+    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/** /rest/db/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
     │           ▼                                                        │

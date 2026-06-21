@@ -150,7 +150,7 @@ security:
         authorities: [ORDER_EXPORT, USER_MANAGE]
   record-log-enable: true
   custom-record-log-bean: logonLogRecord
-  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**,/rest/db/**
   login-success-uri: /jsp
   login-failure-uri: /login
   ldap:
@@ -177,7 +177,7 @@ security:
     │  ┌─────────────────────────────────────────────────────────────┐ │
     │  │   Spring Security 過濾鏈 (logon-starter)                      │ │
     │  │   verification-type: basic.users (user01/1234、user02/abcd)  │ │
-    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/**│ │
+    │  │   白名單: /static/** /resources/** /webservice/** /iam-demo/** /rest/db/**│ │
     │  │        │ 登入事件 → LogonLogRecord (CustomLogonLogRecord)     │ │
     │  └────────┼─────────────────────────────────────────────────────┘ │
     │           ▼                                                        │
