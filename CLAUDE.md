@@ -16,4 +16,4 @@
 - [starters_example](.claude/rules/starters-example.md)
 - [文件同步規則（改程式後確認文件）](.claude/rules/doc-sync.md)
 
-> Git Commit 訊息規範已改為 `git-commit-message` skill（撰寫提交訊息時自動套用）。
+> Git Commit 訊息規範已改為專案 skill：`.claude/skills/git-commit-message/`（撰寫提交訊息時自動套用）。
