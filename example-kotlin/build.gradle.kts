@@ -50,9 +50,8 @@ dependencies {
     // 編譯 JSP（內嵌 Tomcat Jasper）
     compileOnly("org.apache.tomcat.embed:tomcat-embed-jasper")
 
-    // 資料庫驅動
+    // 資料庫驅動（PostgreSQL 等由 db-spring-boot-starter 內建提供，無須在此重複宣告）
     runtimeOnly("com.h2database:h2")
-    runtimeOnly("org.postgresql:postgresql")
 
     // 開發工具
     developmentOnly("org.springframework.boot:spring-boot-devtools")
