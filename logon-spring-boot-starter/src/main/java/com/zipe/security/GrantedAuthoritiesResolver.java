@@ -1,8 +1,7 @@
 package com.zipe.security;
 
-import org.springframework.security.core.GrantedAuthority;
-
 import java.util.Collection;
+import org.springframework.security.core.GrantedAuthority;
 
 /**
  * 授權（authorities）解析擴充點（SPI）。

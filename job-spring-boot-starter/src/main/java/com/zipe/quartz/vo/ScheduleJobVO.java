@@ -1,12 +1,11 @@
 package com.zipe.quartz.vo;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.Data;
-import org.quartz.JobDataMap;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import lombok.Data;
+import org.quartz.JobDataMap;
 
 /**
  * 排程任務的 View Object，用於在前端與後端之間傳遞排程設定資訊。

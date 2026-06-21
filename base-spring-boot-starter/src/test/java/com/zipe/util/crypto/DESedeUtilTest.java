@@ -1,12 +1,11 @@
 package com.zipe.util.crypto;
 
-import org.junit.jupiter.api.Test;
-
-import java.nio.charset.StandardCharsets;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 DESedeUtil 採用隨機 IV 的 DESede/CBC/PKCS5Padding，並於失敗時丟例外（不再靜默回傳 null）。

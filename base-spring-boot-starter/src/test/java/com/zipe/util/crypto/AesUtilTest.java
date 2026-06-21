@@ -1,14 +1,13 @@
 package com.zipe.util.crypto;
 
-import org.apache.commons.codec.binary.Base64;
-import org.junit.jupiter.api.Test;
-
-import java.nio.charset.StandardCharsets;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.codec.binary.Base64;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 AesUtil 採用隨機 IV 的 AES/CBC/PKCS5Padding，確保加密為非確定性。

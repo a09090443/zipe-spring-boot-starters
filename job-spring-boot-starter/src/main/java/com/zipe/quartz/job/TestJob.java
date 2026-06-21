@@ -1,10 +1,9 @@
 package com.zipe.quartz.job;
 
-import lombok.extern.slf4j.Slf4j;
-import org.quartz.JobExecutionContext;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import lombok.extern.slf4j.Slf4j;
+import org.quartz.JobExecutionContext;
 
 /**
  * 測試用排程任務，繼承 {@link QuartzJobFactory} 並實作 {@code executeJob} 方法。

@@ -1,12 +1,11 @@
 package com.zipe.base.config;
 
 import com.zipe.base.model.DynamicDataSourceConfig;
+import java.util.Map;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.Map;
 
 /**
  * 動態多資料來源屬性設定類別。

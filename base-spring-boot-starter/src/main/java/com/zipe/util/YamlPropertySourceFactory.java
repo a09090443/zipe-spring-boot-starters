@@ -1,14 +1,13 @@
 package com.zipe.util;
 
+import java.io.IOException;
+import java.util.Properties;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.support.DefaultPropertySourceFactory;
 import org.springframework.core.io.support.EncodedResource;
 import org.springframework.core.io.support.PropertySourceFactory;
-
-import java.io.IOException;
-import java.util.Properties;
 
 /**
  * 支援 YAML 格式的 {@link PropertySourceFactory} 實作。

@@ -1,5 +1,8 @@
 package com.zipe.interceptor;
 
+import java.io.ByteArrayInputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import org.apache.commons.io.IOUtils;
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.binding.soap.interceptor.AbstractSoapInterceptor;
@@ -7,10 +10,6 @@ import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.phase.Phase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 
 /**
  * CXF SOAP 回應攔截器，負責將回應 XML 中被 HTML 實體編碼的 CDATA 標記與特殊字元

@@ -1,10 +1,5 @@
 package com.zipe.util.print;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ObjectUtils;
-
-import javax.print.PrintService;
-import javax.print.PrintServiceLookup;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -17,6 +12,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 
 /**
  * 列印工具類別，實作 {@link Printable} 介面，封裝 Java AWT 列印 API。

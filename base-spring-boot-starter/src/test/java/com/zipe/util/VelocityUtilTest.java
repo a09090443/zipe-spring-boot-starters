@@ -1,11 +1,10 @@
 package com.zipe.util;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 {@link VelocityUtil} 於 velocity-engine-core 2.x 下的 classpath 樣板渲染。
