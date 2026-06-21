@@ -46,7 +46,7 @@ repositories {
 
 - **七個 Starter** 以 `io.github.a09090443:*-spring-boot-starter:4.0.0.1` 引入。
 - `kotlin-reflect` 為 Spring + Kotlin 必備。
-- JSP 編譯所需的 `tomcat-embed-jasper` 以 `compileOnly` 引入（對應 Maven 的 `provided`）；H2、PostgreSQL 以 `runtimeOnly`；devtools 以 `developmentOnly`。
+- JSP 編譯所需的 `tomcat-embed-jasper` 以 `compileOnly` 引入（對應 Maven 的 `provided`）；H2 以 `runtimeOnly`；devtools 以 `developmentOnly`。PostgreSQL 等 JDBC 驅動已由 `db-spring-boot-starter` 內建提供，無須在此宣告。
 
 ## JPA Entity 寫法
 

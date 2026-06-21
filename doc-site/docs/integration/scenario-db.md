@@ -327,5 +327,11 @@ assertNull(userMainRepository.findUserByName("OnlyExample1"));     // PostgreSQL
 
 四個斷言僅在查詢「真正跨資料庫類型路由」時才能同時成立——若切換失效而 fallback 至同一資料來源，`assertNull` 必然失敗。
 
-PostgreSQL driver 需由引用方自行加入（`org.postgresql:postgresql`），跨方言的限制請參閱
+PostgreSQL 驅動（`org.postgresql:postgresql`）已由 `db-spring-boot-starter` 內建提供（同 SQL Server / MySQL / MariaDB / AS400），本範例無須自行宣告依賴。跨方言的限制請參閱
 [db-starter 設定文件的「跨資料庫類型的方言限制」](../db-starter/configuration.md#混用不同資料庫類型mysql--postgresql)。
+
+:::note 三個資料來源皆經 P6Spy 監控
+
+本範例三個資料來源皆以 `jdbc:p6spy:` 前綴監控。因 PostgreSQL 驅動已列入 Starter 內建 `spy.properties` 的 `driverlist`，PostgreSQL 連線（含 `CrossDbSwitchTest`）開箱即可被 P6Spy 代理並記錄，無須在範例端覆寫 `spy.properties`。
+
+:::

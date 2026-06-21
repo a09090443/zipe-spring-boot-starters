@@ -53,7 +53,7 @@ example-kotlin/
 │   ├── model/ + repository/                  # JPA Entity（class + var）與 Repository
 │   ├── jdbc/ExampleJdbc.kt                   # 繼承 BaseJDBC
 │   └── webservice/                           # CXF SOAP 介面與實作
-├── src/main/resources/                       # application.yml、init SQL、iam-demo.sql、jasperreport、quartz、logback
+├── src/main/resources/                       # application.yml、data-source.properties、init SQL、iam-demo.sql、jasperreport、quartz、logback
 ├── src/main/webapp/WEB-INF/                  # JSP / Thymeleaf 視圖
 ├── src/postman/                              # Postman / SOAP 測試集合
 └── src/test/kotlin/com/example/              # Kotest 測試（FunSpec + SpringExtension）
