@@ -1,5 +1,6 @@
 ---
-description: Git commit 訊息規範，所有提交訊息須使用繁體中文並遵循標準格式
+name: git-commit-message
+description: Use when writing a git commit message or running git commit in zipe-spring-boot-starters. Commit subjects must be in 繁體中文 and follow the <類型>(<範圍>): <主旨> format with an allowed type and module scope.
 ---
 
 # Git Commit 訊息規範
@@ -27,7 +28,7 @@ description: Git commit 訊息規範，所有提交訊息須使用繁體中文�
 
 ## 範圍（Scope）
 
-填入受影響的模組名稱，例如：`base-starter`、`db-starter`、`job-starter`、`logon-starter`、`web-starter`、`web-service-starter`、`keycloak-starter`、`starters-example`。
+填入受影響的模組名稱，例如：`base-starter`、`db-starter`、`job-starter`、`logon-starter`、`iam-starter`、`web-starter`、`web-service-starter`、`keycloak-starter`、`starters-example`。若變更不限於單一模組（如升級全域依賴），可省略範圍，格式簡化為 `<類型>: <主旨>`。
 
 ## 規則
 
@@ -55,3 +56,12 @@ description: Git commit 訊息規範，所有提交訊息須使用繁體中文�
 ```
 設定: 升級 Spring Boot 至 3.5.7
 ```
+
+## 常見錯誤
+
+| 錯誤 | 修正 |
+|---|---|
+| 主旨用英文（如 `fix: ...`、`feat: ...`） | 改用繁體中文類型詞（`修復`、`新增`） |
+| 類型不在允許清單內 | 僅能用上表八種類型 |
+| 主旨超過 50 字、塞入「為什麼」 | 「為什麼」移到本文，主旨只寫「做了什麼」 |
+| 本文與主旨之間沒空一行 | 兩者之間保留一行空白 |
