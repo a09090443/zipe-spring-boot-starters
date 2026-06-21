@@ -56,13 +56,14 @@ starters_example/
 │   │   └── LogonLogRecord.java             # 自訂登入日誌（實作 CustomLogonLogRecord）
 │   ├── controller/
 │   │   ├── RestfulController.java          # REST API（/rest/sayHello、/rest/flux）
+│   │   ├── DbExampleController.java         # 多資料來源切換 API（/rest/db/user?name=&ds=）
 │   │   ├── IamDemoController.java          # iam 整合示範（/iam-demo/accounts、/authorities/{username}、@PreAuthorize 保護的 /orders/export、/users/manage）
 │   │   └── WebController.java              # 頁面路由（/jsp、/thymeleaf、/demo、/）
 │   ├── service/
 │   │   ├── ExampleService.java             # 範例服務介面
 │   │   ├── ExampleServiceImpl.java         # sayHello 實作
 │   │   ├── DBExampleService.java           # 多資料來源服務介面
-│   │   └── DBExampleServiceImpl.java       # @DS / DataSourceHolder 切換示範
+│   │   └── DBExampleServiceImpl.java       # @DS / DataSourceHolder / 參數指定 三種切換示範
 │   ├── job/
 │   │   ├── ExampleAnnotationJob.java       # @Scheduled 模式
 │   │   ├── ExampleDbJob.java               # 資料庫模式
@@ -130,6 +131,7 @@ cd starters_example
 | Thymeleaf 頁面 | `http://localhost:8080/example/thymeleaf` |
 | JSP 頁面 | `http://localhost:8080/example/jsp` |
 | REST API | `http://localhost:8080/example/rest/sayHello?name=John` |
+| 多資料來源切換 API | `http://localhost:8080/example/rest/db/user?name=OnlyExample1&ds=example1`（換 `ds` 觀察切換，已放行免登入） |
 | iam 授權解析示範 | `http://localhost:8080/example/iam-demo/authorities/alice` |
 | iam 權限保護端點（需登入） | `http://localhost:8080/example/iam-demo/orders/export`（需 `ORDER_EXPORT`）、`/iam-demo/users/manage`（需 `USER_MANAGE`） |
 | iam 內建帳號 API | `http://localhost:8080/example/api/iam/accounts` |

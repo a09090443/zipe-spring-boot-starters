@@ -83,6 +83,12 @@
             <artifactId>jt400</artifactId>
         </dependency>
 
+        <!-- PostgreSQL JDBC -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
         <!-- 測試 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

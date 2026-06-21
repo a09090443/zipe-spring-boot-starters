@@ -14,6 +14,32 @@ sidebar_position: 3
 
 :::
 
+## 支援的資料庫類型
+
+本 Starter 透過通用的 JDBC + HikariCP 建立連線，**機制上支援任何 JDBC 相容的資料庫**：只要在 `data-source-map` 提供正確的 `url` 與 `driverClassName`，並確保對應的 JDBC 驅動位於 classpath，即可使用。依「驅動是否已內建」與「程式是否有特殊處理」可分為三類。
+
+### 一、已內建驅動（開箱即用）
+
+下列驅動已以 compile scope 隨 Starter 引入，無須另外加依賴：
+
+| 資料庫 | 內建驅動 artifact | driverClassName（原生） |
+|---|---|---|
+| SQL Server | `com.microsoft.sqlserver:mssql-jdbc` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
+| MySQL | `com.mysql:mysql-connector-j` | `com.mysql.cj.jdbc.Driver` |
+| MariaDB | `org.mariadb.jdbc:mariadb-java-client` | `org.mariadb.jdbc.Driver` |
+| PostgreSQL | `org.postgresql:postgresql` | `org.postgresql.Driver` |
+| AS400（DB2 for i） | `net.sf.jt400:jt400` | `com.ibm.as400.access.AS400JDBCDriver` |
+
+這些驅動的類別名稱也都已列入 Starter 內建 `spy.properties` 的 `driverlist`，因此**搭配 `jdbc:p6spy:` 前綴監控可開箱即用**，無須額外設定。若不需要某個驅動，可在業務專案以 `<exclusion>` 排除。
+
+### 二、需自行加入驅動
+
+其他 JDBC 資料庫（如 Oracle、DB2 LUW 等）機制上同樣支援，但驅動未隨 Starter 提供，需自行於業務專案 `pom.xml` 加入依賴（版本可交由 Spring Boot BOM 管理）。此類資料庫若要搭配 `jdbc:p6spy:` 前綴，還需在自訂的 `spy.properties` 將其驅動類別補進 `driverlist`（因 `deregisterdrivers=true`，未列入者會被反註冊而無法被 P6Spy 代理）；不使用 P6Spy（直接以原生驅動與 URL 連線）則無此限。詳見下方〈P6Spy 監控設定〉。
+
+### 三、AS400 的特殊處理
+
+AS400 驅動與部分 HikariCP 進階參數不相容。模組偵測到 `url` 中含 `as400`（不分大小寫）時，會走專屬建立邏輯：略過 `baseHikariConfig()` 的效能調校，且 `connectionTestQuery` 改為 `VALUES 1`（而非一般資料庫的 `SELECT 1`）。其餘所有資料庫一律走標準建立流程，無資料庫專屬分支。
+
 ## 頂層屬性
 
 | 屬性鍵 | 型別 | 預設值 | 必填 | 說明 |
@@ -83,7 +109,7 @@ P6Spy **不透過 Spring 屬性設定**，而是透過靜態的 `spy.properties`
 | spy.properties 鍵 | 預設值 | 說明 |
 |---|---|---|
 | `appender` | `com.p6spy.engine.spy.appender.Slf4JLogger` | 日誌輸出器，使用 SLF4J |
-| `driverlist` | SQL Server / AS400 / MySQL | 已知驅動清單（新增其他資料庫時需在 `driverlist` 補上） |
+| `driverlist` | SQL Server / AS400 / MySQL / MariaDB / PostgreSQL | 已知驅動清單，**涵蓋全部五種內建驅動**，故這些資料庫搭配 `jdbc:p6spy:` 前綴可開箱即用。使用非內建資料庫（如 Oracle、DB2 LUW）並搭配 `jdbc:p6spy:` 前綴時，需在自訂的 `spy.properties` 補上對應驅動，否則因 `deregisterdrivers=true` 而無法被 P6Spy 代理 |
 | `outagedetection` | `true` | 啟用慢查詢偵測 |
 | `outagedetectioninterval` | `2`（秒） | 超過此時間的 SQL 被標記為慢查詢 |
 | `excludecategories` | `info,debug,result,batc,resultset` | 排除非 SQL 執行的日誌類型 |
@@ -155,15 +181,13 @@ dynamic.data-source-map[postgres].pa55word=pgpass
 dynamic.data-source-map[postgres].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
 
-PostgreSQL driver 並未隨 Starter 提供，引用方需自行加入依賴（版本可交由 Spring Boot BOM 管理）：
+PostgreSQL 驅動（`org.postgresql:postgresql`）已隨 Starter 內建，且已列入 `driverlist`，故上例的 `jdbc:p6spy:postgresql://` 監控可直接運作，無須額外加入依賴或修改 `spy.properties`。
 
-```xml
-<dependency>
-  <groupId>org.postgresql</groupId>
-  <artifactId>postgresql</artifactId>
-  <scope>runtime</scope>
-</dependency>
-```
+:::tip 整合範例已實際示範
+
+`starters_example`（與其 Kotlin 對應版 `example-kotlin`）已內建 MySQL ↔ PostgreSQL 的跨資料庫類型動態切換示範，含初始化腳本與切換驗證測試（`CrossDbSwitchTest`）。完整資料源對照、測試資料初始化與驗證方式，參閱[整合範例 — 跨資料庫類型動態切換](../integration/scenario-db.md#跨資料庫類型動態切換mysql--postgresql)。
+
+:::
 
 :::warning 跨資料庫類型的方言限制
 
@@ -201,6 +225,27 @@ dynamic.data-source-map[common].username=user400
 dynamic.data-source-map[common].pa55word=pass400
 dynamic.data-source-map[common].driverClassName=com.p6spy.engine.spy.P6SpyDriver
 ```
+
+### MariaDB 資料來源
+
+MariaDB 驅動（`mariadb-java-client`）已內建，可直接以原生驅動連線：
+
+```properties
+dynamic.primary=master
+dynamic.entity-scan=com.example
+dynamic.is-encrypt=false
+
+dynamic.data-source-map[master].url=jdbc:mariadb://localhost:3306/mydb?characterEncoding=UTF-8&serverTimezone=Asia/Taipei
+dynamic.data-source-map[master].username=root
+dynamic.data-source-map[master].pa55word=your_password
+dynamic.data-source-map[master].driverClassName=org.mariadb.jdbc.Driver
+```
+
+:::warning MariaDB 搭配 P6Spy
+
+如需以 P6Spy 監控 MariaDB（URL 改為 `jdbc:p6spy:mariadb://...`、驅動改為 `com.p6spy.engine.spy.P6SpyDriver`），須先在自訂的 `spy.properties` 將 `org.mariadb.jdbc.Driver` 補進 `driverlist`，因內建 `driverlist` 未包含 MariaDB。
+
+:::
 
 ## 分頁 SQL 模板（使用 Paging 功能時必填）
 

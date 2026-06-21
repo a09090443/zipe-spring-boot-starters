@@ -64,7 +64,7 @@ security:
   # custom-bean-name: dbAuthProvider # 僅 verification-type=custom 時需要，對應 com.example.config.DbAuthProvider
   record-log-enable: true # 紀錄事件 Log
   custom-record-log-bean: logonLogRecord # 自訂使用者登出入紀錄，record-log-enable 須為 true
-  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/** # 設定不須授權即可登入的 Uri（含 iam 整合示範端點）
+  allow-uris: /resources/**,/static/**,/webservice/**,/iam-demo/**,/rest/db/** # 設定不須授權即可登入的 Uri（含 iam 整合示範端點與多資料來源切換 demo /rest/db/**）
   #  login-uri: /login # 自訂登入頁面，預設使用 security 自己的 login page
   login-success-uri: /jsp # 登入成功後的頁面
   login-failure-uri: /login # 登入失敗 redirect 回登入頁（失敗處理採 redirect，預設登入頁產生器會 render /login；註：搭配自訂 LoginFailureHandler 時 /login?error 不被產生器認得，故用 /login，需錯誤提示請改用自訂登入頁）

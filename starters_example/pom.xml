@@ -131,12 +131,7 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- PostgreSQL driver（驗證跨資料庫類型動態切換；版本由 Spring Boot BOM 管理） -->
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-    </dependency>
+    <!-- PostgreSQL driver 由 db-spring-boot-starter 內建提供（同 SQL Server / MySQL / MariaDB / AS400），無須在此重複宣告 -->
 
     <dependency>
       <groupId>org.projectlombok</groupId>

@@ -1,0 +1,36 @@
+<jasperReport name="simple_report" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30" uuid="6e720a5d-c8d8-4f03-bc67-ab81e27e4ca4">
+	<field name="name" class="java.lang.String"/>
+	<field name="occupation" class="java.lang.String"/>
+	<field name="place" class="java.lang.String"/>
+	<field name="country" class="java.lang.String"/>
+	<columnHeader height="20">
+		<element kind="staticText" uuid="b24c82fc-ece7-4649-867b-dab72dfb1d9b" x="0" y="0" width="130" height="15">
+			<text><![CDATA[Name]]></text>
+		</element>
+		<element kind="staticText" uuid="0bc92936-7ff6-488f-9d23-27d86340d13b" x="130" y="0" width="150" height="15">
+			<text><![CDATA[Occupation]]></text>
+		</element>
+		<element kind="staticText" uuid="4f2737a0-5923-4b28-b30e-6a5a80da03b1" x="280" y="0" width="130" height="15">
+			<text><![CDATA[Place]]></text>
+		</element>
+		<element kind="staticText" uuid="0eae17cf-7792-4892-83a2-89e5fa420f77" x="410" y="0" width="125" height="15">
+			<text><![CDATA[Country]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="16">
+			<element kind="textField" uuid="8ccb2dce-911b-4ae5-a093-5287bee2ad1e" x="0" y="0" width="130" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{name}]]></expression>
+			</element>
+			<element kind="textField" uuid="acdfb0d4-420e-45e9-8c26-9e6fb8ff4047" x="130" y="0" width="150" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{occupation}]]></expression>
+			</element>
+			<element kind="textField" uuid="334129f7-f873-45f4-8eab-8282d6e262a4" x="280" y="0" width="130" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{place}]]></expression>
+			</element>
+			<element kind="textField" uuid="81f04f25-b2c2-4164-aa28-db9d9b659dcf" x="410" y="0" width="125" height="15" blankWhenNull="true">
+				<expression><![CDATA[$F{country}]]></expression>
+			</element>
+		</band>
+	</detail>
+</jasperReport>

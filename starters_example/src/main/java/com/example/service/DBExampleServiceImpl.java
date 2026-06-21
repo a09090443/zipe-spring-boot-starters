@@ -60,6 +60,28 @@ public class DBExampleServiceImpl implements DBExampleService {
   }
 
   /**
+   * 切換至指定資料來源後，依使用者名稱查詢主要資料，示範以參數動態指定資料來源的方式。
+   *
+   * <p>查詢前將 {@link DataSourceHolder} 切換至 {@code dataSourceName}，
+   * 並於 {@code finally} 清除 ThreadLocal，避免污染同執行緒的後續請求。</p>
+   *
+   * @param name           要查詢的使用者名稱
+   * @param dataSourceName 目標資料來源名稱（須為 data-source.properties 中實際存在的資料源）
+   * @return 對應的 {@link UserMain} 實體，若查無資料則回傳 {@code null}
+   */
+  @Override
+  public UserMain getUserMainByName(String name, String dataSourceName) {
+    try {
+      DataSourceHolder.setDataSourceName(dataSourceName);
+      log.debug("切換資料來源至:{}", DataSourceHolder.getDataSourceName());
+      return userMainRepository.findUserByName(name);
+    } finally {
+      // 查詢結束後清除 ThreadLocal，避免污染同執行緒的後續請求
+      DataSourceHolder.clearDataSourceName();
+    }
+  }
+
+  /**
    * 依使用者名稱查詢詳細資料，示範以 {@link DS} 注解自動切換資料來源的方式。
    *
    * <p>{@code @DS} 注解會在方法執行前由 AOP 攔截，
