@@ -2,16 +2,15 @@ package com.zipe.quartz.util;
 
 import com.zipe.quartz.model.Job;
 import com.zipe.util.time.DateTimeUtils;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Optional;
+import java.util.Set;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
 import org.quartz.ScheduleBuilder;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
-
-import java.util.Collections;
-import java.util.Date;
-import java.util.Optional;
-import java.util.Set;
 
 /**
  * Quartz 建立 Job 工具。

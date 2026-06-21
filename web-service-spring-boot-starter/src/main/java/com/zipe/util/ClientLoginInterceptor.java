@@ -1,5 +1,7 @@
 package com.zipe.util;
 
+import java.util.List;
+import javax.xml.namespace.QName;
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.headers.Header;
 import org.apache.cxf.helpers.DOMUtils;
@@ -8,9 +10,6 @@ import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-
-import javax.xml.namespace.QName;
-import java.util.List;
 
 /**
  * 用於呼叫 WebService 介面時注入帳號密碼的安全驗證攔截器。

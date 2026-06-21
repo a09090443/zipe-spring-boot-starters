@@ -1,13 +1,12 @@
 package com.zipe.util.crypto;
 
-import org.apache.commons.lang3.StringUtils;
-
+import java.security.Key;
+import java.security.SecureRandom;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.IvParameterSpec;
-import java.security.Key;
-import java.security.SecureRandom;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 3DES（Triple DES）加解密工具類別。

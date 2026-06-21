@@ -1,13 +1,12 @@
 package com.zipe.util;
 
+import java.text.SimpleDateFormat;
+import javax.xml.stream.XMLInputFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.dataformat.xml.XmlFactory;
 import tools.jackson.dataformat.xml.XmlMapper;
-
-import javax.xml.stream.XMLInputFactory;
-import java.text.SimpleDateFormat;
 
 /**
  * XML 工具類別，提供 XML 與 Java 物件之間的序列化／反序列化功能。

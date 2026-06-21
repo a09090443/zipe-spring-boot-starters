@@ -3,6 +3,9 @@ package com.zipe.autoconfiguration;
 import com.zipe.config.WebServicePropertyConfig;
 import com.zipe.interceptor.CdataContentInterceptor;
 import com.zipe.interceptor.ResponseCdataInterceptor;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cxf.Bus;
 import org.apache.cxf.jaxb.JAXBDataBinding;
@@ -15,11 +18,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * WebService 自動配置類別，負責在 Spring Boot 啟動時，

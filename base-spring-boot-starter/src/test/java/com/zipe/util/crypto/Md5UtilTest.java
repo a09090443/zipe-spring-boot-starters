@@ -1,8 +1,8 @@
 package com.zipe.util.crypto;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 Md5Util 雜湊輸出正確性（僅供非安全用途；MD5 已標記為 Deprecated）。

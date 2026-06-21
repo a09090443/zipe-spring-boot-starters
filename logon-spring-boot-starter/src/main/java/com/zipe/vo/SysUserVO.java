@@ -1,9 +1,8 @@
 package com.zipe.vo;
 
 import java.io.Serial;
-import lombok.Data;
-
 import java.io.Serializable;
+import lombok.Data;
 
 /**
  * 系統使用者 View Object，用於在登入流程中傳遞使用者基本資訊。

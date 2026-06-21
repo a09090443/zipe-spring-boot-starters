@@ -1,9 +1,8 @@
 package com.zipe.common.model;
 
 import com.zipe.jdbc.criteria.Conditions;
-import lombok.Data;
-
 import java.util.Map;
+import lombok.Data;
 
 /**
  * SQL 查詢封裝模型，用於傳遞執行 SQL 所需的全部參數。

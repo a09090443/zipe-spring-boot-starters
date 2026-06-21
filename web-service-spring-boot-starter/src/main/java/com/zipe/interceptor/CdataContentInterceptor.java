@@ -1,5 +1,7 @@
 package com.zipe.interceptor;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import org.apache.cxf.helpers.IOUtils;
 import org.apache.cxf.io.CachedOutputStream;
 import org.apache.cxf.message.Message;
@@ -7,9 +9,6 @@ import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 
 /**
  * CXF 入站攔截器，用於還原 SOAP 訊息中被 HTML 實體編碼轉義的 CDATA 區段與 XML 標籤。

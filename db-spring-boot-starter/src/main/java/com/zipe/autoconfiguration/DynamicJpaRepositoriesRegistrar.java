@@ -14,7 +14,6 @@ import org.springframework.data.jpa.repository.config.JpaRepositoryConfigExtensi
 import org.springframework.data.repository.config.AnnotationRepositoryConfigurationSource;
 import org.springframework.data.repository.config.RepositoryConfigurationDelegate;
 import org.springframework.data.util.Streamable;
-import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**

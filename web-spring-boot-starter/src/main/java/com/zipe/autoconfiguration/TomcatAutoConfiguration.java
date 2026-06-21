@@ -5,8 +5,8 @@ import org.apache.tomcat.util.scan.StandardJarScanner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.web.server.autoconfigure.servlet.ServletWebServerConfiguration;
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.autoconfigure.servlet.ServletWebServerConfiguration;
 import org.springframework.context.annotation.Bean;
 
 /**

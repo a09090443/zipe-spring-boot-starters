@@ -2,6 +2,9 @@ package com.zipe.service;
 
 import com.zipe.config.BasicUser;
 import com.zipe.config.SecurityPropertyConfig;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -9,10 +12,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 基本使用者服務實作，提供 Spring Security 所需的 {@link UserDetailsService} 預設實作。

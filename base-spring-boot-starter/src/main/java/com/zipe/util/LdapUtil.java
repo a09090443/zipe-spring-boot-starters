@@ -1,7 +1,9 @@
 package com.zipe.util;
 
-import lombok.extern.slf4j.Slf4j;
-
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.Objects;
 import javax.naming.AuthenticationException;
 import javax.naming.CommunicationException;
 import javax.naming.NamingEnumeration;
@@ -14,10 +16,7 @@ import javax.naming.ldap.InitialLdapContext;
 import javax.naming.ldap.LdapContext;
 import javax.naming.ldap.PagedResultsControl;
 import javax.naming.ldap.PagedResultsResponseControl;
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * LDAP 連線與查詢工具類別。

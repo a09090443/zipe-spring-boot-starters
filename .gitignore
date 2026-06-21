@@ -4,3 +4,6 @@
 /.cache/
 /build.log
 /.worktrees/
+
+# Maven 建構產物（根與各模組）
+target/

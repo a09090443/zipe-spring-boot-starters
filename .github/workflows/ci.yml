@@ -1,0 +1,119 @@
+name: CI 建置與測試
+
+# 觸發時機：
+# - push 到 master 或 develop（分支流程：feature → develop → master）
+# - 針對 master / develop 的 Pull Request
+# 僅文件異動（doc-site、*.md、llms*.txt）不觸發，避免無關變更耗費 CI。
+on:
+  push:
+    branches: [master, develop]
+    paths-ignore:
+      - 'doc-site/**'
+      - '**/*.md'
+      - 'llms.txt'
+      - 'llms-full.txt'
+  pull_request:
+    branches: [master, develop]
+    paths-ignore:
+      - 'doc-site/**'
+      - '**/*.md'
+      - 'llms.txt'
+      - 'llms-full.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同分支新 push 取消尚在進行的舊 CI，節省資源
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 建置並測試（mvn verify）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # verify 會編譯 7 個 starter、執行全部測試，並由 jacoco 產生覆蓋率報告
+      - name: 建置並測試
+        run: mvn -B verify
+
+      # 覆蓋率彙整到 Actions 執行頁的 Summary（不影響 gate 成敗）
+      - name: 彙整測試覆蓋率
+        if: always()
+        run: |
+          {
+            echo "## 測試覆蓋率（行）"
+            echo ""
+            echo "| 模組 | 行覆蓋率 | 覆蓋/總行數 |"
+            echo "|---|---|---|"
+            for csv in */target/site/jacoco/jacoco.csv; do
+              [ -f "$csv" ] || continue
+              module="${csv%%/*}"
+              awk -F, -v m="$module" 'NR>1{lm+=$8; lc+=$9} END{ tot=lm+lc; if(tot>0) printf "| %s | %.1f%% | %d / %d |\n", m, lc/tot*100, lc, tot; else printf "| %s | — | 無可量測行 |\n", m }' "$csv"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 保留各模組 HTML 報告，可於執行頁下載逐行檢視
+      - name: 上傳覆蓋率報告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-reports
+          path: '*/target/site/jacoco/'
+          if-no-files-found: warn
+
+  # 文件同步提醒（doc-sync.md 的自律規則升級為自動訊號）。
+  # 注意：是否需更新文件屬語意判斷（純內部重構/測試/無行為變更的 bugfix 不需要），
+  # CI 無法替代，故本 job 僅「提醒」不阻斷——偵測到 starter 原始碼變更卻無文件同步時，
+  # 發出 warning 並寫入執行頁 Summary，由作者依 doc-sync.md 自行判斷。
+  doc-sync-reminder:
+    name: 文件同步提醒（非阻斷）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼（含完整歷史以比對差異）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 比對變更並檢查文件同步
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1 || true
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format= HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+          echo "本次變更檔："; echo "$CHANGED"
+          SRC=$(echo "$CHANGED" | grep -E '^[a-z-]+-spring-boot-starter/src/main/' || true)
+          DOCS=$(echo "$CHANGED" | grep -E '^doc-site/docs/|README\.md$|^llms(-full)?\.txt$' || true)
+          if [ -n "$SRC" ] && [ -z "$DOCS" ]; then
+            echo "::warning::偵測到 starter 原始碼變更，但同次未見 doc-site/docs、README 或 llms*.txt 更新。若屬對外 API／設定／行為變更，請依 doc-sync.md 同步文件。"
+            {
+              echo "## ⚠ 文件同步提醒"
+              echo ""
+              echo "本次變更動到下列 starter 原始碼，但未一併更新文件："
+              echo '```'
+              echo "$SRC"
+              echo '```'
+              echo "若屬純內部重構／測試／無行為變更的 bugfix，可忽略；否則請依 \`doc-sync.md\` 同步 doc-site/docs、對應 README 與 llms*.txt。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "文件同步檢查通過（無 starter 原始碼變更，或已一併含文件更新）。"
+          fi

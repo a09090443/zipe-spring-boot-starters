@@ -2,12 +2,11 @@ package com.zipe.jdbc.criteria;
 
 import com.zipe.enums.ResourceEnum;
 import com.zipe.util.file.FileUtil;
-import lombok.Data;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import lombok.Data;
 
 /**
  * 實現伺服器端分頁的資料物件<br>

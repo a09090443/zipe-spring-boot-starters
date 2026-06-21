@@ -1,11 +1,10 @@
 package com.zipe.util.http;
 
-import okhttp3.OkHttpClient;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javax.net.ssl.X509TrustManager;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 OkHttpUtil 不再停用 TLS 憑證與主機名稱驗證。

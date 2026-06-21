@@ -85,6 +85,8 @@
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.4.0</central-publishing-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+        <spotless-maven-plugin.version>3.7.0</spotless-maven-plugin.version>
         <gpg.keyname>063A3F99C99FC14AB63FA41F451A84C7C09C90F0</gpg.keyname>
     </properties>
 
@@ -240,6 +242,55 @@
                         <id>attach-sources</id>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 所有子模組共用：測試覆蓋率。Spring Boot 4 parent 未管理此外掛版本，故明確鎖版。
+                 prepare-agent 在測試前掛上探針，report 於測試後產生 HTML/XML 報告，
+                 路徑為各模組 target/site/jacoco/index.html -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 所有子模組共用：靜態格式 Sensor。採低風險規則（不做整段重排版），
+                 只整理 import 順序、移除未使用 import、去尾端空白、補檔尾換行。
+                 check 綁在 compile 階段，CI 的 mvn verify 會經過而擋下違規；
+                 開發時可用 mvn spotless:apply 一鍵修正。 -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless-maven-plugin.version}</version>
+                <configuration>
+                    <java>
+                        <removeUnusedImports/>
+                        <importOrder/>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>check</goal>
                         </goals>
                     </execution>
                 </executions>

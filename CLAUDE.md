@@ -17,3 +17,5 @@
 - [文件同步規則（改程式後確認文件）](.claude/rules/doc-sync.md)
 
 > Git Commit 訊息規範已改為專案 skill：`.claude/skills/git-commit-message/`（撰寫提交訊息時自動套用）。
+>
+> 改完程式、commit 前的本地品質 Gate（`spotless:apply` → `mvn verify` → 覆蓋率 → 文件同步）見專案 skill：`.claude/skills/local-quality-gate/`。
