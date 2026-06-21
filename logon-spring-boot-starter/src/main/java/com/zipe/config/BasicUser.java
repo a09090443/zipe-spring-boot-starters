@@ -1,9 +1,8 @@
 package com.zipe.config;
 
-import lombok.Data;
-
 import java.util.ArrayList;
 import java.util.List;
+import lombok.Data;
 
 /**
  * BASIC 模式下單一可設定使用者，對應 {@code security.basic.users[]} 的元素。

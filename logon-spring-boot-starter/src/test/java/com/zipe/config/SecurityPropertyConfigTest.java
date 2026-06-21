@@ -1,9 +1,9 @@
 package com.zipe.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.zipe.enums.FrameOptionsMode;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * 驗證安全性設定的安全預設值。

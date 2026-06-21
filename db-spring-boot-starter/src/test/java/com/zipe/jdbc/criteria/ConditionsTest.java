@@ -1,14 +1,13 @@
 package com.zipe.jdbc.criteria;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證 Conditions 以具名參數方式組裝查詢條件，避免 SQL Injection。

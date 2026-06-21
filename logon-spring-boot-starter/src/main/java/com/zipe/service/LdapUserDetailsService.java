@@ -6,18 +6,17 @@ import com.zipe.model.LdapUser;
 import com.zipe.security.GrantedAuthoritiesResolver;
 import com.zipe.util.LdapUtil;
 import com.zipe.util.string.StringConstant;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
+import java.util.Hashtable;
+import java.util.Objects;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.ldap.LdapContext;
-import java.util.Hashtable;
-import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * 基於 LDAP（Active Directory）的使用者驗證服務。

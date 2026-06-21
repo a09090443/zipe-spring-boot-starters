@@ -1,11 +1,10 @@
 package com.zipe.util.bean;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.ser.std.StdSerializer;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 /**
  * 自訂 Jackson {@link Date} 序列化器，將 {@code java.util.Date} 物件格式化為

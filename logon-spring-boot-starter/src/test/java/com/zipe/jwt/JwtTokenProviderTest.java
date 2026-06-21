@@ -1,14 +1,13 @@
 package com.zipe.jwt;
 
-import io.jsonwebtoken.JwtException;
-import org.junit.jupiter.api.Test;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.jsonwebtoken.JwtException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import org.junit.jupiter.api.Test;
 
 class JwtTokenProviderTest {
 

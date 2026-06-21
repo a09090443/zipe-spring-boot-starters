@@ -1,14 +1,13 @@
 package com.zipe.quartz.config;
 
-import com.zipe.quartz.model.Job;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zipe.quartz.model.Job;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * 驗證有效白名單 = 顯式 allowedJobClasses ∪ jobMap 中靜態設定的類別。

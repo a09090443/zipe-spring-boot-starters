@@ -1,9 +1,8 @@
 package com.zipe.config;
 
-import lombok.Data;
-
 import java.util.ArrayList;
 import java.util.List;
+import lombok.Data;
 
 /**
  * BASIC 模式使用者設定區塊，對應 {@code security.basic.*}。

@@ -1,9 +1,8 @@
 package com.zipe.model;
 
-import lombok.Data;
-
 import java.io.File;
 import java.util.List;
+import lombok.Data;
 
 /**
  * 郵件資料模型，封裝寄送一封電子郵件所需的所有屬性，

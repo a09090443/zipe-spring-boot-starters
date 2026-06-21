@@ -6,6 +6,9 @@ import com.zipe.quartz.enums.ScheduleJobStatusEnum;
 import com.zipe.quartz.model.Job;
 import com.zipe.quartz.util.QuartzJobUtil;
 import com.zipe.quartz.vo.ScheduleJobVO;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.quartz.JobDetail;
@@ -16,10 +19,6 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerKey;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
 
 /**
  * Quartz 排程管理基礎類別。

@@ -1,12 +1,11 @@
 package com.zipe.annotation;
 
-import org.springframework.web.bind.annotation.ResponseBody;
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * 統一回應結果包裝的自訂 Annotation。

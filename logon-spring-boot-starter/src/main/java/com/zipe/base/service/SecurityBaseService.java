@@ -2,9 +2,8 @@ package com.zipe.base.service;
 
 import com.zipe.util.UserInfoUtil;
 import com.zipe.vo.SysUserVO;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 安全性基礎服務，供各業務服務繼承使用。

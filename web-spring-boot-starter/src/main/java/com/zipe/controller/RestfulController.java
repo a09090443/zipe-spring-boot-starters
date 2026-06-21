@@ -4,12 +4,11 @@ import com.zipe.annotation.ResponseResultBody;
 import com.zipe.dto.Result;
 import com.zipe.dto.User;
 import com.zipe.exception.ResultException;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * RESTful API 範例控制器。

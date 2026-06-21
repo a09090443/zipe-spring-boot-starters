@@ -1,5 +1,7 @@
 package com.zipe.autoconfiguration;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 import com.zipe.config.SecurityPropertyConfig;
 import com.zipe.enums.VerificationTypeEnum;
 import com.zipe.handler.LoginFailureHandler;
@@ -42,8 +44,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * Spring Security 主要自動配置類別。

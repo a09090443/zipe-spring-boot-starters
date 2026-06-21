@@ -3,13 +3,12 @@ package com.zipe.service.impl;
 import com.zipe.model.User;
 import com.zipe.service.UserService;
 import jakarta.jws.WebService;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringEscapeUtils;
-import org.springframework.stereotype.Component;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.springframework.stereotype.Component;
 
 /**
  * {@link UserService} 的 SOAP WebService 實作類別，作為示範用途。

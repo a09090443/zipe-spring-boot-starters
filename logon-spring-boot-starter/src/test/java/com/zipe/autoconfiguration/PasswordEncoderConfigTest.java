@@ -1,11 +1,11 @@
 package com.zipe.autoconfiguration;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.zipe.config.SecurityPropertyConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 驗證模組預設 {@code passwordEncoder} Bean 的相容性：
