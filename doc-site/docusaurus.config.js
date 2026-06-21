@@ -23,6 +23,15 @@ const config = {
       includeBlog: false,
     }],
   ],
+  themes: [
+    ['@easyops-cn/docusaurus-search-local', {
+      hashed: true,
+      language: ['en', 'zh'],
+      indexDocs: true,
+      indexBlog: false,
+      docsRouteBasePath: '/',
+    }],
+  ],
   themeConfig: {
     navbar: {
       title: 'Zipe Spring Boot Starters',
