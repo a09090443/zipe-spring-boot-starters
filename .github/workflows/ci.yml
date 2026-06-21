@@ -72,3 +72,48 @@ jobs:
           name: jacoco-reports
           path: '*/target/site/jacoco/'
           if-no-files-found: warn
+
+  # 文件同步提醒（doc-sync.md 的自律規則升級為自動訊號）。
+  # 注意：是否需更新文件屬語意判斷（純內部重構/測試/無行為變更的 bugfix 不需要），
+  # CI 無法替代，故本 job 僅「提醒」不阻斷——偵測到 starter 原始碼變更卻無文件同步時，
+  # 發出 warning 並寫入執行頁 Summary，由作者依 doc-sync.md 自行判斷。
+  doc-sync-reminder:
+    name: 文件同步提醒（非阻斷）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼（含完整歷史以比對差異）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 比對變更並檢查文件同步
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1 || true
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format= HEAD)
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
+          fi
+          echo "本次變更檔："; echo "$CHANGED"
+          SRC=$(echo "$CHANGED" | grep -E '^[a-z-]+-spring-boot-starter/src/main/' || true)
+          DOCS=$(echo "$CHANGED" | grep -E '^doc-site/docs/|README\.md$|^llms(-full)?\.txt$' || true)
+          if [ -n "$SRC" ] && [ -z "$DOCS" ]; then
+            echo "::warning::偵測到 starter 原始碼變更，但同次未見 doc-site/docs、README 或 llms*.txt 更新。若屬對外 API／設定／行為變更，請依 doc-sync.md 同步文件。"
+            {
+              echo "## ⚠ 文件同步提醒"
+              echo ""
+              echo "本次變更動到下列 starter 原始碼，但未一併更新文件："
+              echo '```'
+              echo "$SRC"
+              echo '```'
+              echo "若屬純內部重構／測試／無行為變更的 bugfix，可忽略；否則請依 \`doc-sync.md\` 同步 doc-site/docs、對應 README 與 llms*.txt。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "文件同步檢查通過（無 starter 原始碼變更，或已一併含文件更新）。"
+          fi
