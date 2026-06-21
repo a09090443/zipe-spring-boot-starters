@@ -244,6 +244,28 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- 所有子模組共用：測試覆蓋率（版本交由 Spring Boot parent 管理）。
+                 prepare-agent 在測試前掛上探針，report 於測試後產生 HTML/XML 報告，
+                 路徑為各模組 target/site/jacoco/index.html -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
