@@ -23,7 +23,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkEmail(String email) {
-        String regex = "\\w @\\w \\.[a-z] (\\.[a-z] )?";
+        String regex = "\\w+@\\w+\\.[a-z]+(\\.[a-z]+)?";
         return Pattern.matches(regex, email);
     }
 
@@ -39,7 +39,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkMobile(String mobile) {
-        String regex = "(\\ \\d )?1[34578]\\d{9}$";
+        String regex = "(\\+\\d+)?1[34578]\\d{9}$";
         return Pattern.matches(regex,mobile);
     }
     /**
@@ -54,7 +54,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkPhone(String phone) {
-        String regex = "(\\ \\d )?(\\d{3,4}\\-?)?\\d{7,8}$";
+        String regex = "(\\+\\d+)?(\\d{3,4}\\-?)?\\d{7,8}$";
         return Pattern.matches(regex, phone);
     }
     /**
@@ -64,7 +64,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkDigit(String digit) {
-        String regex = "\\-?[1-9]\\d ";
+        String regex = "\\-?[1-9]\\d*";
         return Pattern.matches(regex,digit);
     }
     /**
@@ -74,7 +74,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkDecimals(String decimals) {
-        String regex = "\\-?[1-9]\\d (\\.\\d )?";
+        String regex = "\\-?[1-9]\\d*(\\.\\d+)?";
         return Pattern.matches(regex,decimals);
     }
     /**
@@ -86,7 +86,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkBlankSpace(String blankSpace) {
-        String regex = "\\s ";
+        String regex = "\\s+";
         return Pattern.matches(regex,blankSpace);
     }
     /**
@@ -98,7 +98,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkChinese(String chinese) {
-        String regex = "^[\u4E00-\u9FA5] $";
+        String regex = "^[\u4E00-\u9FA5]+$";
         return Pattern.matches(regex,chinese);
     }
     /**
@@ -111,7 +111,7 @@ public class RegexUtils {
      */
     public static boolean checkBirthday(String birthday) {
         // 使用反向參照 \1 確保年月日的分隔符號一致，避免混用不同符號
-        String regex = "[1-9]{4}([-./])\\d{1,2}\\1\\d{1,2}";
+        String regex = "\\d{4}([-./])\\d{1,2}\\1\\d{1,2}";
         return Pattern.matches(regex,birthday);
     }
     /**
@@ -123,7 +123,7 @@ public class RegexUtils {
      * @return 驗證成功回傳 {@code true}，驗證失敗回傳 {@code false}
      */
     public static boolean checkURL(String url) {
-        String regex = "(https?://(w{3}\\.)?)?\\w \\.\\w (\\.[a-zA-Z] )*(:\\d{1,5})?(/\\w*)*(\\??(. =.*)?(&. =.*)?)?";
+        String regex = "(https?://(w{3}\\.)?)?\\w+\\.\\w+(\\.[a-zA-Z]+)*(:\\d{1,5})?(/\\w*)*(\\??(.+=.*)?(&.+=.*)?)?";
         return Pattern.matches(regex, url);
     }
     /**
