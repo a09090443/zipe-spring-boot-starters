@@ -75,6 +75,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- 架構結構測試：守住自動配置慣例（harness 機械化強制原則）。版本由根 pom 管理。 -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Spring Boot 4 將 MockMvc 測試切片移至獨立模組 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
