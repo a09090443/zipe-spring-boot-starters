@@ -20,6 +20,7 @@ const config = {
       description: '自製的 Spring Boot Starter 集合，提供郵件、加解密、資料庫動態切換、排程、登入認證、帳號群組權限管理、WebService、前端視圖等常用功能的自動配置模組。',
       generateLLMsTxt: true,
       generateLLMsFullTxt: true,
+      generateMarkdownFiles: true,
       includeBlog: false,
     }],
   ],
