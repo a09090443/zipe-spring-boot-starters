@@ -23,3 +23,5 @@
 > 改完程式、commit 前的本地品質 Gate（`spotless:apply` → `mvn verify` → 覆蓋率 → 文件同步）見專案 skill：`.claude/skills/local-quality-gate/`。
 >
 > 新增 starter／自動配置時遵循黃金規範 skill：`.claude/skills/authoring-a-starter/`；定期以 `.claude/skills/scan-starter-drift/` 掃描跨模組慣例漂移（harness 熵管理）。
+>
+> 發布至 Maven Central（GitHub Release tag 觸發 Action、版本／分支流程、不可逆前置確認）見專案 skill：`.claude/skills/release-to-maven-central/`。
