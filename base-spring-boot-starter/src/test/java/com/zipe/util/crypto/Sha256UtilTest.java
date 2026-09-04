@@ -40,6 +40,17 @@ class Sha256UtilTest {
     }
 
     /**
+     * 非 ASCII 中文字串應以 UTF-8 編碼計算，固定產生已知雜湊值
+     * （驗證實際位元組編碼結果，而非僅檢查輸出長度）。
+     */
+    @Test
+    void sha256HexOfNonAsciiStringUsesUtf8Encoding() {
+        assertEquals(
+                "3f13681766ef8c5baa515ad616373aa693df894b0982817968cdb115a89a9fe3",
+                Sha256Util.sha256Hex("任意長度的字串"));
+    }
+
+    /**
      * null 輸入應丟出 IllegalArgumentException，而非沿用 Md5Util 隱性拋出 NPE 的行為。
      */
     @Test
