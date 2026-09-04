@@ -5,7 +5,7 @@
 ## 主要功能
 
 - 郵件發送（Spring Boot Mail + Velocity 模板）
-- 加解密工具（AES、3DES、MD5、Base64、Hex）
+- 加解密工具（AES、3DES、MD5〔已棄用〕、SHA-256、Base64、Hex）
 - 文件處理（Excel via Apache POI、JasperReport 報表）
 - HTTP 客戶端（OkHttp）
 - 字串、日期、Bean 轉換、正規表達式等通用工具
