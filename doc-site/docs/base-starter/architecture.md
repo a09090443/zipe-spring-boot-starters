@@ -67,7 +67,8 @@ base-spring-boot-starter/
     │       │   ├── Base64Util.java                  # Base64 編解碼
     │       │   ├── DESedeUtil.java                  # 3DES/CBC/PKCS5Padding，隨機 IV（淘汰演算法）
     │       │   ├── HexUtil.java                     # byte[] ↔ Hex 字串互轉
-    │       │   └── Md5Util.java                     # MD5 雜湊（已棄用，禁用於密碼/簽章）
+    │       │   ├── Md5Util.java                     # MD5 雜湊（已棄用，禁用於密碼/簽章）
+    │       │   └── Sha256Util.java                  # SHA-256 雜湊（UTF-8，回傳 64 位小寫十六進位字串）
     │       ├── doc/
     │       │   ├── ExcelCell.java                   # 欄位 Annotation（排序、預設值、驗證）
     │       │   ├── ExcelLog.java                    # 匯入單行錯誤記錄
@@ -109,7 +110,7 @@ base-spring-boot-starter/
 | `service / impl` | 郵件發送業務邏輯，隔離 JavaMail 實作細節 |
 | `util/bean` | JSON 序列化 / Bean 屬性複製，雙引擎（Gson + Jackson），含自訂 Enum 與 Date 處理 |
 | `util/classloader` | 執行期動態載入外部 `.class` 或 JAR，用於外掛 / 熱更新場景 |
-| `util/crypto` | 策略模式加解密體系：AES-128、3DES、Base64、MD5、Hex |
+| `util/crypto` | 策略模式加解密體系：AES-128、3DES、Base64、MD5（已棄用）、SHA-256、Hex |
 | `util/doc` | Excel（Apache POI）匯入 / 匯出 與 JasperReports PDF 產生 |
 | `util/file` | 封裝 Apache Commons IO，簡化檔案增刪改查操作 |
 | `util/http` | OkHttp 3 HTTP 客戶端，單例設計，支援同步與非同步請求 |
@@ -802,6 +803,7 @@ thread-pool:
 | OkHttp TLS 驗證 | 已移除 `TrustAllCerts`，改用平台預設信任鏈；自簽憑證請改用載入 CA 或 pinning，勿停用驗證 |
 | 3DES 改用 CBC | `DESedeUtil` 由 ECB 改為 CBC＋隨機 IV；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` 已棄用 | MD5 不可用於密碼或簽章；已標註 `@Deprecated` |
+| `Sha256Util` 固定 UTF-8、拒絕 null | 不沿用 `Md5Util` 的平台預設編碼與隱性 NPE：一律以 UTF-8 取位元組，輸入為 `null` 時明確拋出 `IllegalArgumentException` |
 | `MailServiceImpl` 非 `@Service` | 由 `BaseAutoConfiguration` 以 `new` 建立後以 `@Bean` 加入 Context，不支援 `@Transactional` 等 Spring AOP 代理特性 |
 | `DateTimeUtils` 硬編碼 UTC+8 | 非台灣時區部署需特別注意，或改為讀取 `ZoneId.systemDefault()` |
 | `BeanUtil.copyProperties` 跳過 null | 適合合併更新；需要強制清空欄位時改用 Spring 原版 `BeanUtils.copyProperties` |
