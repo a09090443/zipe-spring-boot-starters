@@ -9,7 +9,7 @@ sidebar_position: 4
 本頁提供 `base-spring-boot-starter` 各項工具的實際程式碼範例，涵蓋基礎使用、進階情境與常見問題。所有範例的方法簽章均與原始碼一致。
 
 :::info 設計慣例
-- **無狀態工具**（字串、日期、`Md5Util`）以 `static` 方法呼叫。
+- **無狀態工具**（字串、日期、`Md5Util`、`Sha256Util`）以 `static` 方法呼叫。
 - **加解密工具**（`AesUtil`、`Base64Util`、`DESedeUtil`）為**實例方法**，需先 `new` 出物件再呼叫 `getEncrypt` / `getDecode`，因為它們持有金鑰狀態。
 - **有狀態服務**（`MailService`）一律透過 Spring 注入使用。
 :::
@@ -45,7 +45,24 @@ public class CryptoExample {
 ```
 
 :::danger Md5Util 已棄用
-`Md5Util` 已標註 `@Deprecated`。MD5 不具抗碰撞性，**禁止用於密碼雜湊或資料完整性／簽章**。密碼請改用 BCrypt／Argon2，完整性驗證請用 SHA-256 以上。僅可用於非安全用途（如產生快取鍵）。
+`Md5Util` 已標註 `@Deprecated`。MD5 不具抗碰撞性，**禁止用於密碼雜湊或資料完整性／簽章**。密碼請改用 BCrypt／Argon2，一般雜湊（快取鍵、完整性校驗等）請改用 `Sha256Util`。
+:::
+
+`Sha256Util` 以 UTF-8 編碼計算 SHA-256 雜湊值，回傳 **64 位小寫**十六進位字串；輸入為 `null` 會拋出 `IllegalArgumentException`：
+
+```java
+import com.zipe.util.crypto.Sha256Util;
+
+public class HashExample {
+
+    public void demo() {
+        String hex = Sha256Util.sha256Hex("hello"); // 64 位小寫十六進位字串
+    }
+}
+```
+
+:::note SHA-256 不適合直接用於密碼雜湊
+`Sha256Util` 缺乏加鹽與工作量調校機制，密碼雜湊請改用 BCrypt／Argon2；`Sha256Util` 適用於檔案完整性校驗、產生快取鍵等一般雜湊用途。
 :::
 
 :::tip 策略模式：CryptoUtil
@@ -369,9 +386,10 @@ public class PhotoLocationExample {
 
 - **AES 解密拋出例外**：請確認加解密使用相同的金鑰，且金鑰長度為 16 位元組（AES-128）。本模組的 `AesUtil` 為 AES-128/CBC/PKCS5Padding，非 AES-256。
 - **`Md5Util` 找不到 `encode` 方法**：`Md5Util` 沒有泛用的 `encode`，請依需求選用 `parseStrToMd5L32` / `parseStrToMd5U32` / `parseStrToMd5L16` / `parseStrToMd5U16`。
+- **需要雜湊但不確定該用 `Md5Util` 還是 `Sha256Util`**：`Md5Util` 已棄用且不具抗碰撞性，一般雜湊用途一律改用 `Sha256Util.sha256Hex(str)`；密碼雜湊兩者皆不適用，請改用 BCrypt／Argon2。
 - **郵件發送失敗並拋出 `AuthenticationFailedException`**：請檢查 `mail.*` 設定的帳號密碼是否正確；部分服務商需使用「應用程式密碼」。並確認已先呼叫 `mailService.setInitData()`。
 - **Velocity 找不到樣板**：確認模板檔位於 `velocity.dir-path`（預設 `template`）指定的目錄下，且呼叫 `generateContent` 前已執行對應的 `initClassPath()` / `initFilePath()` 等初始化方法。
 
 :::tip 最佳實踐
-無狀態工具（字串、日期、`Md5Util`）直接以靜態方法呼叫；加解密工具因持有金鑰須 `new` 出實例；有狀態服務（如 `MailService`）一律透過 Spring 注入，以確保設定與生命週期由容器統一管理。更深入的內部結構與擴充方式請參閱 [架構與開發指南](./architecture.md)。
+無狀態工具（字串、日期、`Md5Util`、`Sha256Util`）直接以靜態方法呼叫；加解密工具因持有金鑰須 `new` 出實例；有狀態服務（如 `MailService`）一律透過 Spring 注入，以確保設定與生命週期由容器統一管理。更深入的內部結構與擴充方式請參閱 [架構與開發指南](./architecture.md)。
 :::
