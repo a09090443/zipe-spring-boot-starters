@@ -15,7 +15,7 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 
 ## 主要特性
 
-- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版。
+- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版；可設定多組 SMTP 伺服器，單組失敗時依序自動容錯切換至下一組。
 - **加解密工具**：提供 AES、3DES、MD5、Base64、Hex 等多種加解密與編碼工具。
 - **文件處理**：`ExcelUtil` 支援以 Annotation 方式匯入匯出 Excel；`JasperReportUtil` 支援報表輸出。
 - **HTTP 請求**：`OkHttpUtil` 封裝 OkHttp，簡化 GET / POST 等 HTTP 呼叫。
@@ -45,8 +45,11 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 | 類別 | 套件 | 職責 |
 |---|---|---|
 | `BaseAutoConfiguration` | `autoconfiguration` | 模組自動配置入口，無條件註冊核心 Bean |
-| `MailService` / `MailServiceImpl` | `service` | 郵件發送介面與實作（五種發送方式） |
+| `MailService` / `MailServiceImpl` | `service` | 郵件發送介面與實作（五種發送方式），內建多組 SMTP 依序容錯切換 |
 | `Mail` | `model` | 郵件資料模型（from / to / cc / bcc / subject / content / attachments） |
+| `MailServerProperty` | `config` | 單組 SMTP 伺服器設定，作為 `mail.servers` 清單中的一個元素 |
+| `MailFailoverProperty` | `config` | 多 SMTP 容錯切換行為設定（最大嘗試組數、整體切換時間上限） |
+| `MailFailoverException` | `exception` | 全部 SMTP 皆嘗試失敗時拋出的彙整例外（unchecked） |
 | `AesUtil` | `util/crypto` | AES-128/CBC/PKCS5Padding 加解密（每次隨機 IV，密文為 Base64(IV‖cipher)），支援字串與檔案 |
 | `DESedeUtil` | `util/crypto` | 3DES/CBC/PKCS5Padding 加解密工具（每次隨機 IV，輸出為 Hex(IV‖cipher)）；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` | `util/crypto` | MD5 雜湊（16/32 位、大小寫四種格式）；**已棄用**，禁止用於密碼或簽章 |
