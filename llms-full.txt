@@ -38,14 +38,18 @@ base-spring-boot-starter/
     │   │   └── BaseAutoConfiguration.java          # @AutoConfiguration 入口，裝配所有核心 Bean
     │   ├── config/
     │   │   ├── MailPropertyConfig.java              # @ConfigurationProperties(prefix="mail")
+    │   │   ├── MailServerProperty.java              # 單組 SMTP 伺服器設定（mail.servers 清單元素）
+    │   │   ├── MailFailoverProperty.java            # 容錯切換行為設定（mail.failover.*）
     │   │   ├── ThreadPoolTaskExecutorConfig.java    # 執行緒池靜態常數 (CORE=5, MAX=1000)
     │   │   └── VelocityPropertyConfig.java          # @ConfigurationProperties(prefix="velocity")
+    │   ├── exception/
+    │   │   └── MailFailoverException.java           # 全部 SMTP 皆失敗時的彙整例外（unchecked）
     │   ├── model/
     │   │   └── Mail.java                            # 郵件資料模型
     │   ├── service/
     │   │   ├── MailService.java                     # 郵件服務介面（五種發送方法）
     │   │   └── impl/
-    │   │       └── MailServiceImpl.java             # 整合 JavaMailSenderImpl 的實作
+    │   │       └── MailServiceImpl.java             # 整合 JavaMailSenderImpl，內建多 SMTP 容錯切換
     │   └── util/
     │       ├── ApplicationContextHelper.java        # 靜態工具，從 Spring Context 取得 Bean
     │       ├── LdapUtil.java                        # LDAP 連線、查詢、分頁搜尋
@@ -105,7 +109,8 @@ base-spring-boot-starter/
 | 套件 | 職責 |
 |---|---|
 | `autoconfiguration` | Spring Boot 自動配置入口，無需使用者手動宣告任何 Bean |
-| `config` | 屬性綁定 POJO，讀取 `mail.*` 與 `velocity.*` 前綴的設定 |
+| `config` | 屬性綁定 POJO，讀取 `mail.*` 與 `velocity.*` 前綴的設定，含多組 SMTP（`mail.servers`）與容錯切換（`mail.failover.*`）設定 |
+| `exception` | 郵件容錯切換相關例外（`MailFailoverException`） |
 | `model` | 郵件業務物件 |
 | `service / impl` | 郵件發送業務邏輯，隔離 JavaMail 實作細節 |
 | `util/bean` | JSON 序列化 / Bean 屬性複製，雙引擎（Gson + Jackson），含自訂 Enum 與 Date 處理 |
@@ -132,23 +137,39 @@ base-spring-boot-starter/
 | `messageSource()` | `@ConditionalOnResource(resources="classpath:message.properties")`；引用方若有此檔才建立，UTF-8 編碼，可熱重載 |
 | `applicationContextHelper()` | 注入 `ApplicationContextHelper`，完成靜態 `applicationContext` 欄位的賦值 |
 | `velocityUtil()` | 讀取 `VelocityPropertyConfig.dirPath`，以 classpath loader 模式初始化 Velocity |
-| `mailService()` | 以 `MailPropertyConfig` 建立 `MailServiceImpl`；**使用郵件功能前必須先呼叫 `setInitData()`** |
+| `mailService()` | `@ConditionalOnMissingBean`；以 `MailPropertyConfig` 建立 `MailServiceImpl`；**使用郵件功能前必須先呼叫 `setInitData()`** |
 | `serviceJobTaskExecutor` | 名稱為 `threadPoolTaskExecutor` 的執行緒池；coreSize=5, maxSize=1000, queue=200, keepAlive=30000s |
 
 ---
 
 ### 3.2 `MailService` / `MailServiceImpl`
 
-**職責：** 封裝所有郵件發送邏輯，支援五種情境。
+**職責：** 封裝所有郵件發送邏輯，支援五種情境，並內建多組 SMTP 容錯切換（failover）。
 
 | 方法 | 說明 | 使用時機 |
 |---|---|---|
-| `setInitData()` | 初始化 `JavaMailSenderImpl`，驗證 SMTP 連線；`encryptEnable=true` 時以 Base64 解碼密碼 | **每次使用前必須先呼叫一次** |
+| `setInitData()` | 依 `MailPropertyConfig.resolveServers()` 逐組建立 `JavaMailSenderImpl` 並 `testConnection()`；單組失敗僅 WARN、仍保留於候選清單，全部失敗才拋 `MessagingException`；`encryptEnable=true` 時以 Base64 解碼密碼 | **每次使用前必須先呼叫一次** |
 | `simpleMailSend(mail)` | 最輕量，純文字，無附件 | 系統內部通知、純文字警報 |
-| `sendEmail(mail)` | 支援 HTML content，可設定 To / CC | 一般 HTML 格式郵件 |
+| `sendEmail(mail)` | 支援 HTML content，可設定 To / CC；全部伺服器皆失敗時**不外拋例外**，僅記錄 ERROR 日誌 | 一般 HTML 格式郵件 |
 | `attachedSend(mail)` | 多附件，`MimeMessageHelper.addAttachment()` | 需要附件但不含 HTML 內文 |
 | `richContentSend(mail)` | HTML 內文 + 附件 | 精美格式報表 + 附件 |
 | `sendBatchMailWithFile(mail)` | 多收件人 + 多附件，自行組裝 `MimeMultipart`；以 `MimeUtility.encodeText()` 防中文亂碼 | 批次寄送，大量收件人 |
+
+**多 SMTP 容錯切換機制（`executeWithFailover`）：**
+
+五個發送方法皆透過私有方法 `executeWithFailover(String operationName, MailSendOperation operation)` 統一實作容錯切換：
+
+- `MailServerCandidate`（`record label, sender`）：`setInitData()` 依 `mail.servers`（或合成的單組）建立的候選清單，儲存於 `volatile List<MailServerCandidate> candidates` 欄位。清單本身不可變（`List.copyOf`），且不含輪詢游標等共享可變狀態，多執行緒併發呼叫不會互相干擾（見 [7.1 執行緒安全](#71-執行緒安全問題)）。
+- `MailSendOperation`：`@FunctionalInterface`，由各發送方法以 lambda 提供「如何用一個 `JavaMailSenderImpl` 組裝並送出郵件」；**訊息組裝邏輯整段搬進 lambda**，確保每次嘗試都以當次候選伺服器重新建立 `MimeMessage`，而非先組好訊息再換 sender。
+- 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限，僅於嘗試之間檢查，不中斷已在進行中的單次嘗試）限制。
+- 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外僅記錄日誌，維持既有「不外拋」行為。
+- 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因）、最終成功記錄 INFO（含成功組別）、全部失敗記錄 ERROR（含彙整清單）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
+
+:::danger 已知限制：至少一次投遞語意
+若某組 SMTP 已將郵件內容送達（DATA 階段之後）才回報失敗，切換重送可能導致收件者收到重複郵件。
+此為容錯切換機制的本質限制，無法在應用層完全消除，詳見
+[配置參考的「多組 SMTP 容錯切換」一節](./configuration.md#多組-smtp-容錯切換mailservers)。
+:::
 
 **`Mail` 物件欄位：**
 
@@ -366,28 +387,31 @@ base-spring-boot-starter/
 
 ## 4. 核心協作流程
 
-### 4.1 發送 HTML 郵件
+### 4.1 發送 HTML 郵件（含多 SMTP 容錯切換）
 
 ```mermaid
 sequenceDiagram
     participant 業務程式碼
     participant MailService
     participant MailServiceImpl
-    participant JavaMailSenderImpl
-    participant SMTP伺服器
+    participant Server1 as JavaMailSenderImpl(組1)
+    participant Server2 as JavaMailSenderImpl(組2)
 
     業務程式碼->>MailService: setInitData()
-    MailService->>MailServiceImpl: 初始化 JavaMailSenderImpl
-    MailServiceImpl->>JavaMailSenderImpl: 設定 host/port/auth/TLS/timeout
-    MailServiceImpl->>JavaMailSenderImpl: testConnection()
-    JavaMailSenderImpl-->>MailServiceImpl: 連線成功
+    loop 依 mail.servers 順序逐組
+        MailServiceImpl->>MailServiceImpl: buildSender(server) + testConnection()
+        Note over MailServiceImpl: 單組失敗僅 WARN，仍加入候選清單
+    end
 
     業務程式碼->>MailService: sendEmail(mail)
-    MailService->>MailServiceImpl: createMimeMessage()
-    MailServiceImpl->>JavaMailSenderImpl: MimeMessageHelper(true, UTF-8)
-    MailServiceImpl->>JavaMailSenderImpl: helper.setText(content, true)
-    MailServiceImpl->>JavaMailSenderImpl: send(mimeMessage)
-    JavaMailSenderImpl->>SMTP伺服器: 傳送郵件
+    MailService->>MailServiceImpl: executeWithFailover("sendEmail", operation)
+    MailServiceImpl->>Server1: 以組1 重新組裝 MimeMessage 並 send()
+    Server1-->>MailServiceImpl: 連線／認證／傳輸失敗
+    Note over MailServiceImpl: 記錄 WARN（組1 標籤 + 原因），嘗試下一組
+    MailServiceImpl->>Server2: 以組2 重新組裝 MimeMessage 並 send()
+    Server2-->>MailServiceImpl: 送出成功
+    Note over MailServiceImpl: 記錄 INFO（最終成功組別為組2）
+    MailServiceImpl-->>業務程式碼: 正常返回（若全部組別皆失敗則拋出 MailFailoverException；sendEmail 例外，僅記錄 ERROR 不外拋）
 ```
 
 ### 4.2 Velocity 模板產生郵件內文
@@ -488,17 +512,23 @@ public class BaseAutoConfiguration { ... }
 
 ### 5.3 Bean 層級的條件裝配
 
-只有 `messageSource()` 使用了條件注解：
+`messageSource()` 與 `mailService()` 使用了條件注解：
 
 ```java
 @Bean
 @ConditionalOnResource(resources = "classpath:message.properties")
 public MessageSource messageSource() { ... }
+
+@Bean
+@ConditionalOnMissingBean
+public MailService mailService() { ... }
 ```
 
-**含義：** 引用方的 classpath 有 `message.properties` 才建立此 Bean。若引用方沒有此檔，Spring Context 中不會有 `messageSource` Bean，這也是部分引用方找不到 `MessageSource` Bean 的原因。
+**含義：**
+- `messageSource()`：引用方的 classpath 有 `message.properties` 才建立此 Bean。若引用方沒有此檔，Spring Context 中不會有 `messageSource` Bean，這也是部分引用方找不到 `MessageSource` Bean 的原因。
+- `mailService()`：引用方**尚未**自行宣告 `MailService` 型別的 Bean 時才建立 Starter 的預設實作 `MailServiceImpl`；引用方宣告同型別 Bean 即可整顆替換掉預設實作（見 5.4）。
 
-其餘四個 Bean（`applicationContextHelper`、`velocityUtil`、`mailService`、`threadPoolTaskExecutor`）**無條件裝配**，引入 Starter 後一定會出現在 Context 中。
+其餘兩個 Bean（`applicationContextHelper`、`velocityUtil`）與 `threadPoolTaskExecutor` **無條件裝配**，引入 Starter 後一定會出現在 Context 中，僅能以下一節「同名 Bean」方式覆蓋。
 
 ### 5.4 覆蓋 Starter 的 Bean
 
@@ -510,7 +540,19 @@ spring:
     allow-bean-definition-overriding: true
 ```
 
-這表示引用方可以宣告**同名 Bean** 來覆蓋 Starter 的預設實作。例如，自訂執行緒池大小：
+`mailService()` 已標註 `@ConditionalOnMissingBean`，引用方宣告**同型別**（`MailService`）Bean 即可覆蓋，不需依賴 `allow-bean-definition-overriding`：
+
+```java
+@Configuration
+public class MyMailConfig {
+    @Bean
+    public MailService mailService() {
+        return new MyCustomMailService();
+    }
+}
+```
+
+其餘未標 `@ConditionalOnMissingBean` 的 Bean（如 `threadPoolTaskExecutor`、`velocityUtil`），則需依賴 `allow-bean-definition-overriding=true`，以**同名 Bean** 覆蓋 Starter 的預設實作。例如，自訂執行緒池大小：
 
 ```java
 @Configuration
@@ -786,6 +828,7 @@ thread-pool:
 | `OkHttpUtil` 單例初始化 | `getOkHttpClient()` 已加上 `synchronized`，避免高並發下重複建立 client | 已處理 |
 | `FileClassLoader.findClass()` | 無 `synchronized`，多執行緒並發可能造成 `defineClass()` race condition | 需要並發載入時改用 `JarClassLoader` |
 | `Validation.StrisNull()` | 有不必要的 `synchronized`，純讀取操作同步造成效能瓶頸 | 可移除 `synchronized` |
+| `MailServiceImpl.candidates` | 以 `volatile List<MailServerCandidate>` 持有候選清單，`setInitData()` 整份以 `List.copyOf` 替換（非逐一修改），發送流程不含輪詢游標等共享可變狀態 | 已處理；多執行緒併發呼叫發送方法無資料競爭風險 |
 
 ### 7.2 資源釋放問題
 
@@ -804,6 +847,7 @@ thread-pool:
 | 3DES 改用 CBC | `DESedeUtil` 由 ECB 改為 CBC＋隨機 IV；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` 已棄用 | MD5 不可用於密碼或簽章；已標註 `@Deprecated` |
 | `MailServiceImpl` 非 `@Service` | 由 `BaseAutoConfiguration` 以 `new` 建立後以 `@Bean` 加入 Context，不支援 `@Transactional` 等 Spring AOP 代理特性 |
+| 多 SMTP 容錯切換為至少一次投遞語意 | `MailFailoverException`／切換重送無法區分「對方已收信但回報失敗」與「對方真的沒收到」，故可能重複投遞；此為機制本質限制，非程式缺陷，見 [3.2 節說明](#32-mailservice--mailserviceimpl) |
 | `DateTimeUtils` 硬編碼 UTC+8 | 非台灣時區部署需特別注意，或改為讀取 `ZoneId.systemDefault()` |
 | `BeanUtil.copyProperties` 跳過 null | 適合合併更新；需要強制清空欄位時改用 Spring 原版 `BeanUtils.copyProperties` |
 | `ExcelUtil` 使用廢棄 `clazz.newInstance()` | Java 9 後已標記 `@Deprecated`，應改用 `clazz.getDeclaredConstructor().newInstance()` |
@@ -813,7 +857,7 @@ thread-pool:
 
 **陷阱 1：忘記呼叫 `mailService.setInitData()`**
 
-郵件服務由 `BaseAutoConfiguration` 建立時，`mailSender` 欄位為 `null`。**每次使用郵件服務前必須先呼叫一次 `setInitData()`**，否則會拋出 `NullPointerException`。建議在服務啟動後（例如 `@PostConstruct`）統一初始化一次：
+郵件服務由 `BaseAutoConfiguration` 建立時，候選伺服器清單（`candidates`）尚未初始化。**每次使用郵件服務前必須先呼叫一次 `setInitData()`**，否則發送方法會拋出 `IllegalStateException`（「郵件服務尚未初始化或無可用伺服器」）。建議在服務啟動後（例如 `@PostConstruct`）統一初始化一次：
 
 ```java
 @Service
@@ -827,6 +871,10 @@ public class NotificationService {
     }
 }
 ```
+
+**陷阱 1a：以為 `mail.servers` 部分組別失敗會讓 `setInitData()` 拋例外**
+
+`setInitData()` 僅在**全部**候選伺服器皆測試連線失敗時才拋出 `MessagingException`；只要有一組可用即正常返回（不可用組別記錄 WARN，仍保留於候選清單供後續發送時再嘗試）。若誤以為單組失敗就會中斷啟動流程並用 `try-catch` 忽略例外，可能掩蓋「全部組別皆失敗」的情況，建議仍檢視啟動日誌確認是否有 WARN 記錄。
 
 **陷阱 2：AES secretKey 長度錯誤**
 
@@ -874,23 +922,67 @@ _param=merge_    // 合併儲存格
 
 | 屬性鍵 | 型別 | 預設值 | 說明 | 必填 |
 |---|---|---|---|---|
-| `mail.host` | String | — | SMTP 伺服器主機名稱或 IP | 是 |
-| `mail.port` | String | — | SMTP 連接埠（例如 `587`、`465`、`25`） | 是 |
-| `mail.username` | String | — | SMTP 帳號 | 是 |
-| `mail.pa55word` | String | — | SMTP 密碼（欄位名稱為 `pa55word`，非 `password`） | 是 |
-| `mail.sender` | String | — | 預設寄件者電子郵件地址 | 是 |
+| `mail.host` | String | — | SMTP 伺服器主機名稱或 IP（未設定 `mail.servers` 時，作為唯一一組的來源） | 否 * |
+| `mail.port` | String | — | SMTP 連接埠（例如 `587`、`465`、`25`） | 否 * |
+| `mail.username` | String | — | SMTP 帳號 | 否 * |
+| `mail.pa55word` | String | — | SMTP 密碼（欄位名稱為 `pa55word`，非 `password`） | 否 * |
+| `mail.sender` | String | — | 預設寄件者電子郵件地址 | 否 |
 | `mail.smtp-auth-enable` | Boolean | `true` | 是否啟用 SMTP 認證 | 否 |
 | `mail.smtp-start-tls-enable` | Boolean | `false` | 是否啟用 STARTTLS 加密 | 否 |
 | `mail.transport-protocol` | String | `"smtp"` | 傳輸協定 | 否 |
 | `mail.encrypt-enable` | Boolean | `false` | 設為 `true` 時，`pa55word` 以 Base64 解碼後使用 | 否 |
 | `mail.debug-enable` | Boolean | `false` | 啟用 JavaMail 除錯日誌 | 否 |
+| `mail.servers` | `List<MailServerProperty>` | 空清單 | 多組 SMTP 伺服器（見下節）；設定後以此清單為準，上方單組欄位不再生效 | 否 |
+| `mail.connection-timeout` | Integer（毫秒） | `5000` | SMTP 連線逾時，套用至每一組伺服器 | 否 |
+| `mail.read-timeout` | Integer（毫秒） | `3000` | SMTP 讀取逾時，套用至每一組伺服器 | 否 |
+| `mail.write-timeout` | Integer（毫秒） | `5000` | SMTP 寫入逾時，套用至每一組伺服器 | 否 |
+| `mail.failover.max-attempts` | Integer | `2147483647`（即不額外限制） | 單次發送最多嘗試的伺服器組數上限；實際上限為此值與已設定組數的較小者 | 否 |
+| `mail.failover.overall-timeout` | Long（毫秒） | `30000` | 單次發送允許的整體切換時間上限；`0` 或負值表示不限制 | 否 |
+
+\* 標示「否 *」者：`mail.servers` 未設定時，這幾個欄位仍為建立唯一一組 SMTP 所必須，僅是不再透過 `mail.servers` 表達。
 
 :::note pa55word 欄位名稱
-密碼欄位名稱為 `pa55word`（55 為數字），對應 `MailPropertyConfig.pa55word`，請確認設定鍵拼寫正確。
+密碼欄位名稱為 `pa55word`（55 為數字），對應 `MailPropertyConfig.pa55word` 與 `MailServerProperty.pa55word`，請確認設定鍵拼寫正確。
 :::
 
 :::tip encrypt-enable 使用情境
-`encrypt-enable: true` 適用於設定檔需要儲存密碼但又想避免明文的情境：先將 SMTP 密碼以 Base64 編碼後填入 `pa55word`，系統初始化時會自動以 Base64 解碼後再使用。
+`encrypt-enable: true` 適用於設定檔需要儲存密碼但又想避免明文的情境：先將 SMTP 密碼以 Base64 編碼後填入 `pa55word`，系統初始化時會自動以 Base64 解碼後再使用。**此為 Base64 編碼，並非加密**，不具備保密強度，僅用於避免設定檔直接明文儲存；請勿將其視為金鑰加密等保護機制。
+:::
+
+---
+
+## 多組 SMTP 容錯切換（`mail.servers`）
+
+自本版本起，郵件模組支援設定**多組 SMTP 伺服器**，任一組因連線、認證或傳輸失敗而無法送出時，
+自動依清單順序改用下一組重新嘗試，直到成功或全部組別皆已嘗試為止（優先序 failover，非輪詢分流）。
+五個發送方法（`sendEmail`、`simpleMailSend`、`attachedSend`、`richContentSend`、`sendBatchMailWithFile`）
+與 `setInitData()` 皆套用此機制。
+
+`mail.servers` 為 `MailServerProperty` 清單，每組可獨立設定：
+
+| 屬性鍵 | 型別 | 預設值 | 說明 |
+|---|---|---|---|
+| `mail.servers[i].name` | String | — | 伺服器識別名稱，僅用於日誌辨識，未設定時以 `host:port` 顯示 |
+| `mail.servers[i].host` | String | — | 該組 SMTP 主機 |
+| `mail.servers[i].port` | String | — | 該組 SMTP 連接埠 |
+| `mail.servers[i].username` | String | — | 該組帳號 |
+| `mail.servers[i].pa55word` | String | — | 該組密碼 |
+| `mail.servers[i].smtp-auth-enable` | Boolean | `true` | 該組是否啟用 SMTP 認證 |
+| `mail.servers[i].smtp-start-tls-enable` | Boolean | `false` | 該組是否啟用 STARTTLS |
+| `mail.servers[i].transport-protocol` | String | `"smtp"` | 該組傳輸協定 |
+| `mail.servers[i].encrypt-enable` | Boolean | `false` | 該組密碼是否為 Base64 編碼 |
+
+:::info 未設定 mail.servers 時的向後相容行為
+`mail.servers` 未設定（空清單）時，`MailPropertyConfig.resolveServers()` 會以上方單組扁平欄位
+（`mail.host` / `mail.port` / `mail.username` / `mail.pa55word` 等）自動合成唯一一組候選，
+既有僅設定單組 `mail.*` 屬性的使用者升級後**不需修改設定**即可維持原有行為。
+:::
+
+:::danger 已知取捨：至少一次投遞語意，可能重複收信
+容錯切換為**「至少一次投遞」（at-least-once）語意**：若某組 SMTP 已接收郵件內容（DATA 階段之後）
+才回報失敗，切換至下一組重送時，**收件者可能收到重複的郵件**。這是失敗即改用其他 SMTP 重送
+所隱含、無法在應用層完全消除的機制本質限制，並非程式缺陷。若業務對重複投遞極度敏感，
+請於收件端另行以訊息 ID／內容雜湊等方式做去重處理。
 :::
 
 ---
@@ -967,7 +1059,7 @@ public MessageSource messageSource() { ... }
 以下為包含本模組所有可設定屬性的完整範例，可直接複製後調整：
 
 ```yaml
-# 郵件設定（MailPropertyConfig，前綴 mail）
+# 郵件設定（MailPropertyConfig，前綴 mail）：單組 SMTP 寫法（向後相容，未設定 servers 時生效）
 mail:
   host: smtp.example.com
   port: "587"
@@ -984,6 +1076,39 @@ mail:
 velocity:
   dir-path: template                  # 樣板放置於 src/main/resources/template/
 ```
+
+多組 SMTP 容錯切換寫法（設定 `mail.servers` 後，上方單組欄位不再生效）：
+
+```yaml
+mail:
+  sender: noreply@example.com
+  connection-timeout: 5000            # 逾時設定為全域，套用至每一組伺服器
+  read-timeout: 3000
+  write-timeout: 5000
+  failover:
+    max-attempts: 3                   # 單次發送最多嘗試 3 組（預設不額外限制，以已設定組數為準）
+    overall-timeout: 15000            # 單次發送整體切換時間上限 15 秒（預設 30000）
+  servers:
+    - name: primary
+      host: smtp1.example.com
+      port: "587"
+      username: noreply@example.com
+      pa55word: ${MAIL_PASSWORD_PRIMARY}
+      smtp-auth-enable: true
+      smtp-start-tls-enable: true
+    - name: backup
+      host: smtp2.example.com
+      port: "587"
+      username: noreply-backup@example.com
+      pa55word: ${MAIL_PASSWORD_BACKUP}
+      smtp-auth-enable: true
+      smtp-start-tls-enable: true
+```
+
+:::danger 重複寄送風險提醒
+如上節「已知取捨」所述，容錯切換為至少一次投遞語意，`primary` 失敗改用 `backup` 重送時，
+若 `primary` 其實已將郵件內容送達 SMTP 伺服器才回報失敗，收件者可能收到 2 封相同郵件。
+:::
 
 ---
 
@@ -1179,6 +1304,45 @@ public class NotifyService {
 | `attachedSend(Mail)` | 帶附件郵件 |
 | `richContentSend(Mail)` | 內嵌圖片等多媒體內容 |
 | `sendBatchMailWithFile(Mail)` | 批次發送含附件郵件 |
+
+### 設定多組 SMTP 容錯切換
+
+設定 `mail.servers`（見 [配置參考](./configuration.md#多組-smtp-容錯切換mailservers)）後，
+以上五個發送方法**呼叫方式完全不變**——容錯切換發生在 `MailService` 內部，對呼叫端透明：
+
+```yaml
+mail:
+  failover:
+    max-attempts: 3
+    overall-timeout: 15000
+  servers:
+    - name: primary
+      host: smtp1.example.com
+      port: "587"
+      username: noreply@example.com
+      pa55word: ${MAIL_PASSWORD_PRIMARY}
+    - name: backup
+      host: smtp2.example.com
+      port: "587"
+      username: noreply-backup@example.com
+      pa55word: ${MAIL_PASSWORD_BACKUP}
+```
+
+```java
+// 呼叫端程式碼與單組 SMTP 時完全相同，無需感知目前實際使用哪一組伺服器
+mailService.setInitData();
+mailService.simpleMailSend(mail);
+```
+
+`primary` 因連線、認證或傳輸失敗而無法送出時，會自動改用 `backup` 重試；若全部組別皆失敗，
+`simpleMailSend` 會拋出 `MailFailoverException`（`sendEmail` 例外，維持既有「不外拋」行為，
+僅記錄錯誤日誌）。
+
+:::danger 重複寄送風險提醒
+容錯切換為**至少一次投遞語意**：若 `primary` 已將郵件內容送達 SMTP 伺服器才回報失敗，
+切換至 `backup` 重送可能導致收件者收到 2 封相同郵件，此為機制本質限制，無法完全消除，
+詳見 [配置參考的已知取捨說明](./configuration.md#多組-smtp-容錯切換mailservers)。
+:::
 
 ### 以 Velocity 樣板產生內容
 
@@ -1388,7 +1552,7 @@ public class PhotoLocationExample {
 
 ## 主要特性
 
-- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版。
+- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版；可設定多組 SMTP 伺服器，單組失敗時依序自動容錯切換至下一組。
 - **加解密工具**：提供 AES、3DES、MD5、Base64、Hex 等多種加解密與編碼工具。
 - **文件處理**：`ExcelUtil` 支援以 Annotation 方式匯入匯出 Excel；`JasperReportUtil` 支援報表輸出。
 - **HTTP 請求**：`OkHttpUtil` 封裝 OkHttp，簡化 GET / POST 等 HTTP 呼叫。
@@ -1418,8 +1582,11 @@ public class PhotoLocationExample {
 | 類別 | 套件 | 職責 |
 |---|---|---|
 | `BaseAutoConfiguration` | `autoconfiguration` | 模組自動配置入口，無條件註冊核心 Bean |
-| `MailService` / `MailServiceImpl` | `service` | 郵件發送介面與實作（五種發送方式） |
+| `MailService` / `MailServiceImpl` | `service` | 郵件發送介面與實作（五種發送方式），內建多組 SMTP 依序容錯切換 |
 | `Mail` | `model` | 郵件資料模型（from / to / cc / bcc / subject / content / attachments） |
+| `MailServerProperty` | `config` | 單組 SMTP 伺服器設定，作為 `mail.servers` 清單中的一個元素 |
+| `MailFailoverProperty` | `config` | 多 SMTP 容錯切換行為設定（最大嘗試組數、整體切換時間上限） |
+| `MailFailoverException` | `exception` | 全部 SMTP 皆嘗試失敗時拋出的彙整例外（unchecked） |
 | `AesUtil` | `util/crypto` | AES-128/CBC/PKCS5Padding 加解密（每次隨機 IV，密文為 Base64(IV‖cipher)），支援字串與檔案 |
 | `DESedeUtil` | `util/crypto` | 3DES/CBC/PKCS5Padding 加解密工具（每次隨機 IV，輸出為 Hex(IV‖cipher)）；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` | `util/crypto` | MD5 雜湊（16/32 位、大小寫四種格式）；**已棄用**，禁止用於密碼或簽章 |
@@ -1522,6 +1689,10 @@ velocity:
 
 :::warning 密碼安全
 請勿將 SMTP 密碼直接硬寫在版本控制的設定檔中。建議透過環境變數（`${MAIL_PASSWORD}`）或外部化設定管理機敏資訊。
+:::
+
+:::tip 多組 SMTP 容錯切換
+若需要設定多組 SMTP、單組失敗時自動切換至下一組，改用 `mail.servers` 清單即可；未設定時以上方單組欄位維持原行為。完整寫法與逾時／嘗試組數上限設定，請參閱[配置參考的「多組 SMTP 容錯切換」一節](./configuration.md#多組-smtp-容錯切換mailservers)。
 :::
 
 ## Step 4：程式碼範例
@@ -1631,7 +1802,7 @@ public class NotificationService {
 
 | Starter | 主要擴充接點（介面／抽象類別／可覆寫 Bean／設定指定 Bean 名稱） | 對應設定鍵 | 何時用 |
 |---|---|---|---|
-| base | 覆寫 Bean：`MessageSource`、`VelocityUtil`、`MailService`、`threadPoolTaskExecutor`（`BaseAutoConfiguration` 內未標 `@ConditionalOnMissingBean`，須以同名 Bean 或 `spring.main.allow-bean-definition-overriding` 覆寫）；`MessageSource` 受 `@ConditionalOnResource(classpath:message.properties)` 控制 | `mail.*`、`velocity.*` | 想換掉郵件實作、共用執行緒池參數或訊息資源時 |
+| base | 覆寫 Bean：`MailService`（已標 `@ConditionalOnMissingBean`，可直接以同型別 Bean 覆寫）；`MessageSource`、`VelocityUtil`、`threadPoolTaskExecutor`（`BaseAutoConfiguration` 內未標 `@ConditionalOnMissingBean`，須以同名 Bean 或 `spring.main.allow-bean-definition-overriding` 覆寫）；`MessageSource` 受 `@ConditionalOnResource(classpath:message.properties)` 控制；郵件可設定 `mail.servers` 多組 SMTP 依序容錯切換 | `mail.*`（含 `mail.servers`、`mail.failover.*`）、`velocity.*` | 想換掉郵件實作、設定多組 SMTP 容錯、共用執行緒池參數或訊息資源時 |
 | db | 抽象骨架：繼承 `BaseJDBC` 撰寫 DAO；`@DS` / `@DynamicDS` 標註切換資料來源；可覆寫 `DataSource`（`dataSource()` Bean）整顆換成自家動態資料來源 | `dynamic.*`（`data-source.properties`）、`@DS("...")` | 需要多資料來源切換、SQL 外化、自訂連線池組裝時 |
 | job | 抽象骨架：繼承 `QuartzJobFactory`（覆寫 `executeJob`）撰寫排程業務；以 `quartz-jobs.properties` 宣告排程；`spring.quartz.enable` / `job-store-type` 切換啟用與 JobStore | `spring.quartz.enable`、`spring.quartz.job-store-type`、`quartz.*` | 撰寫排程任務、選擇記憶體或 JDBC JobStore 時 |
 | logon | 抽象骨架：繼承 `CommonLoginProcess`（CUSTOM 模式 `AuthenticationProvider`）、`SecurityBaseService`；SPI：實作 `CustomLogonLogRecord`；設定指定 Bean 名稱：`custom-bean-name`、`custom-record-log-bean`；**所有 `@Bean`（含 `filterChain`）皆標 `@ConditionalOnMissingBean`，可同型別覆寫** | `security.verification-type`、`security.custom-bean-name`、`security.record-log-enable`、`security.custom-record-log-bean`、`security.login-uri` | 自訂登入驗證、稽核日誌、整鏈接管 Security 設定時 |
@@ -1647,7 +1818,9 @@ public class NotificationService {
 接點重點：
 
 - **`MessageSource`** 受 `@ConditionalOnResource(resources = "classpath:message.properties")` 控制：只要 classpath 沒有 `message.properties` 就不註冊，因此你可以選擇不放該檔，或自行提供 `MessageSource` Bean。
-- 其餘 Bean（`MailService`、`VelocityUtil`、`threadPoolTaskExecutor`）目前**未標 `@ConditionalOnMissingBean`**。若要覆寫，請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或直接排除整個 `BaseAutoConfiguration`（見最後一節）。
+- **`MailService`** 已標 `@ConditionalOnMissingBean`：業務專案宣告同型別 `MailService` Bean 即可整顆覆蓋 Starter 內建的 `MailServiceImpl`，不需依賴 `allow-bean-definition-overriding`。
+- **多組 SMTP 容錯切換**：設定 `mail.servers`（有序清單）取代單組 `mail.host` / `mail.port` 等扁平欄位，任一組因連線、認證或傳輸失敗即依序改用下一組；未設定 `mail.servers` 時以扁平欄位合成單組，行為與升級前相同。可另以 `mail.failover.max-attempts`、`mail.failover.overall-timeout` 限制最大嘗試組數與整體切換耗時上限。詳見 [base-starter 配置參考](./base-starter/configuration.md#多組-smtp-容錯切換mailservers)。
+- 其餘 Bean（`VelocityUtil`、`threadPoolTaskExecutor`）目前**未標 `@ConditionalOnMissingBean`**。若要覆寫，請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或直接排除整個 `BaseAutoConfiguration`（見最後一節）。
 
 覆寫共用執行緒池的範例（沿用框架預期的 Bean 名稱 `threadPoolTaskExecutor`）：
 
@@ -1884,7 +2057,7 @@ security:
 
 ### 1. 以同型別 Bean 覆寫（首選）
 
-對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可讓 Starter 的預設實作退讓。logon-starter 的所有 `@Bean`（含 `filterChain`）皆已支援此方式。對於**未標** `@ConditionalOnMissingBean` 的 Bean（如 base 的 `mailService` / `velocityUtil`），請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或改用下一招直接排除整個自動配置。
+對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可讓 Starter 的預設實作退讓。logon-starter 的所有 `@Bean`（含 `filterChain`）皆已支援此方式；base 的 `mailService` 亦已支援。對於**未標** `@ConditionalOnMissingBean` 的 Bean（如 base 的 `velocityUtil`），請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或改用下一招直接排除整個自動配置。
 
 ### 2. 排除整個 AutoConfiguration（spring.autoconfigure.exclude）
 
