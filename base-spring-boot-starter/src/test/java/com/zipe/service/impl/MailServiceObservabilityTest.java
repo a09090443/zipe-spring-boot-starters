@@ -106,7 +106,10 @@ class MailServiceObservabilityTest {
         MailPropertyConfig cfg = config(badAuthServer);
         MailServiceImpl service = new MailServiceImpl(cfg);
 
-        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+        ListAppender<ILoggingEvent> mailAppender =
+                MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+        ListAppender<ILoggingEvent> base64Appender =
+                MailFailoverTestSupport.attachLogAppender(Base64Util.class);
 
         assertThatThrownBy(() -> {
                     service.setInitData();
@@ -117,7 +120,8 @@ class MailServiceObservabilityTest {
                     assertThat(e.getMessage()).doesNotContain(encodedWrongPassword);
                 });
 
-        String allLogText = appender.list.stream()
+        String allLogText = List.of(mailAppender, base64Appender).stream()
+                .flatMap(appender -> appender.list.stream())
                 .map(ILoggingEvent::getFormattedMessage)
                 .collect(Collectors.joining("\n"));
         assertThat(allLogText).doesNotContain(WRONG_PASSWORD_ENCODED_SOURCE);

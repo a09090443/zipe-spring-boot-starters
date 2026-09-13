@@ -11,7 +11,7 @@
 
 | 模組 | 版本 | 說明 |
 |------|------|------|
-| [base-spring-boot-starter](base-spring-boot-starter/README.md) | 4.0.0.1 | 基礎工具（加解密、文件、郵件等） |
+| [base-spring-boot-starter](base-spring-boot-starter/README.md) | 4.0.0.1 | 基礎工具（加解密、文件、多組 SMTP 容錯郵件等） |
 | [db-spring-boot-starter](db-spring-boot-starter/README.md) | 4.0.0.1 | 動態多資料來源切換 |
 | [job-spring-boot-starter](job-spring-boot-starter/README.md) | 4.0.0.1 | Quartz 排程任務管理 |
 | [logon-spring-boot-starter](logon-spring-boot-starter/README.md) | 4.0.0.1 | Spring Security 登入認證（表單 / LDAP / JWT） |
@@ -61,6 +61,13 @@ base-spring-boot-starter（基礎層）
         ├── web-service-spring-boot-starter
         └── keycloak-spring-boot-starter
 ```
+
+### 多組 SMTP 容錯
+
+`base-spring-boot-starter` 支援依設定順序嘗試多組 SMTP；單組連線或認證失敗時，
+會自動切換到下一組。既有單組 `mail.*` 設定仍向後相容。完整屬性、逾時設定與
+「至少一次投遞」可能造成重複收信的注意事項，請參閱
+[base-spring-boot-starter README](base-spring-boot-starter/README.md)。
 
 ---
 
