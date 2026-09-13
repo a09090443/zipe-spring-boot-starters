@@ -16,6 +16,9 @@ import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.exception.MailFailoverException;
 import com.zipe.model.Mail;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -147,7 +150,7 @@ class MailServiceFailoverTest {
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
         assertThat(messages[0].getSubject()).isEqualTo("SC-07-attached");
-        assertThat(messages[0].getContentType()).containsIgnoringCase("multipart");
+        assertAttachment(messages[0], "sc07-attachment.txt", "hello-attachment");
     }
 
     /** SC-08：richContentSend 第一組失敗、第二組成功時，備援組收到之 HTML 內容與附件皆正確。 */
@@ -167,7 +170,8 @@ class MailServiceFailoverTest {
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
         assertThat(messages[0].getSubject()).isEqualTo("SC-08-rich");
-        assertThat(messages[0].getContentType()).containsIgnoringCase("multipart");
+        assertThat(textContent(messages[0])).contains("<p>SC-08-rich</p>");
+        assertAttachment(messages[0], "sc08-attachment.txt", "sc08-content");
     }
 
     /** SC-09：sendBatchMailWithFile 第一組失敗、第二組成功時，多位收件人皆收到含附件的信。 */
@@ -191,5 +195,49 @@ class MailServiceFailoverTest {
         assertThat(messages[0].getSubject()).isEqualTo("SC-09-batch");
         assertThat(messages[1].getSubject()).isEqualTo("SC-09-batch");
         assertThat(messages[0].getAllRecipients()).hasSize(2);
+        for (MimeMessage message : messages) {
+            assertThat(textContent(message)).contains("<p>SC-09-batch</p>");
+            assertAttachment(message, "sc09-attachment.txt", "sc09-content");
+        }
+    }
+
+    private static void assertAttachment(MimeMessage message, String expectedName, String expectedContent)
+            throws Exception {
+        Part attachment = findAttachment(message, expectedName);
+        assertThat(attachment).as("附件 %s", expectedName).isNotNull();
+        assertThat(new String(attachment.getInputStream().readAllBytes(), StandardCharsets.UTF_8))
+                .isEqualTo(expectedContent);
+    }
+
+    private static Part findAttachment(Part part, String expectedName) throws Exception {
+        if (expectedName.equals(part.getFileName())) {
+            return part;
+        }
+        Object content = part.getContent();
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                BodyPart bodyPart = multipart.getBodyPart(i);
+                Part found = findAttachment(bodyPart, expectedName);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String textContent(Part part) throws Exception {
+        if (part.isMimeType("text/*")) {
+            return String.valueOf(part.getContent());
+        }
+        Object content = part.getContent();
+        if (content instanceof Multipart multipart) {
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                text.append(textContent(multipart.getBodyPart(i)));
+            }
+            return text.toString();
+        }
+        return "";
     }
 }

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -95,7 +96,7 @@ public class MailServiceImpl implements MailService {
                 sender.testConnection();
                 log.info("初始化郵件伺服器成功：{}", label);
             } catch (Exception e) {
-                String reason = e.getClass().getSimpleName() + ": " + safeMessage(e);
+                String reason = safeReason(e);
                 failures.add(label + " - " + reason);
                 log.warn("初始化郵件伺服器失敗，將保留於後續嘗試清單：{}，原因：{}", label, reason);
             }
@@ -168,13 +169,49 @@ public class MailServiceImpl implements MailService {
     }
 
     /**
-     * 取得例外訊息，若為 null 則退回類別簡名，避免日誌出現 "null"。
+     * 取得不含外部伺服器回傳文字的安全失敗摘要。
+     * SMTP 例外訊息可能夾帶認證資訊，因此只保留例外類型。
      *
      * @param e 例外物件
-     * @return 例外訊息（不包含帳號密碼等敏感內容，訊息內容由 JavaMail / SMTP 協定產生）
+     * @return 不含帳號密碼的例外類型
      */
-    private static String safeMessage(Throwable e) {
-        return e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+    private static String safeReason(Throwable e) {
+        return e.getClass().getSimpleName();
+    }
+
+    /**
+     * 複製候選 sender，並把三種底層 socket 逾時縮到本次剩餘的整體時間內。
+     * 不修改共用 sender，避免併發寄信互相覆寫 JavaMail 設定。
+     */
+    private static JavaMailSenderImpl senderForAttempt(JavaMailSenderImpl configured, long remainingMs) {
+        if (remainingMs == Long.MAX_VALUE) {
+            return configured;
+        }
+        int limit = (int) Math.max(1, Math.min(remainingMs, Integer.MAX_VALUE));
+        JavaMailSenderImpl sender = new JavaMailSenderImpl();
+        sender.setProtocol(configured.getProtocol());
+        sender.setHost(configured.getHost());
+        sender.setPort(configured.getPort());
+        sender.setUsername(configured.getUsername());
+        sender.setPassword(configured.getPassword());
+        Properties properties = new Properties();
+        properties.putAll(configured.getJavaMailProperties());
+        capTimeout(properties, "mail.smtp.connectiontimeout", limit);
+        capTimeout(properties, "mail.smtp.timeout", limit);
+        capTimeout(properties, "mail.smtp.writetimeout", limit);
+        sender.setJavaMailProperties(properties);
+        return sender;
+    }
+
+    private static void capTimeout(Properties properties, String key, int limit) {
+        Object configured = properties.get(key);
+        int value;
+        try {
+            value = Integer.parseInt(String.valueOf(configured));
+        } catch (NumberFormatException e) {
+            value = limit;
+        }
+        properties.put(key, Math.max(1, Math.min(value, limit)));
     }
 
     /**
@@ -200,30 +237,33 @@ public class MailServiceImpl implements MailService {
 
         int maxAttempts = Math.min(mailPropertyConfig.getFailover().getMaxAttempts(), currentCandidates.size());
         long overallTimeoutMs = mailPropertyConfig.getFailover().getOverallTimeout();
-        long deadline = overallTimeoutMs > 0 ? System.currentTimeMillis() + overallTimeoutMs : Long.MAX_VALUE;
+        long startedNanos = System.nanoTime();
 
         List<String> failureSummaries = new ArrayList<>();
         List<Throwable> failureCauses = new ArrayList<>();
         int attempted = 0;
 
         for (MailServerCandidate candidate : currentCandidates) {
-            if (attempted >= maxAttempts || System.currentTimeMillis() >= deadline) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+            long remainingMs = overallTimeoutMs > 0 ? overallTimeoutMs - elapsedMs : Long.MAX_VALUE;
+            if (attempted >= maxAttempts || remainingMs <= 0) {
                 break;
             }
             attempted++;
             try {
-                operation.send(candidate.sender());
+                operation.send(senderForAttempt(candidate.sender(), remainingMs));
                 log.info("郵件發送成功（{}），使用伺服器：{}", operationName, candidate.label());
                 return;
             } catch (Exception e) {
-                String reason = e.getClass().getSimpleName() + ": " + safeMessage(e);
+                String reason = safeReason(e);
                 log.warn(
                         "郵件發送失敗（{}），伺服器：{}，原因：{}，將嘗試下一組",
                         operationName,
                         candidate.label(),
                         reason);
                 failureSummaries.add(candidate.label() + " - " + reason);
-                failureCauses.add(e);
+                // 不保留原始 cause/message，避免 SMTP 伺服器把密碼回顯進例外鏈。
+                failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
             }
         }
 

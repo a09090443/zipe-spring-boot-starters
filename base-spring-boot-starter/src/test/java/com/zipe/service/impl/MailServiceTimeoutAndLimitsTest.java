@@ -17,10 +17,13 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 逾時設定與嘗試組數上限情境測試，對應情境測試計畫 SC-18、SC-19、SC-26。
@@ -55,6 +58,23 @@ class MailServiceTimeoutAndLimitsTest {
         assertThat(config.getConnectionTimeout()).isEqualTo(5000);
         assertThat(config.getReadTimeout()).isEqualTo(3000);
         assertThat(config.getWriteTimeout()).isEqualTo(5000);
+    }
+
+    /** SC-19：預設值與自訂值皆須實際寫入候選 JavaMailSender，而非只停留在設定物件。 */
+    @Test
+    void timeoutProperties_areAppliedToInitializedJavaMailSenders() throws Exception {
+        MailPropertyConfig defaults = new MailPropertyConfig();
+        defaults.getServers().add(
+                greenMailServer("default", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        assertTimeouts(initializedSender(defaults), 5000, 3000, 5000);
+
+        MailPropertyConfig custom = new MailPropertyConfig();
+        custom.getServers().add(
+                greenMailServer("custom", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        custom.setConnectionTimeout(1000);
+        custom.setReadTimeout(800);
+        custom.setWriteTimeout(1000);
+        assertTimeouts(initializedSender(custom), 1000, 800, 1000);
     }
 
     /** SC-19（可設定）：讀取逾時可由設定屬性調整，覆寫後以較小值生效（以實際失敗耗時佐證，而非仍套用預設 3000ms）。 */
@@ -112,7 +132,7 @@ class MailServiceTimeoutAndLimitsTest {
         long elapsed = System.currentTimeMillis() - start;
 
         // 若無整體上限，8 組個別耗時 300ms 累加將達 2400ms；有整體上限（700ms）時應明顯低於此值
-        assertThat(elapsed).isLessThan(1800);
+        assertThat(elapsed).isLessThanOrEqualTo(1200);
     }
 
     /** SC-26：可設定之最大嘗試組數小於已設定組數時，超過上限之組別不會被嘗試。 */
@@ -154,5 +174,23 @@ class MailServiceTimeoutAndLimitsTest {
         acceptor.setDaemon(true);
         acceptor.start();
         return port;
+    }
+
+    private static JavaMailSenderImpl initializedSender(MailPropertyConfig config) throws Exception {
+        MailServiceImpl service = new MailServiceImpl(config);
+        service.setInitData();
+        List<?> candidates = (List<?>) ReflectionTestUtils.getField(service, "candidates");
+        assertThat(candidates).isNotNull().hasSize(1);
+        return (JavaMailSenderImpl) ReflectionTestUtils.getField(candidates.get(0), "sender");
+    }
+
+    private static void assertTimeouts(
+            JavaMailSenderImpl sender, int connectionTimeout, int readTimeout, int writeTimeout) {
+        assertThat(String.valueOf(sender.getJavaMailProperties().get("mail.smtp.connectiontimeout")))
+                .isEqualTo(String.valueOf(connectionTimeout));
+        assertThat(String.valueOf(sender.getJavaMailProperties().get("mail.smtp.timeout")))
+                .isEqualTo(String.valueOf(readTimeout));
+        assertThat(String.valueOf(sender.getJavaMailProperties().get("mail.smtp.writetimeout")))
+                .isEqualTo(String.valueOf(writeTimeout));
     }
 }

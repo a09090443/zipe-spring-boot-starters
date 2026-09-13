@@ -6,7 +6,7 @@ import static com.zipe.service.impl.MailFailoverTestSupport.plainTextMail;
 import static com.zipe.service.impl.MailFailoverTestSupport.unreachableServer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -15,7 +15,10 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
+import com.zipe.exception.MailFailoverException;
 import com.zipe.util.crypto.Base64Util;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,11 +80,14 @@ class MailServiceObservabilityTest {
 
         ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
 
-        assertThatThrownBy(() -> {
-                    service.setInitData();
-                    service.simpleMailSend(plainTextMail("SC-16"));
-                })
-                .satisfies(e -> assertThat(e.getMessage()).doesNotContain(WRONG_PASSWORD_PLAIN));
+        Throwable initFailure = catchThrowable(service::setInitData);
+        Throwable sendFailure = catchThrowable(() -> service.simpleMailSend(plainTextMail("SC-16")));
+
+        assertThat(initFailure).isInstanceOf(jakarta.mail.MessagingException.class);
+        assertThat(sendFailure).isInstanceOf(MailFailoverException.class);
+        assertThat(sendFailure.getSuppressed()).hasSize(1);
+        assertThat(exceptionText(initFailure) + exceptionText(sendFailure))
+                .doesNotContain(WRONG_PASSWORD_PLAIN);
 
         String allLogText = appender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
@@ -111,14 +117,15 @@ class MailServiceObservabilityTest {
         ListAppender<ILoggingEvent> base64Appender =
                 MailFailoverTestSupport.attachLogAppender(Base64Util.class);
 
-        assertThatThrownBy(() -> {
-                    service.setInitData();
-                    service.simpleMailSend(plainTextMail("SC-17"));
-                })
-                .satisfies(e -> {
-                    assertThat(e.getMessage()).doesNotContain(WRONG_PASSWORD_ENCODED_SOURCE);
-                    assertThat(e.getMessage()).doesNotContain(encodedWrongPassword);
-                });
+        Throwable initFailure = catchThrowable(service::setInitData);
+        Throwable sendFailure = catchThrowable(() -> service.simpleMailSend(plainTextMail("SC-17")));
+
+        assertThat(initFailure).isInstanceOf(jakarta.mail.MessagingException.class);
+        assertThat(sendFailure).isInstanceOf(MailFailoverException.class);
+        assertThat(sendFailure.getSuppressed()).hasSize(1);
+        assertThat(exceptionText(initFailure) + exceptionText(sendFailure))
+                .doesNotContain(WRONG_PASSWORD_ENCODED_SOURCE)
+                .doesNotContain(encodedWrongPassword);
 
         String allLogText = List.of(mailAppender, base64Appender).stream()
                 .flatMap(appender -> appender.list.stream())
@@ -148,5 +155,11 @@ class MailServiceObservabilityTest {
                 appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
         assertThat(messages).anyMatch(m -> m.contains("最終失敗"));
         assertThat(messages).noneMatch(m -> m.contains("成功"));
+    }
+
+    private static String exceptionText(Throwable failure) {
+        StringWriter text = new StringWriter();
+        failure.printStackTrace(new PrintWriter(text));
+        return text.toString();
     }
 }
