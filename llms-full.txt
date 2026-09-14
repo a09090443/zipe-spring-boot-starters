@@ -161,7 +161,7 @@ base-spring-boot-starter/
 
 - `MailServerCandidate`（`record label, sender`）：`setInitData()` 依 `mail.servers`（或合成的單組）建立的候選清單，儲存於 `volatile List<MailServerCandidate> candidates` 欄位。清單本身不可變（`List.copyOf`），且不含輪詢游標等共享可變狀態，多執行緒併發呼叫不會互相干擾（見 [7.1 執行緒安全](#71-執行緒安全問題)）。
 - `MailSendOperation`：`@FunctionalInterface`，由各發送方法以 lambda 提供「如何用一個 `JavaMailSenderImpl` 組裝並送出郵件」；**訊息組裝邏輯整段搬進 lambda**，確保每次嘗試都以當次候選伺服器重新建立 `MimeMessage`，而非先組好訊息再換 sender。
-- 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限，僅於嘗試之間檢查，不中斷已在進行中的單次嘗試）限制。
+- 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限）限制。整體逾時為單次發送呼叫從頭到尾的絕對截止時間：每次嘗試會將底層 socket 逾時縮限為剩餘時間、並以獨立 daemon 執行緒執行該次 SMTP 對話，截止時間一到即強制關閉該次連線的 socket、取消該次嘗試，不會讓單一組別的連線卡住拖過整體上限。
 - 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外僅記錄日誌，維持既有「不外拋」行為。
 - 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因）、最終成功記錄 INFO（含成功組別）、全部失敗記錄 ERROR（含彙整清單）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
 
