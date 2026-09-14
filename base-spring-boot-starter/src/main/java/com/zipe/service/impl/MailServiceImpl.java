@@ -19,12 +19,23 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import jakarta.mail.internet.MimeUtility;
 import java.io.File;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import javax.net.SocketFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -53,6 +64,14 @@ import org.springframework.mail.javamail.MimeMessageHelper;
  **/
 @Slf4j
 public class MailServiceImpl implements MailService {
+
+    /** 共用 daemon 排程器，在整體截止時間到達時關閉進行中的 SMTP socket。 */
+    private static final ScheduledExecutorService DEADLINE_SOCKET_CLOSER =
+            Executors.newSingleThreadScheduledExecutor(task -> {
+                Thread thread = new Thread(task, "mail-failover-socket-deadline");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     /** 郵件相關設定屬性，由外部注入 */
     private final MailPropertyConfig mailPropertyConfig;
@@ -183,7 +202,8 @@ public class MailServiceImpl implements MailService {
      * 複製候選 sender，並把三種底層 socket 逾時縮到本次剩餘的整體時間內。
      * 不修改共用 sender，避免併發寄信互相覆寫 JavaMail 設定。
      */
-    private static JavaMailSenderImpl senderForAttempt(JavaMailSenderImpl configured, long remainingMs) {
+    private static JavaMailSenderImpl senderForAttempt(
+            JavaMailSenderImpl configured, long remainingMs, long deadlineNanos) {
         if (remainingMs == Long.MAX_VALUE) {
             return configured;
         }
@@ -199,6 +219,8 @@ public class MailServiceImpl implements MailService {
         capTimeout(properties, "mail.smtp.connectiontimeout", limit);
         capTimeout(properties, "mail.smtp.timeout", limit);
         capTimeout(properties, "mail.smtp.writetimeout", limit);
+        properties.put("mail.smtp.socketFactory", new DeadlineSocketFactory(deadlineNanos));
+        properties.put("mail.smtp.socketFactory.fallback", false);
         sender.setJavaMailProperties(properties);
         return sender;
     }
@@ -212,6 +234,45 @@ public class MailServiceImpl implements MailService {
             value = limit;
         }
         properties.put(key, Math.max(1, Math.min(value, limit)));
+    }
+
+    /**
+     * 在獨立 daemon 執行緒執行單次寄送，讓呼叫端可對整個 SMTP 對話套用剩餘截止時間。
+     * 底層 socket timeout 仍會同步縮限，確保取消後的 JavaMail 工作可在有限時間內結束。
+     */
+    private static void sendWithinDeadline(
+            MailSendOperation operation, JavaMailSenderImpl sender, long remainingNanos) throws Exception {
+        if (remainingNanos == Long.MAX_VALUE) {
+            operation.send(sender);
+            return;
+        }
+
+        ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(task, "mail-failover-deadline");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Future<?> future = executor.submit(() -> {
+            operation.send(sender);
+            return null;
+        });
+        try {
+            future.get(remainingNanos, TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new OverallTimeoutException();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception exception) {
+                throw exception;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(cause);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     /**
@@ -237,6 +298,7 @@ public class MailServiceImpl implements MailService {
 
         int maxAttempts = Math.min(mailPropertyConfig.getFailover().getMaxAttempts(), currentCandidates.size());
         long overallTimeoutMs = mailPropertyConfig.getFailover().getOverallTimeout();
+        long overallTimeoutNanos = overallTimeoutMs > 0 ? TimeUnit.MILLISECONDS.toNanos(overallTimeoutMs) : Long.MAX_VALUE;
         long startedNanos = System.nanoTime();
 
         List<String> failureSummaries = new ArrayList<>();
@@ -244,16 +306,37 @@ public class MailServiceImpl implements MailService {
         int attempted = 0;
 
         for (MailServerCandidate candidate : currentCandidates) {
-            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
-            long remainingMs = overallTimeoutMs > 0 ? overallTimeoutMs - elapsedMs : Long.MAX_VALUE;
-            if (attempted >= maxAttempts || remainingMs <= 0) {
+            long elapsedNanos = System.nanoTime() - startedNanos;
+            long remainingNanos = overallTimeoutNanos == Long.MAX_VALUE
+                    ? Long.MAX_VALUE
+                    : overallTimeoutNanos - elapsedNanos;
+            if (attempted >= maxAttempts || remainingNanos <= 0) {
                 break;
             }
             attempted++;
+            boolean deadlineReached = false;
             try {
-                operation.send(senderForAttempt(candidate.sender(), remainingMs));
+                long remainingMs = remainingNanos == Long.MAX_VALUE
+                        ? Long.MAX_VALUE
+                        : Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+                sendWithinDeadline(
+                        operation,
+                        senderForAttempt(candidate.sender(), remainingMs, System.nanoTime() + remainingNanos),
+                        remainingNanos);
                 log.info("郵件發送成功（{}），使用伺服器：{}", operationName, candidate.label());
                 return;
+            } catch (OverallTimeoutException e) {
+                deadlineReached = true;
+                String reason = safeReason(e);
+                log.warn("郵件發送超過整體時間上限（{}），伺服器：{}", operationName, candidate.label());
+                failureSummaries.add(candidate.label() + " - " + reason);
+                failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                deadlineReached = true;
+                String reason = safeReason(e);
+                failureSummaries.add(candidate.label() + " - " + reason);
+                failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
             } catch (Exception e) {
                 String reason = safeReason(e);
                 log.warn(
@@ -264,6 +347,9 @@ public class MailServiceImpl implements MailService {
                 failureSummaries.add(candidate.label() + " - " + reason);
                 // 不保留原始 cause/message，避免 SMTP 伺服器把密碼回顯進例外鏈。
                 failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
+            }
+            if (deadlineReached) {
+                break;
             }
         }
 
@@ -454,6 +540,69 @@ public class MailServiceImpl implements MailService {
      * @param sender 已完成設定、可直接用於發送的 {@link JavaMailSenderImpl}
      */
     private record MailServerCandidate(String label, JavaMailSenderImpl sender) {}
+
+    private static final class OverallTimeoutException extends Exception {}
+
+    /** 建立一般 TCP socket，並在本次寄送的絕對截止時間關閉它。 */
+    private static final class DeadlineSocketFactory extends SocketFactory {
+
+        private final long deadlineNanos;
+
+        private DeadlineSocketFactory(long deadlineNanos) {
+            this.deadlineNanos = deadlineNanos;
+        }
+
+        @Override
+        public Socket createSocket() throws IOException {
+            return guard(new Socket());
+        }
+
+        @Override
+        public Socket createSocket(String host, int port) throws IOException {
+            Socket socket = guard(new Socket());
+            socket.connect(new InetSocketAddress(host, port));
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localAddress, int localPort)
+                throws IOException {
+            Socket socket = guard(new Socket());
+            socket.bind(new InetSocketAddress(localAddress, localPort));
+            socket.connect(new InetSocketAddress(host, port));
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port) throws IOException {
+            Socket socket = guard(new Socket());
+            socket.connect(new InetSocketAddress(host, port));
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort)
+                throws IOException {
+            Socket socket = guard(new Socket());
+            socket.bind(new InetSocketAddress(localAddress, localPort));
+            socket.connect(new InetSocketAddress(address, port));
+            return socket;
+        }
+
+        private Socket guard(Socket socket) {
+            long delayNanos = Math.max(0, deadlineNanos - System.nanoTime());
+            DEADLINE_SOCKET_CLOSER.schedule(() -> closeQuietly(socket), delayNanos, TimeUnit.NANOSECONDS);
+            return socket;
+        }
+
+        private static void closeQuietly(Socket socket) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+                // 截止關閉採 best effort；socket 已關閉時不需另外處理。
+            }
+        }
+    }
 
     /**
      * 單次發送嘗試的操作介面，由呼叫端（各發送方法）以 lambda 提供，

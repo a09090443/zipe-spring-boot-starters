@@ -105,6 +105,42 @@ class MailServiceFailoverTest {
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
+    /** REQ-003：attachedSend 的所有 SMTP 都失敗時，也必須回報完整的彙整例外。 */
+    @Test
+    void attachedSend_allServersDown_throwsAggregatedFailoverException(@TempDir Path tempDir) throws Exception {
+        MailServiceImpl service = allServersDownService();
+        Path attachment = tempDir.resolve("all-down-attachment.txt");
+        Files.writeString(attachment, "all-down", StandardCharsets.UTF_8);
+        Mail mail = plainTextMail("all-down-attached");
+        mail.setAttachments(List.of(attachment.toFile()));
+
+        assertThatThrownBy(() -> service.attachedSend(mail))
+                .isInstanceOf(MailFailoverException.class)
+                .hasMessageContaining("attachedSend")
+                .hasMessageContaining("primary")
+                .hasMessageContaining("secondary");
+        assertThat(greenMail.getReceivedMessages()).isEmpty();
+    }
+
+    /** REQ-003：sendBatchMailWithFile 的所有 SMTP 都失敗時，也必須回報完整的彙整例外。 */
+    @Test
+    void sendBatchMailWithFile_allServersDown_throwsAggregatedFailoverException(@TempDir Path tempDir)
+            throws Exception {
+        MailServiceImpl service = allServersDownService();
+        Path attachment = tempDir.resolve("all-down-batch.txt");
+        Files.writeString(attachment, "all-down-batch", StandardCharsets.UTF_8);
+        Mail mail = htmlMail("all-down-batch");
+        mail.setMailTo(new String[] {"b1@test.local", "b2@test.local"});
+        mail.setAttachments(List.of(attachment.toFile()));
+
+        assertThatThrownBy(() -> service.sendBatchMailWithFile(mail))
+                .isInstanceOf(MailFailoverException.class)
+                .hasMessageContaining("sendBatchMailWithFile")
+                .hasMessageContaining("primary")
+                .hasMessageContaining("secondary");
+        assertThat(greenMail.getReceivedMessages()).isEmpty();
+    }
+
     /** SC-05：sendEmail 第一組失敗、第二組成功時仍不拋出例外（維持既有不外拋行為），備援組實際收信。 */
     @Test
     void sendEmail_firstServerDown_fallsBackToSecond_stillNoException() throws Exception {
@@ -199,6 +235,13 @@ class MailServiceFailoverTest {
             assertThat(textContent(message)).contains("<p>SC-09-batch</p>");
             assertAttachment(message, "sc09-attachment.txt", "sc09-content");
         }
+    }
+
+    private static MailServiceImpl allServersDownService() {
+        MailPropertyConfig cfg = config(unreachableServer("primary", 1), unreachableServer("secondary", 2));
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
+        return service;
     }
 
     private static void assertAttachment(MimeMessage message, String expectedName, String expectedContent)
