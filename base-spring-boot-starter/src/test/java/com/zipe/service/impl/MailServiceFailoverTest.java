@@ -105,6 +105,21 @@ class MailServiceFailoverTest {
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
+    /** SC-04：simpleMailSend 的所有 SMTP 都失敗時，須彙整每一組識別與失敗原因。 */
+    @Test
+    void simpleMailSend_allServersDown_throwsAggregatedFailoverException() {
+        MailServiceImpl service = allServersDownService();
+
+        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-04-simple")))
+                .isInstanceOf(MailFailoverException.class)
+                .hasMessageContaining("simpleMailSend")
+                .hasMessageContaining("primary")
+                .hasMessageContaining("secondary")
+                .hasMessageContaining("MailSendException")
+                .satisfies(error -> assertThat(error.getSuppressed()).hasSize(2));
+        assertThat(greenMail.getReceivedMessages()).isEmpty();
+    }
+
     /** REQ-003：attachedSend 的所有 SMTP 都失敗時，也必須回報完整的彙整例外。 */
     @Test
     void attachedSend_allServersDown_throwsAggregatedFailoverException(@TempDir Path tempDir) throws Exception {
