@@ -34,6 +34,7 @@ class MailServersBindingTest {
                     "mail.servers[1].pa55word=cHdCMTIz",
                     "mail.servers[1].smtp-auth-enable=true",
                     "mail.servers[1].smtp-start-tls-enable=true",
+                    "mail.servers[1].transport-protocol=smtps",
                     "mail.servers[1].encrypt-enable=true");
 
     /** SC-01：多組 SMTP 設定可正確繫結載入，清單順序即為優先序。 */
@@ -62,6 +63,7 @@ class MailServersBindingTest {
             assertThat(backup.getPa55word()).isEqualTo("cHdCMTIz");
             assertThat(backup.getSmtpAuthEnable()).isTrue();
             assertThat(backup.getSmtpStartTlsEnable()).isTrue();
+            assertThat(backup.getTransportProtocol()).isEqualTo("smtps");
             assertThat(backup.getEncryptEnable()).isTrue();
 
             // 清單順序即優先序：索引 0 為 primary、索引 1 為 backup

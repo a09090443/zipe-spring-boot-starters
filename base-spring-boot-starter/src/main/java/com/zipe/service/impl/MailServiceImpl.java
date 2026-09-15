@@ -36,6 +36,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -201,6 +202,15 @@ public class MailServiceImpl implements MailService {
     /**
      * 複製候選 sender，並把三種底層 socket 逾時縮到本次剩餘的整體時間內。
      * 不修改共用 sender，避免併發寄信互相覆寫 JavaMail 設定。
+     * <p>
+     * 截止機制以「委派」方式套用：實際連線仍依原設定的 {@code mail.smtp.socketFactory.class}
+     * （例如隱式 TLS 用的 {@link javax.net.ssl.SSLSocketFactory}）建立與（若為 SSL）完成 handshake，
+     * {@link DeadlineSocketFactory} 只另外掛上到期關閉排程，不得以一般 TCP socket 取代委派工廠應建立的
+     * SSL socket，否則隱式 TLS（如連線至 465 埠）會在寄送階段以明文對談失敗。JavaMail 的
+     * {@code SocketFetcher} 對「提供 {@code mail.smtp.socketFactory} 實例」的用法只會呼叫無參數版
+     * {@code createSocket()} 並自行完成後續連線，因此連線目標（host/port）須隨建構子一併提供，
+     * 讓委派工廠能在無參數版本內就主動連線並完成 handshake，而非等待呼叫端另行連線。
+     * </p>
      */
     private static JavaMailSenderImpl senderForAttempt(
             JavaMailSenderImpl configured, long remainingMs, long deadlineNanos) {
@@ -219,10 +229,43 @@ public class MailServiceImpl implements MailService {
         capTimeout(properties, "mail.smtp.connectiontimeout", limit);
         capTimeout(properties, "mail.smtp.timeout", limit);
         capTimeout(properties, "mail.smtp.writetimeout", limit);
-        properties.put("mail.smtp.socketFactory", new DeadlineSocketFactory(deadlineNanos));
-        properties.put("mail.smtp.socketFactory.fallback", false);
+        SocketFactory delegate =
+                resolveDelegateSocketFactory((String) properties.get("mail.smtp.socketFactory.class"));
+        boolean fallbackToPlainSocket = !"false"
+                .equalsIgnoreCase(String.valueOf(properties.getOrDefault("mail.smtp.socketFactory.fallback", "true")));
+        int connectTimeoutMillis = (int) properties.get("mail.smtp.connectiontimeout");
+        properties.put(
+                "mail.smtp.socketFactory",
+                new DeadlineSocketFactory(
+                        deadlineNanos,
+                        delegate,
+                        fallbackToPlainSocket,
+                        connectTimeoutMillis,
+                        configured.getHost(),
+                        configured.getPort()));
         sender.setJavaMailProperties(properties);
         return sender;
+    }
+
+    /**
+     * 依原設定的 {@code mail.smtp.socketFactory.class} 解析實際負責建立 socket 的委派工廠，
+     * 藉此讓截止機制不改變原本的 TLS 語意（例如隱式 TLS 仍取得 SSL socket）。
+     * 無法解析時退回一般 {@link SocketFactory}，等同於原本未指定 socketFactory.class 的行為。
+     */
+    private static SocketFactory resolveDelegateSocketFactory(String factoryClassName) {
+        if (StringUtils.isBlank(factoryClassName)) {
+            return SocketFactory.getDefault();
+        }
+        try {
+            Class<?> factoryClass = Class.forName(factoryClassName);
+            Object instance = factoryClass.getMethod("getDefault").invoke(null);
+            if (instance instanceof SocketFactory socketFactory) {
+                return socketFactory;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // 無法反射取得指定 factory 時退回一般 SocketFactory；連線建立仍受 fallback 開關保護。
+        }
+        return SocketFactory.getDefault();
     }
 
     private static void capTimeout(Properties properties, String key, int limit) {
@@ -327,7 +370,8 @@ public class MailServiceImpl implements MailService {
                 return;
             } catch (OverallTimeoutException e) {
                 deadlineReached = true;
-                String reason = safeReason(e);
+                // 整體逾時為本類別自行拋出、訊息不含外部伺服器回應，可直接明示原因不需經 safeReason 過濾。
+                String reason = "整體逾時（overall-timeout）已到期";
                 log.warn("郵件發送超過整體時間上限（{}），伺服器：{}", operationName, candidate.label());
                 failureSummaries.add(candidate.label() + " - " + reason);
                 failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
@@ -543,49 +587,103 @@ public class MailServiceImpl implements MailService {
 
     private static final class OverallTimeoutException extends Exception {}
 
-    /** 建立一般 TCP socket，並在本次寄送的絕對截止時間關閉它。 */
+    /**
+     * 建立 socket 時委派給原設定的 socket factory（保留其 TLS 語意，例如隱式 TLS 的
+     * {@link javax.net.ssl.SSLSocketFactory}），並在本次寄送的絕對截止時間關閉它。
+     * <p>
+     * 委派為 SSL socket 時，比照 JavaMail 內建 {@code SocketFetcher} 的既有機制，在連線後
+     * 立即以連線逾時為上限執行 {@code startHandshake()}：若對方並非 TLS 端點（例如僅支援
+     * STARTTLS 的明文 SMTP），handshake 會在逾時內失敗並可視 {@code fallbackToPlainSocket}
+     * 退回一般 TCP socket；若在此不主動 handshake，TLS 失敗會延後到實際收發 SMTP 對話時才發生，
+     * 屆時已無法退回，隱式 TLS 與明文 fallback 語意都會被破壞。
+     * </p>
+     */
     private static final class DeadlineSocketFactory extends SocketFactory {
 
         private final long deadlineNanos;
+        private final SocketFactory delegate;
+        private final boolean fallbackToPlainSocket;
+        private final int connectTimeoutMillis;
+        private final String targetHost;
+        private final int targetPort;
 
-        private DeadlineSocketFactory(long deadlineNanos) {
+        private DeadlineSocketFactory(
+                long deadlineNanos,
+                SocketFactory delegate,
+                boolean fallbackToPlainSocket,
+                int connectTimeoutMillis,
+                String targetHost,
+                int targetPort) {
             this.deadlineNanos = deadlineNanos;
+            this.delegate = delegate;
+            this.fallbackToPlainSocket = fallbackToPlainSocket;
+            this.connectTimeoutMillis = Math.max(1, connectTimeoutMillis);
+            this.targetHost = targetHost;
+            this.targetPort = targetPort;
         }
 
         @Override
         public Socket createSocket() throws IOException {
-            return guard(new Socket());
+            // Angus/JavaMail 的 SocketFetcher 對「以 mail.smtp.socketFactory 提供實例」的用法，
+            // 只會呼叫本無參數版本取得 socket，之後自行 connect()；因此連線與（若為 SSL）handshake
+            // 必須在此就緒完成並回傳「已連線」的 socket，才能沿用原本委派工廠的 TLS／fallback 語意。
+            return guard(newConnectedSocket(targetHost, targetPort, null, 0));
         }
 
         @Override
         public Socket createSocket(String host, int port) throws IOException {
-            Socket socket = guard(new Socket());
-            socket.connect(new InetSocketAddress(host, port));
-            return socket;
+            return guard(newConnectedSocket(host, port, null, 0));
         }
 
         @Override
         public Socket createSocket(String host, int port, InetAddress localAddress, int localPort)
                 throws IOException {
-            Socket socket = guard(new Socket());
-            socket.bind(new InetSocketAddress(localAddress, localPort));
-            socket.connect(new InetSocketAddress(host, port));
-            return socket;
+            return guard(newConnectedSocket(host, port, localAddress, localPort));
         }
 
         @Override
         public Socket createSocket(InetAddress host, int port) throws IOException {
-            Socket socket = guard(new Socket());
-            socket.connect(new InetSocketAddress(host, port));
-            return socket;
+            return guard(newConnectedSocket(host.getHostAddress(), port, null, 0));
         }
 
         @Override
         public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort)
                 throws IOException {
-            Socket socket = guard(new Socket());
-            socket.bind(new InetSocketAddress(localAddress, localPort));
-            socket.connect(new InetSocketAddress(address, port));
+            return guard(newConnectedSocket(address.getHostAddress(), port, localAddress, localPort));
+        }
+
+        private Socket newConnectedSocket(String host, int port, InetAddress localAddress, int localPort)
+                throws IOException {
+            try {
+                return connectAndHandshake(delegate.createSocket(), host, port, localAddress, localPort);
+            } catch (IOException e) {
+                if (!fallbackToPlainSocket) {
+                    throw e;
+                }
+                Socket socket = new Socket();
+                if (localAddress != null) {
+                    socket.bind(new InetSocketAddress(localAddress, localPort));
+                }
+                socket.connect(new InetSocketAddress(host, port), connectTimeoutMillis);
+                return socket;
+            }
+        }
+
+        private Socket connectAndHandshake(
+                Socket socket, String host, int port, InetAddress localAddress, int localPort) throws IOException {
+            if (localAddress != null) {
+                socket.bind(new InetSocketAddress(localAddress, localPort));
+            }
+            socket.connect(new InetSocketAddress(host, port), connectTimeoutMillis);
+            if (socket instanceof SSLSocket sslSocket) {
+                int previousTimeout = socket.getSoTimeout();
+                socket.setSoTimeout(connectTimeoutMillis);
+                try {
+                    sslSocket.startHandshake();
+                } finally {
+                    socket.setSoTimeout(previousTimeout);
+                }
+            }
             return socket;
         }
 

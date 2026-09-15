@@ -182,6 +182,10 @@ class MailServiceFailoverTest {
         assertThat(messages).hasSize(1);
         assertThat(messages[0].getSubject()).isEqualTo("SC-06-simple");
         assertThat(GreenMailUtil.getBody(messages[0])).contains("body-SC-06-simple");
+        assertThat(messages[0].getFrom()).extracting(Object::toString).containsExactly(mail.getMailFrom());
+        assertThat(messages[0].getAllRecipients())
+                .extracting(Object::toString)
+                .containsExactly(mail.getMailTo());
     }
 
     /** SC-07：attachedSend 第一組失敗、第二組成功時，備援組收到之信件含正確附件。 */
