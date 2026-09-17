@@ -26,6 +26,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -36,6 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.net.SocketFactory;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -139,6 +141,13 @@ public class MailServiceImpl implements MailService {
      * 逾時（連線／讀取／寫入）與除錯開關為全域設定，套用至每一組伺服器；
      * 認證、TLS、通訊協定與（若啟用）Base64 密碼解碼則採用該組各自的設定。
      * </p>
+     * <p>
+     * JavaMail／Angus 依通訊協定名稱決定讀取哪組屬性前綴（例如 {@code transport-protocol=smtps}
+     * 讀取 {@code mail.smtps.*}，而非 {@code mail.smtp.*}）。逾時三鍵與
+     * {@code socketFactory.class} 因此對 {@code mail.smtp.*} 與該組實際協定前綴
+     * （見 {@link #protocolPrefix(String)}）雙寫，使非預設協定（如 smtps）的逾時設定也能真正生效，
+     * 且不影響既有 smtp 組別的屬性鍵。
+     * </p>
      *
      * @param server 單組 SMTP 伺服器設定
      * @return 已完成設定、尚未測試連線的 {@link JavaMailSenderImpl}
@@ -160,9 +169,10 @@ public class MailServiceImpl implements MailService {
             sender.setPassword(mailPassword);
         }
 
+        String protocolPrefix = protocolPrefix(server.getTransportProtocol());
+
         // 加入 TLS 加密傳輸與 SSL Socket 認證機制
         javaMailProperties.put("mail.smtp.starttls.enable", server.getSmtpStartTlsEnable());
-        javaMailProperties.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
         javaMailProperties.put("mail.imaps.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
 
         javaMailProperties.put("mail.debug", mailPropertyConfig.getDebugEnable());
@@ -170,11 +180,33 @@ public class MailServiceImpl implements MailService {
         sender.setPort(Integer.parseInt(server.getPort()));
 
         // 連線逾時、讀取逾時與寫入逾時，避免 SMTP 連線無限期阻塞（全域設定，套用至每一組）
-        javaMailProperties.put("mail.smtp.connectiontimeout", mailPropertyConfig.getConnectionTimeout());
-        javaMailProperties.put("mail.smtp.timeout", mailPropertyConfig.getReadTimeout());
-        javaMailProperties.put("mail.smtp.writetimeout", mailPropertyConfig.getWriteTimeout());
+        putForProtocol(javaMailProperties, protocolPrefix, "connectiontimeout", mailPropertyConfig.getConnectionTimeout());
+        putForProtocol(javaMailProperties, protocolPrefix, "timeout", mailPropertyConfig.getReadTimeout());
+        putForProtocol(javaMailProperties, protocolPrefix, "writetimeout", mailPropertyConfig.getWriteTimeout());
+        putForProtocol(javaMailProperties, protocolPrefix, "socketFactory.class", "javax.net.ssl.SSLSocketFactory");
         sender.setJavaMailProperties(javaMailProperties);
         return sender;
+    }
+
+    /**
+     * 依 {@code transport-protocol} 正規化推導 JavaMail 屬性前綴（trim、轉小寫），未設定或空白時
+     * 退回 {@code smtp}，與 {@link MailServerProperty#getTransportProtocol()} 的預設值一致。
+     */
+    private static String protocolPrefix(String transportProtocol) {
+        String trimmed = StringUtils.trimToNull(transportProtocol);
+        return trimmed == null ? "smtp" : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 將屬性同時寫入 {@code mail.smtp.<key>} 與該組實際協定前綴的 {@code mail.<protocolPrefix>.<key>}
+     * （協定為 smtp 時兩者相同，僅寫入一次），使非預設協定（如 smtps）也能讀到相同設定值，
+     * 且不移除既有 smtp 屬性鍵。
+     */
+    private static void putForProtocol(Properties properties, String protocolPrefix, String key, Object value) {
+        properties.put("mail.smtp." + key, value);
+        if (!"smtp".equals(protocolPrefix)) {
+            properties.put("mail." + protocolPrefix + "." + key, value);
+        }
     }
 
     /**
@@ -211,6 +243,14 @@ public class MailServiceImpl implements MailService {
      * {@code createSocket()} 並自行完成後續連線，因此連線目標（host/port）須隨建構子一併提供，
      * 讓委派工廠能在無參數版本內就主動連線並完成 handshake，而非等待呼叫端另行連線。
      * </p>
+     * <p>
+     * 縮限與截止工廠注入同樣依 {@link #protocolPrefix(String)} 對該組實際協定前綴進行（smtp 時
+     * 僅有 {@code mail.smtp.*}，不重複寫入）。協定為隱式 TLS（{@code smtps}）時，截止工廠額外注入
+     * {@code mail.smtps.ssl.socketFactory}——JavaMail／Angus 對「協定本身即為 SSL」的連線改讀此鍵
+     * 取得自訂 socket factory，不同於 STARTTLS 情境讀取的 {@code mail.<prefix>.socketFactory}；
+     * 且隱式 TLS 不得如 STARTTLS 情境般退回明文 socket，故 {@code fallbackToPlainSocket} 強制為
+     * {@code false}，避免委派失敗時誤判為明文連線成功。
+     * </p>
      */
     private static JavaMailSenderImpl senderForAttempt(
             JavaMailSenderImpl configured, long remainingMs, long deadlineNanos) {
@@ -226,23 +266,37 @@ public class MailServiceImpl implements MailService {
         sender.setPassword(configured.getPassword());
         Properties properties = new Properties();
         properties.putAll(configured.getJavaMailProperties());
+
+        String protocolPrefix = protocolPrefix(configured.getProtocol());
+        boolean implicitSsl = "smtps".equals(protocolPrefix);
+
         capTimeout(properties, "mail.smtp.connectiontimeout", limit);
         capTimeout(properties, "mail.smtp.timeout", limit);
         capTimeout(properties, "mail.smtp.writetimeout", limit);
-        SocketFactory delegate =
-                resolveDelegateSocketFactory((String) properties.get("mail.smtp.socketFactory.class"));
-        boolean fallbackToPlainSocket = !"false"
-                .equalsIgnoreCase(String.valueOf(properties.getOrDefault("mail.smtp.socketFactory.fallback", "true")));
-        int connectTimeoutMillis = (int) properties.get("mail.smtp.connectiontimeout");
-        properties.put(
-                "mail.smtp.socketFactory",
-                new DeadlineSocketFactory(
-                        deadlineNanos,
-                        delegate,
-                        fallbackToPlainSocket,
-                        connectTimeoutMillis,
-                        configured.getHost(),
-                        configured.getPort()));
+        if (!"smtp".equals(protocolPrefix)) {
+            capTimeout(properties, "mail." + protocolPrefix + ".connectiontimeout", limit);
+            capTimeout(properties, "mail." + protocolPrefix + ".timeout", limit);
+            capTimeout(properties, "mail." + protocolPrefix + ".writetimeout", limit);
+        }
+
+        SocketFactory delegate = resolveDelegateSocketFactory(
+                (String) properties.get("mail." + protocolPrefix + ".socketFactory.class"));
+        // 隱式 TLS（smtps）不得退回明文 socket，其餘協定維持既有可設定的 fallback 開關
+        boolean fallbackToPlainSocket = !implicitSsl
+                && !"false"
+                        .equalsIgnoreCase(String.valueOf(properties.getOrDefault("mail.smtp.socketFactory.fallback", "true")));
+        int connectTimeoutMillis = (int) properties.get("mail." + protocolPrefix + ".connectiontimeout");
+        DeadlineSocketFactory deadlineSocketFactory = new DeadlineSocketFactory(
+                deadlineNanos,
+                delegate,
+                fallbackToPlainSocket,
+                connectTimeoutMillis,
+                configured.getHost(),
+                configured.getPort());
+        properties.put("mail." + protocolPrefix + ".socketFactory", deadlineSocketFactory);
+        if (implicitSsl) {
+            properties.put("mail." + protocolPrefix + ".ssl.socketFactory", deadlineSocketFactory);
+        }
         sender.setJavaMailProperties(properties);
         return sender;
     }
@@ -676,12 +730,25 @@ public class MailServiceImpl implements MailService {
             }
             socket.connect(new InetSocketAddress(host, port), connectTimeoutMillis);
             if (socket instanceof SSLSocket sslSocket) {
+                // 本工廠在 JavaMail／Angus 之前就主動完成 handshake，若不在此設定 endpoint
+                // identification algorithm，JavaMail 內建的 checkserveridentity 主機名稱驗證
+                // 即形同被繞過；比照 JSSE 標準 HTTPS 主機名稱比對規則於 handshake 當下完成驗證。
+                SSLParameters sslParameters = sslSocket.getSSLParameters();
+                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                sslSocket.setSSLParameters(sslParameters);
                 int previousTimeout = socket.getSoTimeout();
                 socket.setSoTimeout(connectTimeoutMillis);
                 try {
                     sslSocket.startHandshake();
                 } finally {
-                    socket.setSoTimeout(previousTimeout);
+                    // handshake 失敗（例如主機名稱驗證不符）時，JSSE 可能已自行關閉底層 socket；
+                    // 此時還原逾時值必然拋出 SocketException，若不吞掉會蓋掉 try 區塊真正的失敗原因，
+                    // 讓呼叫端誤以為是逾時還原失敗而非實際的憑證／交握錯誤。
+                    try {
+                        socket.setSoTimeout(previousTimeout);
+                    } catch (IOException ignored) {
+                        // 忽略；socket 已因 handshake 失敗而關閉，還原逾時已無意義
+                    }
                 }
             }
             return socket;
