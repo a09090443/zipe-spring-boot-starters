@@ -162,6 +162,8 @@ base-spring-boot-starter/
 - `MailServerCandidate`（`record label, sender`）：`setInitData()` 依 `mail.servers`（或合成的單組）建立的候選清單，儲存於 `volatile List<MailServerCandidate> candidates` 欄位。清單本身不可變（`List.copyOf`），且不含輪詢游標等共享可變狀態，多執行緒併發呼叫不會互相干擾（見 [7.1 執行緒安全](#71-執行緒安全問題)）。
 - `MailSendOperation`：`@FunctionalInterface`，由各發送方法以 lambda 提供「如何用一個 `JavaMailSenderImpl` 組裝並送出郵件」；**訊息組裝邏輯整段搬進 lambda**，確保每次嘗試都以當次候選伺服器重新建立 `MimeMessage`，而非先組好訊息再換 sender。
 - 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限）限制。整體逾時為單次發送呼叫從頭到尾的絕對截止時間：每次嘗試會將底層 socket 逾時縮限為剩餘時間、並以獨立 daemon 執行緒執行該次 SMTP 對話，截止時間一到即強制關閉該次連線的 socket、取消該次嘗試，不會讓單一組別的連線卡住拖過整體上限。
+- **協定屬性前綴（`protocolPrefix()`）：** JavaMail／Angus 依通訊協定名稱決定讀取哪組屬性前綴——`transport-protocol: smtp` 讀 `mail.smtp.*`，`smtps`（隱式 TLS）讀 `mail.smtps.*`。`buildSender()` 與 `senderForAttempt()` 因此依該組實際協定，將連線／讀取／寫入逾時三鍵與 `socketFactory.class` 同時寫入 `mail.smtp.*` 與該組協定前綴（協定為 `smtp` 時兩者相同、僅寫入一次），使 `smtps` 組別也能讀到相同的逾時設定，不需使用者額外設定任何新屬性。
+- **截止 socket 工廠（`DeadlineSocketFactory`）：** 實際連線委派給原設定的 `socketFactory.class`（保留其 TLS 語意），本身只另外掛上到期關閉排程。委派為 SSL socket 時會主動 `startHandshake()` 並以 `SSLParameters.setEndpointIdentificationAlgorithm("HTTPS")` 執行標準主機名稱驗證（避免自行接管 handshake 而繞過驗證）；隱式 TLS（`smtps`）額外注入 `mail.smtps.ssl.socketFactory`，且**不得**退回明文 socket（`fallbackToPlainSocket` 強制為 `false`），確保逾時機制不會犧牲既有的 TLS 安全保證。
 - 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外僅記錄日誌，維持既有「不外拋」行為。
 - 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因）、最終成功記錄 INFO（含成功組別）、全部失敗記錄 ERROR（含彙整清單）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
 
@@ -933,11 +935,19 @@ _param=merge_    // 合併儲存格
 | `mail.encrypt-enable` | Boolean | `false` | 設為 `true` 時，`pa55word` 以 Base64 解碼後使用 | 否 |
 | `mail.debug-enable` | Boolean | `false` | 啟用 JavaMail 除錯日誌 | 否 |
 | `mail.servers` | `List<MailServerProperty>` | 空清單 | 多組 SMTP 伺服器（見下節）；設定後以此清單為準，上方單組欄位不再生效 | 否 |
-| `mail.connection-timeout` | Integer（毫秒） | `5000` | SMTP 連線逾時，套用至每一組伺服器 | 否 |
-| `mail.read-timeout` | Integer（毫秒） | `3000` | SMTP 讀取逾時，套用至每一組伺服器 | 否 |
-| `mail.write-timeout` | Integer（毫秒） | `5000` | SMTP 寫入逾時，套用至每一組伺服器 | 否 |
+| `mail.connection-timeout` | Integer（毫秒） | `5000` | SMTP 連線逾時，套用至每一組伺服器（含 `transport-protocol: smtps`，見下方說明） | 否 |
+| `mail.read-timeout` | Integer（毫秒） | `3000` | SMTP 讀取逾時，套用至每一組伺服器（含 `transport-protocol: smtps`） | 否 |
+| `mail.write-timeout` | Integer（毫秒） | `5000` | SMTP 寫入逾時，套用至每一組伺服器（含 `transport-protocol: smtps`） | 否 |
 | `mail.failover.max-attempts` | Integer | `2147483647`（即不額外限制） | 單次發送最多嘗試的伺服器組數上限；實際上限為此值與已設定組數的較小者 | 否 |
-| `mail.failover.overall-timeout` | Long（毫秒） | `30000` | 單次發送允許的整體切換時間上限；`0` 或負值表示不限制 | 否 |
+| `mail.failover.overall-timeout` | Long（毫秒） | `30000` | 單次發送允許的整體切換時間上限；`0` 或負值表示不限制；`smtp` 與 `smtps` 兩種協定皆生效 | 否 |
+
+:::info 連線／讀取／寫入逾時對 smtp 與 smtps 皆生效
+三種底層逾時與整體切換時間上限對 `transport-protocol: smtp`（含 STARTTLS）與 `transport-protocol: smtps`（隱式 TLS，例如 465 埠）兩種協定皆會生效，不需為 smtps 額外設定。內部依該組實際協定將逾時值同時寫入對應的 JavaMail 屬性前綴，使用者只需維持既有 `mail.connection-timeout` 等單一設定鍵，不需依協定分別設定。
+:::
+
+:::warning smtps（隱式 TLS）強制驗證伺服器憑證主機名稱
+`transport-protocol: smtps` 的連線由內部截止機制接手建立與交握，交握時會依標準 HTTPS 規則驗證伺服器憑證的主機名稱（Subject Alternative Name／Common Name）是否與 `host` 設定相符，避免整體逾時機制在不知情下削弱既有的 TLS 安全保證。若目標 SMTP 伺服器使用自簽憑證或憑證未涵蓋設定的主機名稱，交握將會失敗並依容錯機制切換至下一組；請確認 `host` 與憑證上的主機名稱一致（建議使用網域名稱而非 IP），或改用信任鏈完整的正式憑證。
+:::
 
 \* 標示「否 *」者：`mail.servers` 未設定時，這幾個欄位仍為建立唯一一組 SMTP 所必須，僅是不再透過 `mail.servers` 表達。
 
@@ -969,7 +979,7 @@ _param=merge_    // 合併儲存格
 | `mail.servers[i].pa55word` | String | — | 該組密碼 |
 | `mail.servers[i].smtp-auth-enable` | Boolean | `true` | 該組是否啟用 SMTP 認證 |
 | `mail.servers[i].smtp-start-tls-enable` | Boolean | `false` | 該組是否啟用 STARTTLS |
-| `mail.servers[i].transport-protocol` | String | `"smtp"` | 該組傳輸協定 |
+| `mail.servers[i].transport-protocol` | String | `"smtp"` | 該組傳輸協定，可設為 `smtp`（含 STARTTLS）或 `smtps`（隱式 TLS，例如 465 埠）；同一清單可混用兩種協定，逾時與整體截止對兩者皆生效 |
 | `mail.servers[i].encrypt-enable` | Boolean | `false` | 該組密碼是否為 Base64 編碼 |
 
 :::info 未設定 mail.servers 時的向後相容行為
@@ -1116,13 +1126,13 @@ mail:
 
 | SMTP 服務商 | 連接埠 | TLS 設定 |
 |---|---|---|
-| Gmail | `587` | `smtp-start-tls-enable: true` |
-| Gmail（SSL） | `465` | 需額外設定 SSL factory |
-| Outlook / Office 365 | `587` | `smtp-start-tls-enable: true` |
+| Gmail | `587` | `transport-protocol: smtp`、`smtp-start-tls-enable: true` |
+| Gmail（SSL） | `465` | `transport-protocol: smtps`，無需額外設定 |
+| Outlook / Office 365 | `587` | `transport-protocol: smtp`、`smtp-start-tls-enable: true` |
 | 一般企業 SMTP（無加密） | `25` | 均不啟用 |
 
 :::warning 連接埠與加密
-不同 SMTP 服務商使用的連接埠不同：`25`（未加密）、`587`（STARTTLS）、`465`（SSL）。請依服務商說明設定，並務必開啟 `smtp-start-tls-enable: true` 以保護傳輸安全。
+不同 SMTP 服務商使用的連接埠不同：`25`（未加密）、`587`（STARTTLS）、`465`（隱式 TLS）。請依服務商說明設定：`587` 埠搭配 `transport-protocol: smtp` 與 `smtp-start-tls-enable: true`；`465` 埠搭配 `transport-protocol: smtps`（連線逾時、整體截止與憑證主機名稱驗證皆已內建生效，不需額外設定 SSL factory）。
 :::
 
 ---

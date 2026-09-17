@@ -161,6 +161,8 @@ base-spring-boot-starter/
 - `MailServerCandidate`（`record label, sender`）：`setInitData()` 依 `mail.servers`（或合成的單組）建立的候選清單，儲存於 `volatile List<MailServerCandidate> candidates` 欄位。清單本身不可變（`List.copyOf`），且不含輪詢游標等共享可變狀態，多執行緒併發呼叫不會互相干擾（見 [7.1 執行緒安全](#71-執行緒安全問題)）。
 - `MailSendOperation`：`@FunctionalInterface`，由各發送方法以 lambda 提供「如何用一個 `JavaMailSenderImpl` 組裝並送出郵件」；**訊息組裝邏輯整段搬進 lambda**，確保每次嘗試都以當次候選伺服器重新建立 `MimeMessage`，而非先組好訊息再換 sender。
 - 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限）限制。整體逾時為單次發送呼叫從頭到尾的絕對截止時間：每次嘗試會將底層 socket 逾時縮限為剩餘時間、並以獨立 daemon 執行緒執行該次 SMTP 對話，截止時間一到即強制關閉該次連線的 socket、取消該次嘗試，不會讓單一組別的連線卡住拖過整體上限。
+- **協定屬性前綴（`protocolPrefix()`）：** JavaMail／Angus 依通訊協定名稱決定讀取哪組屬性前綴——`transport-protocol: smtp` 讀 `mail.smtp.*`，`smtps`（隱式 TLS）讀 `mail.smtps.*`。`buildSender()` 與 `senderForAttempt()` 因此依該組實際協定，將連線／讀取／寫入逾時三鍵與 `socketFactory.class` 同時寫入 `mail.smtp.*` 與該組協定前綴（協定為 `smtp` 時兩者相同、僅寫入一次），使 `smtps` 組別也能讀到相同的逾時設定，不需使用者額外設定任何新屬性。
+- **截止 socket 工廠（`DeadlineSocketFactory`）：** 實際連線委派給原設定的 `socketFactory.class`（保留其 TLS 語意），本身只另外掛上到期關閉排程。委派為 SSL socket 時會主動 `startHandshake()` 並以 `SSLParameters.setEndpointIdentificationAlgorithm("HTTPS")` 執行標準主機名稱驗證（避免自行接管 handshake 而繞過驗證）；隱式 TLS（`smtps`）額外注入 `mail.smtps.ssl.socketFactory`，且**不得**退回明文 socket（`fallbackToPlainSocket` 強制為 `false`），確保逾時機制不會犧牲既有的 TLS 安全保證。
 - 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外僅記錄日誌，維持既有「不外拋」行為。
 - 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因）、最終成功記錄 INFO（含成功組別）、全部失敗記錄 ERROR（含彙整清單）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
 
