@@ -336,10 +336,15 @@ public class MailServiceImpl implements MailService {
     /**
      * 在獨立 daemon 執行緒執行單次寄送，讓呼叫端可對整個 SMTP 對話套用剩餘截止時間。
      * 底層 socket timeout 仍會同步縮限，確保取消後的 JavaMail 工作可在有限時間內結束。
+     * <p>
+     * {@code deadlineNanos} 為絕對時間點（{@link System#nanoTime()} 基準），實際等待逾時值
+     * 在呼叫 {@link Future#get(long, TimeUnit)} 前才即時重新計算，避免建立 sender／executor
+     * 期間耗費的時間未被計入剩餘預算，導致單次嘗試的實際牆鐘時間超出整體截止上限。
+     * </p>
      */
     private static void sendWithinDeadline(
-            MailSendOperation operation, JavaMailSenderImpl sender, long remainingNanos) throws Exception {
-        if (remainingNanos == Long.MAX_VALUE) {
+            MailSendOperation operation, JavaMailSenderImpl sender, long deadlineNanos) throws Exception {
+        if (deadlineNanos == Long.MAX_VALUE) {
             operation.send(sender);
             return;
         }
@@ -354,7 +359,8 @@ public class MailServiceImpl implements MailService {
             return null;
         });
         try {
-            future.get(remainingNanos, TimeUnit.NANOSECONDS);
+            long timeoutNanos = Math.max(0L, deadlineNanos - System.nanoTime());
+            future.get(timeoutNanos, TimeUnit.NANOSECONDS);
         } catch (TimeoutException e) {
             future.cancel(true);
             throw new OverallTimeoutException();
@@ -397,6 +403,8 @@ public class MailServiceImpl implements MailService {
         long overallTimeoutMs = mailPropertyConfig.getFailover().getOverallTimeout();
         long overallTimeoutNanos = overallTimeoutMs > 0 ? TimeUnit.MILLISECONDS.toNanos(overallTimeoutMs) : Long.MAX_VALUE;
         long startedNanos = System.nanoTime();
+        // 絕對截止時間點，各次嘗試皆以此為準即時重新計算剩餘預算，不使用迴圈起始時的過期快照。
+        long deadlineNanos = overallTimeoutNanos == Long.MAX_VALUE ? Long.MAX_VALUE : startedNanos + overallTimeoutNanos;
 
         List<String> failureSummaries = new ArrayList<>();
         List<Throwable> failureCauses = new ArrayList<>();
@@ -417,9 +425,7 @@ public class MailServiceImpl implements MailService {
                         ? Long.MAX_VALUE
                         : Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
                 sendWithinDeadline(
-                        operation,
-                        senderForAttempt(candidate.sender(), remainingMs, System.nanoTime() + remainingNanos),
-                        remainingNanos);
+                        operation, senderForAttempt(candidate.sender(), remainingMs, deadlineNanos), deadlineNanos);
                 log.info("郵件發送成功（{}），使用伺服器：{}", operationName, candidate.label());
                 return;
             } catch (OverallTimeoutException e) {
