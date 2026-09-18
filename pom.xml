@@ -289,6 +289,19 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- 所有子模組共用：測試執行設定。Mockito inline mock maker（Byte Buddy）在部分 JVM／執行環境下
+                 以 runtime self-attach 掛載 agent 會不穩定失敗（MockitoInitializationException:
+                 Could not self-attach to current VM），並非每次重現；加上 -Djdk.attach.allowAttachSelf=true
+                 讓 JVM 啟動時即允許自我附加，避免依賴不穩定的執行期自我附加路徑。
+                 以 @{argLine} 承接 jacoco-prepare-agent 設定的 argLine 屬性（delayed 屬性，執行期才展開），
+                 僅疊加旗標、不覆蓋 JaCoCo 探針，純測試啟動設定，未變更任何產品程式碼或行為。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
+            </plugin>
             <!-- 所有子模組共用：靜態格式 Sensor。採低風險規則（不做整段重排版），
                  只整理 import 順序、移除未使用 import、去尾端空白、補檔尾換行。
                  check 綁在 compile 階段，CI 的 mvn verify 會經過而擋下違規；
