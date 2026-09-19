@@ -87,6 +87,66 @@ class MailServiceFailoverTest {
         assertThat(messages[0].getSubject()).isEqualTo("SC-03-second");
     }
 
+    /**
+     * SC-004：mail.servers 非空時，扁平 mail.host 即使指向實際可連線的伺服器，也絕不能被當成候選
+     * 之一嘗試——扁平端點的實際連線數必須為 0，且發送仍依 servers 清單失敗結果回報。
+     */
+    @Test
+    void flatHostReachable_butServersConfigured_flatEndpointNeverContacted() throws Exception {
+        try (MailFailoverTestSupport.CountingTcpServer flatEndpoint = new MailFailoverTestSupport.CountingTcpServer()) {
+            MailPropertyConfig cfg = config(unreachableServer("primary", 1));
+            cfg.setHost("127.0.0.1");
+            cfg.setPort(String.valueOf(flatEndpoint.port()));
+            cfg.setUsername("shouldNotBeUsed");
+            cfg.setPa55word("shouldNotBeUsed");
+
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            try {
+                service.setInitData();
+            } catch (jakarta.mail.MessagingException ignored) {
+                // servers 清單中唯一一組不可用，仍保留候選清單供後續嘗試。
+            }
+
+            assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-004")))
+                    .isInstanceOf(MailFailoverException.class)
+                    .hasMessageContaining("primary");
+
+            flatEndpoint.waitBriefly(200);
+            assertThat(flatEndpoint.connectionCount()).isZero();
+        }
+    }
+
+    /**
+     * SC-005：三組皆可用時只嘗試第一組，第二、第三組完全不被連線；成功後不重複投遞給後續組別。
+     */
+    @Test
+    void allServersAvailable_onlyFirstIsContacted_othersRemainUntouched() throws Exception {
+        try (MailFailoverTestSupport.CountingTcpServer secondary = new MailFailoverTestSupport.CountingTcpServer();
+                MailFailoverTestSupport.CountingTcpServer tertiary = new MailFailoverTestSupport.CountingTcpServer()) {
+            MailPropertyConfig cfg = config(
+                    greenMailServer("primary", greenMail.getSmtp().getPort(), "backupUser", "backupPw"),
+                    MailFailoverTestSupport.server("secondary", "127.0.0.1", secondary.port(), "u", "p"),
+                    MailFailoverTestSupport.server("tertiary", "127.0.0.1", tertiary.port(), "u", "p"));
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            service.setInitData();
+            // setInitData() 依 REQ-007 會逐一測試每組連線（含 secondary／tertiary），
+            // 故只計數「實際發送」這一階段是否連線，避免把初始化階段的連線測試
+            // 誤判為發送階段不應發生的連線。
+            secondary.resetCount();
+            tertiary.resetCount();
+
+            service.simpleMailSend(plainTextMail("SC-005"));
+
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertThat(messages).hasSize(1);
+            assertThat(messages[0].getSubject()).isEqualTo("SC-005");
+
+            secondary.waitBriefly(200);
+            assertThat(secondary.connectionCount()).isZero();
+            assertThat(tertiary.connectionCount()).isZero();
+        }
+    }
+
     /** SC-04：所有已設定 SMTP 皆嘗試失敗時，不可靜默視為成功，須拋出含各組失敗原因摘要的例外。 */
     @Test
     void richContentSend_allServersDown_throwsAggregatedFailoverException() {
@@ -169,6 +229,36 @@ class MailServiceFailoverTest {
         assertThat(messages[0].getSubject()).isEqualTo("SC-05-sendEmail");
     }
 
+    /**
+     * SC-015：sendEmail 經備援組送達時，不只主旨，To、Cc 收件人與 HTML 內容皆須與原始 Mail 資料一致，
+     * 而非僅有信件數量與主旨層級的弱驗證。
+     */
+    @Test
+    void sendEmail_firstServerDown_fallsBackToSecond_deliversToAndCcAndHtmlContentIntact() throws Exception {
+        MailServiceImpl service = new MailServiceImpl(twoServerConfig());
+        service.setInitData();
+
+        Mail mail = htmlMail("SC-015-sendEmail");
+        mail.setMailTo(new String[] {"to-receiver@test.local"});
+        mail.setMailCc(new String[] {"cc-receiver@test.local"});
+
+        assertThatCode(() -> service.sendEmail(mail)).doesNotThrowAnyException();
+
+        // GreenMail 依收件者信箱各自儲存一份：To 與 Cc 各一封，皆帶有完整的 To／Cc 標頭與 HTML 內容。
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertThat(messages).hasSize(2);
+        for (MimeMessage message : messages) {
+            assertThat(message.getSubject()).isEqualTo("SC-015-sendEmail");
+            assertThat(message.getRecipients(jakarta.mail.Message.RecipientType.TO))
+                    .extracting(Object::toString)
+                    .containsExactly("to-receiver@test.local");
+            assertThat(message.getRecipients(jakarta.mail.Message.RecipientType.CC))
+                    .extracting(Object::toString)
+                    .containsExactly("cc-receiver@test.local");
+            assertThat(textContent(message)).contains("<p>SC-015-sendEmail</p>");
+        }
+    }
+
     /** SC-06：simpleMailSend 第一組失敗、第二組成功時，備援組收到與原內容一致的純文字信。 */
     @Test
     void simpleMailSend_firstServerDown_deliversPlainTextContentToBackup() throws Exception {
@@ -208,6 +298,37 @@ class MailServiceFailoverTest {
         assertAttachment(messages[0], "sc07-attachment.txt", "hello-attachment");
     }
 
+    /**
+     * SC-017：attachedSend 經備援組送達時，Unicode 檔名（非純 ASCII）與非文字二進位內容
+     * 皆須逐位元與來源一致，而非僅驗證純文字檔名與純文字內容的弱案例。
+     */
+    @Test
+    void attachedSend_firstServerDown_deliversUnicodeNamedBinaryAttachmentToBackup_byteForByte(@TempDir Path tempDir)
+            throws Exception {
+        MailServiceImpl service = new MailServiceImpl(twoServerConfig());
+        service.setInitData();
+
+        String unicodeFileName = "附件-日本語-😀.bin";
+        Path attachment = tempDir.resolve("sc17-binary-source.bin");
+        byte[] binaryContent = new byte[4096];
+        new java.util.Random(2024).nextBytes(binaryContent);
+        Files.write(attachment, binaryContent);
+
+        Mail mail = plainTextMail("SC-17-attached-unicode");
+        java.io.File renamedCopy = tempDir.resolve(unicodeFileName).toFile();
+        Files.copy(attachment, renamedCopy.toPath());
+        mail.setAttachments(List.of(renamedCopy));
+
+        assertThatCode(() -> service.attachedSend(mail)).doesNotThrowAnyException();
+
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertThat(messages).hasSize(1);
+        Part attachmentPart = findAttachment(messages[0], unicodeFileName);
+        assertThat(attachmentPart).as("Unicode 檔名附件 %s", unicodeFileName).isNotNull();
+        byte[] receivedBytes = attachmentPart.getInputStream().readAllBytes();
+        assertThat(receivedBytes).isEqualTo(binaryContent);
+    }
+
     /** SC-08：richContentSend 第一組失敗、第二組成功時，備援組收到之 HTML 內容與附件皆正確。 */
     @Test
     void richContentSend_firstServerDown_deliversHtmlAndAttachmentToBackup(@TempDir Path tempDir) throws Exception {
@@ -227,6 +348,44 @@ class MailServiceFailoverTest {
         assertThat(messages[0].getSubject()).isEqualTo("SC-08-rich");
         assertThat(textContent(messages[0])).contains("<p>SC-08-rich</p>");
         assertAttachment(messages[0], "sc08-attachment.txt", "sc08-content");
+    }
+
+    /**
+     * SC-018（部分）：richContentSend 經備援組送達時，HTML 內容中 {@code cid:} 參照文字與隨附的
+     * 二進位資源皆須位元正確送達。
+     *
+     * <p><b>已知缺口（非本次容錯切換範圍）</b>：{@link MailServiceImpl#richContentSend} 目前對
+     * {@code attachments} 一律呼叫 {@code MimeMessageHelper.addAttachment}，並未呼叫
+     * {@code addInline} 設定 Content-ID，因此 HTML 中的 {@code cid:} 參照實際上無法被信件用戶端
+     * 解析為內嵌圖片（僅會顯示為一般附件）。這是 {@code richContentSend} 既有（容錯切換之前即存在）
+     * 的行為缺口，而非本次多 SMTP 容錯切換引入的問題；{@code Mail} 模型也未區分「內嵌資源」與
+     * 「一般附件」，要修正需先決定兩者的 API 區分方式，屬需另行核准的產品設計取捨，
+     * 故本測試僅驗證現況下可驗證的部分（HTML 文字與附件位元正確性），不驗證真正的 Content-ID 解析。</p>
+     */
+    @Test
+    void richContentSend_firstServerDown_deliversHtmlCidReferenceAndBinaryResourceToBackup_byteForByte(
+            @TempDir Path tempDir) throws Exception {
+        MailServiceImpl service = new MailServiceImpl(twoServerConfig());
+        service.setInitData();
+
+        byte[] inlineImageBytes = new byte[512];
+        new java.util.Random(99).nextBytes(inlineImageBytes);
+        Path inlineImage = tempDir.resolve("inline-logo.png");
+        Files.write(inlineImage, inlineImageBytes);
+
+        Mail mail = plainTextMail("SC-018-inline");
+        mail.setContentType("text/html");
+        mail.setMailContent("<p>SC-018-inline</p><img src='cid:inline-logo.png'/>");
+        mail.setAttachments(List.of(inlineImage.toFile()));
+
+        assertThatCode(() -> service.richContentSend(mail)).doesNotThrowAnyException();
+
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertThat(messages).hasSize(1);
+        assertThat(textContent(messages[0])).contains("cid:inline-logo.png");
+        Part attachmentPart = findAttachment(messages[0], "inline-logo.png");
+        assertThat(attachmentPart).as("內嵌資源檔案 inline-logo.png").isNotNull();
+        assertThat(attachmentPart.getInputStream().readAllBytes()).isEqualTo(inlineImageBytes);
     }
 
     /** SC-09：sendBatchMailWithFile 第一組失敗、第二組成功時，多位收件人皆收到含附件的信。 */

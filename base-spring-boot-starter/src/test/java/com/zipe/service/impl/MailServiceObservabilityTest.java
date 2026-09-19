@@ -64,6 +64,33 @@ class MailServiceObservabilityTest {
         assertThat(messages).anyMatch(m -> m.contains("backup") && m.contains("成功"));
     }
 
+    /**
+     * SC-002：有設定 name 的伺服器組以 name 標示，未設定 name 的伺服器組精確退回
+     * {@code host:port} 標示，兩者於同一次失敗切換中須可同時分辨（正面與 counterexample 併存）。
+     */
+    @Test
+    void unnamedServer_fallsBackToHostPortLabel_whileNamedServerUsesName() throws Exception {
+        MailPropertyConfig cfg = config(unreachableServer("named-primary", 1), unreachableServer(null, 2));
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 兩組皆不可用，仍保留候選清單供後續發送嘗試。
+        }
+
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        Throwable failure = catchThrowable(() -> service.simpleMailSend(plainTextMail("SC-002")));
+
+        assertThat(failure).isInstanceOf(MailFailoverException.class);
+        assertThat(failure.getMessage()).contains("named-primary").contains("127.0.0.1:2");
+
+        String allLogText = appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.joining("\n"));
+        assertThat(allLogText).contains("named-primary").contains("127.0.0.1:2");
+    }
+
     /** SC-16：認證失敗情境下，全部日誌與例外訊息皆不含明文密碼字串，僅含 host、port 與錯誤類型。 */
     @Test
     void authenticationFailure_neverLeaksPlainPassword() {

@@ -72,6 +72,62 @@ class MailServersBindingTest {
         });
     }
 
+    private final ApplicationContextRunner threeServerContextRunner = new ApplicationContextRunner()
+            .withUserConfiguration(EnableMailPropertiesConfig.class)
+            .withPropertyValues(
+                    "mail.servers[0].name=primary",
+                    "mail.servers[0].host=127.0.0.1",
+                    "mail.servers[0].port=3025",
+                    "mail.servers[0].username=userA",
+                    "mail.servers[0].pa55word=pwA",
+                    "mail.servers[0].smtp-auth-enable=true",
+                    "mail.servers[0].smtp-start-tls-enable=false",
+                    "mail.servers[0].transport-protocol=smtp",
+                    "mail.servers[1].name=secondary",
+                    "mail.servers[1].host=127.0.0.2",
+                    "mail.servers[1].port=3026",
+                    "mail.servers[1].username=userB",
+                    "mail.servers[1].pa55word=cHdCMTIz",
+                    "mail.servers[1].smtp-auth-enable=true",
+                    "mail.servers[1].smtp-start-tls-enable=true",
+                    "mail.servers[1].transport-protocol=smtps",
+                    "mail.servers[1].encrypt-enable=true",
+                    "mail.servers[2].host=127.0.0.3",
+                    "mail.servers[2].port=3027");
+
+    /**
+     * SC-001：三組 mail.servers 依索引順序繫結，各組欄位彼此獨立（互不污染），
+     * 且第三組未設定的欄位（name、username、pa55word、encrypt-enable、smtp-auth-enable、
+     * smtp-start-tls-enable、transport-protocol）皆採用各自預設值而非承接第一、二組的值。
+     */
+    @Test
+    void bindsThreeServersInDeclaredOrder_withIndependentFieldsAndDefaults() {
+        threeServerContextRunner.run(context -> {
+            MailPropertyConfig config = context.getBean(MailPropertyConfig.class);
+            assertThat(config.getServers()).hasSize(3);
+
+            assertThat(config.getServers()).extracting(MailServerProperty::getName)
+                    .containsExactly("primary", "secondary", null);
+            assertThat(config.getServers()).extracting(MailServerProperty::getHost)
+                    .containsExactly("127.0.0.1", "127.0.0.2", "127.0.0.3");
+            assertThat(config.getServers()).extracting(MailServerProperty::getPort)
+                    .containsExactly("3025", "3026", "3027");
+
+            MailServerProperty third = config.getServers().get(2);
+            // 第三組未設定任何帳密／協定欄位，須為各自的預設值，不得承接第一、二組的設定
+            assertThat(third.getUsername()).isNull();
+            assertThat(third.getPa55word()).isNull();
+            assertThat(third.getEncryptEnable()).isFalse();
+            assertThat(third.getSmtpAuthEnable()).isTrue();
+            assertThat(third.getSmtpStartTlsEnable()).isFalse();
+            assertThat(third.getTransportProtocol()).isEqualTo("smtp");
+
+            // 三組彼此隔離：即使第二組開啟 encrypt-enable／smtps，也不影響第一、三組
+            assertThat(config.getServers().get(0).getEncryptEnable()).isFalse();
+            assertThat(config.getServers().get(0).getTransportProtocol()).isEqualTo("smtp");
+        });
+    }
+
     /** 未設定 servers 時，resolveServers() 應以既有扁平欄位合成單一組（向後相容，見 REQ-008）。 */
     @Test
     void resolveServersFallsBackToFlatFieldsWhenServersEmpty() {

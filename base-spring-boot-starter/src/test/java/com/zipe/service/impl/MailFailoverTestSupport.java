@@ -6,7 +6,13 @@ import ch.qos.logback.core.read.ListAppender;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.model.Mail;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -84,5 +90,58 @@ final class MailFailoverTestSupport {
         appender.start();
         logger.addAppender(appender);
         return appender;
+    }
+
+    /**
+     * 只用於計數「是否曾被連線」的最小 TCP 伺服器：接受連線後立即計數並關閉，
+     * 供驗證「候選清單中某組不應被嘗試」（連線數須為 0）的情境使用。
+     */
+    static final class CountingTcpServer implements AutoCloseable {
+        private final ServerSocket serverSocket;
+        private final AtomicInteger connectionCount = new AtomicInteger();
+
+        CountingTcpServer() throws IOException {
+            this.serverSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            Thread acceptor = new Thread(this::acceptLoop, "counting-tcp-acceptor");
+            acceptor.setDaemon(true);
+            acceptor.start();
+        }
+
+        int port() {
+            return serverSocket.getLocalPort();
+        }
+
+        int connectionCount() {
+            return connectionCount.get();
+        }
+
+        /**
+         * 重設連線計數，供「先完成 setInitData()（依 REQ-007 會逐一測試每組連線），
+         * 再只針對後續實際發送階段計數」的情境使用，避免把初始化階段的連線測試
+         * 誤判為發送階段不應發生的連線。
+         */
+        void resetCount() {
+            connectionCount.set(0);
+        }
+
+        private void acceptLoop() {
+            while (!serverSocket.isClosed()) {
+                try (Socket socket = serverSocket.accept()) {
+                    connectionCount.incrementAndGet();
+                } catch (IOException ignored) {
+                    // close() 會關閉 ServerSocket，使 accept() 正常結束。
+                }
+            }
+        }
+
+        /** 給測試一小段寬限時間讓「不應發生」的連線有機會發生，呼叫端隨後應自行斷言連線數為 0。 */
+        void waitBriefly(long millis) throws InterruptedException {
+            TimeUnit.MILLISECONDS.sleep(millis);
+        }
+
+        @Override
+        public void close() throws IOException {
+            serverSocket.close();
+        }
     }
 }

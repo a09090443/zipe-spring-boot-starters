@@ -110,6 +110,17 @@ class MailServiceTimeoutAndLimitsTest {
         assertThat(greenMail.getReceivedMessages()).hasSize(1);
     }
 
+    /**
+     * AC-011-03：未設定 mail.failover.* 時，max-attempts 預設等同不額外限制（即嘗試全部已設定組數），
+     * overall-timeout 預設為 30000 毫秒，維持升級前單組行為所需的相容性基準值。
+     */
+    @Test
+    void defaultFailoverProperties_matchDocumentedValues() {
+        MailPropertyConfig config = new MailPropertyConfig();
+        assertThat(config.getFailover().getMaxAttempts()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(config.getFailover().getOverallTimeout()).isEqualTo(30000L);
+    }
+
     /** SC-19（可設定）：讀取逾時可由設定屬性調整，覆寫後以較小值生效（以實際失敗耗時佐證，而非仍套用預設 3000ms）。 */
     @Test
     void readTimeout_isConfigurable_andTakesEffect() throws Exception {

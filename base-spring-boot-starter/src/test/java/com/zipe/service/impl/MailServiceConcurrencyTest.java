@@ -85,6 +85,82 @@ class MailServiceConcurrencyTest {
         assertThat(subjects).containsExactlyInAnyOrderElementsOf(expected);
     }
 
+    /**
+     * SC-039：某執行緒的整體逾時截止不得以共享狀態（例如靜態或實例欄位）洩漏給其他執行緒，
+     * 每次呼叫的截止時間須各自獨立計算。以「稍晚才開始呼叫」的第二執行緒仍需完整經歷一次
+     * overall-timeout 才失敗（而非因誤用前一次呼叫已過期的截止時間而立即失敗）佐證。
+     */
+    @Test
+    void overallTimeoutDeadline_isNotSharedAcrossConcurrentCalls() throws Exception {
+        java.net.ServerSocket blackHole = new java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"));
+        try {
+            Thread acceptor = new Thread(() -> {
+                while (!blackHole.isClosed()) {
+                    try {
+                        blackHole.accept();
+                    } catch (java.io.IOException ignored) {
+                        // ServerSocket 關閉時 accept() 拋出例外屬正常結束
+                    }
+                }
+            });
+            acceptor.setDaemon(true);
+            acceptor.start();
+
+            com.zipe.config.MailServerProperty hanging = new com.zipe.config.MailServerProperty();
+            hanging.setName("hanging");
+            hanging.setHost("127.0.0.1");
+            hanging.setPort(String.valueOf(blackHole.getLocalPort()));
+            hanging.setSmtpAuthEnable(false);
+
+            MailPropertyConfig cfg = config(hanging);
+            cfg.setReadTimeout(5000);
+            cfg.setConnectionTimeout(5000);
+            cfg.getFailover().setOverallTimeout(500L);
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            try {
+                service.setInitData();
+            } catch (jakarta.mail.MessagingException ignored) {
+                // 黑洞候選於初始化階段亦會逾時失敗，仍保留候選清單供後續發送嘗試。
+            }
+
+            java.util.concurrent.atomic.AtomicLong firstElapsed = new java.util.concurrent.atomic.AtomicLong();
+            java.util.concurrent.atomic.AtomicLong secondElapsed = new java.util.concurrent.atomic.AtomicLong();
+
+            Thread first = new Thread(() -> {
+                long start = System.nanoTime();
+                try {
+                    service.simpleMailSend(plainTextMail("SC-039-first"));
+                } catch (RuntimeException ignored) {
+                    // 預期以 MailFailoverException 結束
+                }
+                firstElapsed.set(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+            });
+            first.start();
+            // 確保第二次呼叫在第一次呼叫「進行中」才開始，藉此驗證兩者截止時間互不干擾。
+            Thread.sleep(200);
+            Thread second = new Thread(() -> {
+                long start = System.nanoTime();
+                try {
+                    service.simpleMailSend(plainTextMail("SC-039-second"));
+                } catch (RuntimeException ignored) {
+                    // 預期以 MailFailoverException 結束
+                }
+                secondElapsed.set(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+            });
+            second.start();
+
+            first.join(3000);
+            second.join(3000);
+
+            // 若截止時間被共享（例如以靜態欄位保存第一次呼叫的絕對截止時間），較晚開始的第二次呼叫
+            // 會遠早於自身的 500ms 上限即結束；正確實作下，第二次呼叫仍須耗時接近其自身的 500ms 上限。
+            assertThat(secondElapsed.get()).isGreaterThanOrEqualTo(400);
+            assertThat(firstElapsed.get()).isGreaterThanOrEqualTo(400);
+        } finally {
+            blackHole.close();
+        }
+    }
+
     private String subjectOf(MimeMessage message) {
         try {
             return message.getSubject();
