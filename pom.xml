@@ -87,6 +87,7 @@
         <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <spotless-maven-plugin.version>3.7.0</spotless-maven-plugin.version>
+        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
         <!-- 架構結構測試（harness 機械化強制：以測試守住自動配置慣例） -->
         <archunit-junit5.version>1.3.0</archunit-junit5.version>
         <!-- base-starter 測試用假 SMTP 伺服器：驗證多 SMTP 容錯切換情境（test scope，不進發佈產物） -->
@@ -289,12 +290,30 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- 所有子模組共用：測試執行設定。Mockito inline mock maker（Byte Buddy）在部分 JVM／執行環境下
-                 以 runtime self-attach 掛載 agent 會不穩定失敗（MockitoInitializationException:
-                 Could not self-attach to current VM），並非每次重現；加上 -Djdk.attach.allowAttachSelf=true
-                 讓 JVM 啟動時即允許自我附加，避免依賴不穩定的執行期自我附加路徑。
-                 以 @{argLine} 承接 jacoco-prepare-agent 設定的 argLine 屬性（delayed 屬性，執行期才展開），
-                 僅疊加旗標、不覆蓋 JaCoCo 探針，純測試啟動設定，未變更任何產品程式碼或行為。 -->
+            <!-- 所有子模組共用：解析 byte-buddy-agent（Mockito inline mock maker 底層）的實際 jar 路徑，
+                 供有使用 Mockito 的子模組（base／logon／iam／web，見各自 pom.xml 的 surefire 覆寫）
+                 在 JVM 啟動時以 -javaagent 掛載。db／job／web-service 未使用 Mockito，
+                 此處只解析屬性、不強制所有模組都套用 -javaagent，避免屬性未解析時字面值破壞 JVM 啟動。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${maven-dependency-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>resolve-byte-buddy-agent-path</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 所有子模組共用：測試執行設定。以 @{argLine} 承接 jacoco-prepare-agent 設定的 argLine 屬性
+                 （delayed 屬性，執行期才展開），僅疊加旗標、不覆蓋 JaCoCo 探針。
+                 -Djdk.attach.allowAttachSelf=true 為保底旗標；實際解決 Mockito inline mock maker
+                 runtime self-attach 不穩定（MockitoInitializationException / AttachNotSupportedException
+                 逾時）的手段是在有使用 Mockito 的子模組以 -javaagent 於 JVM 啟動時掛載
+                 byte-buddy-agent，見 base／logon／iam／web 四個子模組 pom.xml 的 surefire 覆寫設定。 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

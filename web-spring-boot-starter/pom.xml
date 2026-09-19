@@ -78,4 +78,19 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <!-- 本模組使用 Mockito inline mock maker：以 -javaagent 於 JVM 啟動時掛載
+                 byte-buddy-agent（根 pom 的 maven-dependency-plugin properties 目標解析路徑），
+                 取代不穩定的執行期自我附加，避免 MockitoInitializationException。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -javaagent:${net.bytebuddy:byte-buddy-agent:jar} -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
