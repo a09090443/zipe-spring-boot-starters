@@ -35,6 +35,16 @@ final class MailFailoverTestSupport {
         return server(name, "127.0.0.1", port, "user", "pass");
     }
 
+    /**
+     * 連接埠設定為非數字字串的伺服器組，用於模擬 {@code buildSender} 階段
+     * （寄件器建立本身，而非連線測試）就失敗的設定錯誤情境。
+     */
+    static MailServerProperty invalidPortServer(String name) {
+        MailServerProperty server = server(name, "127.0.0.1", 1, "user", "pass");
+        server.setPort("not-a-port");
+        return server;
+    }
+
     /** 指向 GreenMail 假 SMTP 伺服器的可用伺服器組。 */
     static MailServerProperty greenMailServer(String name, int port, String username, String password) {
         return server(name, "127.0.0.1", port, username, password);

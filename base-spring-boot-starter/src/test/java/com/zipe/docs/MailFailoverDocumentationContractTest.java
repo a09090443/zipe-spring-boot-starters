@@ -187,6 +187,28 @@ class MailFailoverDocumentationContractTest {
     }
 
     /**
+     * SC-040：configuration.md 頂層屬性表須逐列記載 {@code mail.servers} 本身、三種底層逾時
+     * 與兩種 failover 設定的型別與預設值，不得只驗證鍵名存在（review 節點確認的既有缺口：
+     * 舊版 requiredKeys 只涵蓋八個每組欄位的逐列檢查，mail.servers、connection/read/write-timeout、
+     * failover.max-attempts、failover.overall-timeout 仍只有鍵名字串斷言，刪除任一列表格
+     * 仍可通過）。
+     */
+    @Test
+    void configuration_topLevelFailoverFieldsTableDocumentsExactTypeAndDefault() throws IOException {
+        String content = read("configuration.md");
+        List<String> requiredRows = List.of(
+                "| `mail.servers` | `List<MailServerProperty>` | 空清單 | 多組 SMTP 伺服器（見下節）；設定後以此清單為準，上方單組欄位不再生效 | 否 |",
+                "| `mail.connection-timeout` | Integer（毫秒） | `5000` | SMTP 連線逾時，套用至每一組伺服器（含 `transport-protocol: smtps`，見下方說明） | 否 |",
+                "| `mail.read-timeout` | Integer（毫秒） | `3000` | SMTP 讀取逾時，套用至每一組伺服器（含 `transport-protocol: smtps`） | 否 |",
+                "| `mail.write-timeout` | Integer（毫秒） | `5000` | SMTP 寫入逾時，套用至每一組伺服器（含 `transport-protocol: smtps`） | 否 |",
+                "| `mail.failover.max-attempts` | Integer | `2147483647`（即不額外限制） | 單次發送最多嘗試的伺服器組數上限；實際上限為此值與已設定組數的較小者 | 否 |",
+                "| `mail.failover.overall-timeout` | Long（毫秒） | `30000` | 單次發送允許的整體切換時間上限；`0` 或負值表示不限制；`smtp` 與 `smtps` 兩種協定皆生效 | 否 |");
+        for (String row : requiredRows) {
+            assertThat(content).as("configuration.md 應逐列記載型別與預設值：%s", row).contains(row);
+        }
+    }
+
+    /**
      * AC-020-13：configuration.md 須說明逾時與整體上限對 smtp 與 smtps 兩種協定皆生效，
      * 且不得殘留「smtps 需要額外設定 SSL factory」等已修復前的錯誤敘述（回歸防護）。
      */

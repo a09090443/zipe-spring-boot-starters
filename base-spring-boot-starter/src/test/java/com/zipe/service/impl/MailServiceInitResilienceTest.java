@@ -2,6 +2,7 @@ package com.zipe.service.impl;
 
 import static com.zipe.service.impl.MailFailoverTestSupport.config;
 import static com.zipe.service.impl.MailFailoverTestSupport.greenMailServer;
+import static com.zipe.service.impl.MailFailoverTestSupport.invalidPortServer;
 import static com.zipe.service.impl.MailFailoverTestSupport.plainTextMail;
 import static com.zipe.service.impl.MailFailoverTestSupport.unreachableServer;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,5 +105,53 @@ class MailServiceInitResilienceTest {
                 .isInstanceOf(MessagingException.class)
                 .hasMessageContaining("primary")
                 .hasMessageContaining("secondary");
+    }
+
+    /**
+     * SC-013／AC-004-06／AC-007-01：三組中一組在「建立寄件器」階段（而非連線測試階段）即失敗——
+     * 連接埠設定為非數字字串，{@code buildSender} 內 {@code Integer.parseInt} 會直接拋出例外。
+     * 此為 review 節點確認的既有缺口：舊版測試只用「連線不可達」（buildSender 可成功、僅
+     * testConnection 失敗）製造反例，未曾涵蓋 buildSender 本身失敗的情境，該情境曾因
+     * buildSender 呼叫位於 try 區塊之外而讓整個迴圈中止、其餘正常組別完全不會被建立。
+     * 本測試驗證修復後：該組被跳過並記錄 WARN，其餘兩組仍保留在候選清單中且皆可實際發送成功。
+     */
+    @Test
+    void setInitData_oneOfThreeServersFailsSenderCreation_retainsOtherTwoAsUsableCandidates() throws Exception {
+        MailPropertyConfig cfg = config(invalidPortServer("bad-config"));
+        cfg.getServers().add(greenMailServer("good-one", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        cfg.getServers().add(greenMailServer("good-two", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        assertThatCode(service::setInitData).doesNotThrowAnyException();
+
+        boolean hasWarnForBadConfig = appender.list.stream()
+                .anyMatch(event -> event.getLevel().toString().equals("WARN")
+                        && event.getFormattedMessage().contains("bad-config"));
+        assertThat(hasWarnForBadConfig).isTrue();
+
+        // buildSender 失敗的組別沒有可用的 sender，不會被加入候選清單，故僅保留其餘兩組（而非三組）。
+        List<?> candidates = (List<?>) ReflectionTestUtils.getField(service, "candidates");
+        assertThat(candidates).hasSize(2);
+
+        service.simpleMailSend(plainTextMail("SC-013-sender-creation-failure"));
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertThat(messages).hasSize(1);
+        assertThat(messages[0].getSubject()).isEqualTo("SC-013-sender-creation-failure");
+    }
+
+    /**
+     * AC-007-02：唯一一組候選在建立寄件器階段即失敗（設定錯誤）時，setInitData 仍須以明確的
+     * MessagingException 呈現失敗（而非誤判為候選數 0 卻正常返回），訊息可辨識該組與失敗原因。
+     */
+    @Test
+    void setInitData_onlyServerFailsSenderCreation_throwsMessagingExceptionWithIdentifiableReason() {
+        MailPropertyConfig cfg = config(invalidPortServer("bad-config"));
+        MailServiceImpl service = new MailServiceImpl(cfg);
+
+        assertThatThrownBy(service::setInitData)
+                .isInstanceOf(MessagingException.class)
+                .hasMessageContaining("bad-config");
     }
 }

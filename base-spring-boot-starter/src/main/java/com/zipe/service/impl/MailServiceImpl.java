@@ -103,10 +103,16 @@ public class MailServiceImpl implements MailService {
      * 依 {@link MailPropertyConfig#resolveServers()} 取得候選清單，逐組建立
      * {@link JavaMailSenderImpl} 並呼叫 {@code testConnection()} 驗證連線。
      * 單組測試失敗僅記錄 WARN 並保留於候選清單（供後續發送時仍可再次嘗試），
-     * 不會因部分伺服器不可用而中斷初始化；只有全部伺服器皆測試失敗時才拋出例外。
+     * 不會因部分伺服器不可用而中斷初始化；只有全部伺服器皆失敗時才拋出例外。
+     * </p>
+     * <p>
+     * {@link #buildSender(MailServerProperty)} 本身（例如連接埠格式錯誤、主機無法解析等設定錯誤）
+     * 與 {@code testConnection()} 失敗一併視為「該組失敗」：兩者皆只記錄 WARN 並繼續處理下一組，
+     * 不會中止整個迴圈而遺失其餘尚未處理的正常候選。寄件器建立失敗的組別因無可用的
+     * {@link JavaMailSenderImpl} 可保留，不會加入候選清單，但仍計入全部失敗的判定。
      * </p>
      *
-     * @throws MessagingException 當全部 SMTP 伺服器連線測試皆失敗時拋出
+     * @throws MessagingException 當全部 SMTP 伺服器皆初始化失敗（含建立寄件器失敗與連線測試失敗）時拋出
      */
     @Override
     public void setInitData() throws MessagingException {
@@ -116,23 +122,31 @@ public class MailServiceImpl implements MailService {
 
         for (MailServerProperty server : servers) {
             String label = label(server);
-            JavaMailSenderImpl sender = buildSender(server);
             try {
-                sender.testConnection();
-                log.info("初始化郵件伺服器成功：{}", label);
+                JavaMailSenderImpl sender = buildSender(server);
+                try {
+                    sender.testConnection();
+                    log.info("初始化郵件伺服器成功：{}", label);
+                } catch (Exception e) {
+                    String reason = safeReason(e);
+                    failures.add(label + " - " + reason);
+                    log.warn("初始化郵件伺服器失敗，將保留於後續嘗試清單：{}，原因：{}", label, reason);
+                }
+                initialized.add(new MailServerCandidate(label, sender));
             } catch (Exception e) {
+                // buildSender 失敗（設定錯誤，例如連接埠非數字）沒有可用的 sender 可保留，
+                // 跳過此組並繼續處理其餘候選，不因單組設定錯誤中斷整個初始化迴圈。
                 String reason = safeReason(e);
                 failures.add(label + " - " + reason);
-                log.warn("初始化郵件伺服器失敗，將保留於後續嘗試清單：{}，原因：{}", label, reason);
+                log.warn("初始化郵件伺服器時無法建立寄件器，將跳過此組：{}，原因：{}", label, reason);
             }
-            initialized.add(new MailServerCandidate(label, sender));
         }
 
         // 無論是否全部測試失敗，皆保留候選清單：即使初始化當下全部不可用，仍可能於實際發送時已恢復，
         // 或至少能在發送呼叫時再次以一致的彙整格式回報失敗（見 executeWithFailover），不因此讓服務永久不可用。
         this.candidates = List.copyOf(initialized);
 
-        if (!initialized.isEmpty() && failures.size() == initialized.size()) {
+        if (!servers.isEmpty() && failures.size() == servers.size()) {
             throw new MessagingException("所有郵件伺服器初始化皆失敗：" + String.join("; ", failures));
         }
         log.info("初始化郵件服務完成，設定伺服器數：{}", initialized.size());
