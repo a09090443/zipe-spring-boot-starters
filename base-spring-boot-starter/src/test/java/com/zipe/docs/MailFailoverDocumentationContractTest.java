@@ -80,6 +80,33 @@ class MailFailoverDocumentationContractTest {
     }
 
     /**
+     * SC-041：examples.md 的重複寄送因應建議須具體到「業務層識別碼」層級（例如訊息 ID 或業務單號），
+     * 而非只出現「冪等」「去重」等詞面（review 節點確認的既有缺口：舊版斷言只搜尋詞面，
+     * 未核對是否提出具體去重依據）。
+     */
+    @Test
+    void examples_recommendsIdempotencyMitigationWithConcreteBusinessIdentifier() throws IOException {
+        String content = read("examples.md");
+        assertThat(content).as("應具體建議以訊息 ID 作為去重依據").contains("訊息 ID");
+        assertThat(content).as("應具體建議以業務單號作為去重依據").contains("業務單號");
+        assertThat(content).as("應明示 MailService 本身不提供去重機制，去重責任在呼叫端").contains("去重機制");
+    }
+
+    /**
+     * SC-041：examples.md 須提供設定「兩組以上具名 SMTP」與 failover 上限的實際 YAML 範例，
+     * 而非只描述文字或單組設定（review 節點確認的既有缺口：舊版測試只搜尋簽章字串，
+     * 未核對多組 YAML 範例是否存在）。
+     */
+    @Test
+    void examples_demonstratesMultiServerFailoverYamlWithTwoNamedServers() throws IOException {
+        String content = read("examples.md");
+        assertThat(content).as("應示範第一組伺服器 name: primary").contains("name: primary");
+        assertThat(content).as("應示範第二組伺服器 name: backup").contains("name: backup");
+        assertThat(content).as("應示範 failover.max-attempts 設定").contains("max-attempts:");
+        assertThat(content).as("應示範 failover.overall-timeout 設定").contains("overall-timeout:");
+    }
+
+    /**
      * AC-007-04：文件對整體逾時與在途連線的敘述須與實作一致——截止到期會關閉 socket 並讓呼叫端結束，
      * 但不保證背景在途的該次 SMTP 對話一定未送達（D7 取捨）。architecture.md 須說明「關閉 socket」機制，
      * 且不得宣稱一定能撤回已在途送出的內容。
@@ -118,6 +145,10 @@ class MailFailoverDocumentationContractTest {
                 "mail.servers[i].name",
                 "mail.servers[i].host",
                 "mail.servers[i].port",
+                "mail.servers[i].username",
+                "mail.servers[i].pa55word",
+                "mail.servers[i].smtp-auth-enable",
+                "mail.servers[i].smtp-start-tls-enable",
                 "mail.servers[i].transport-protocol",
                 "mail.servers[i].encrypt-enable",
                 "mail.connection-timeout",
@@ -128,6 +159,31 @@ class MailFailoverDocumentationContractTest {
         for (String key : requiredKeys) {
             assertThat(content).as("configuration.md 應記載屬性鍵 %s", key).contains(key);
         }
+    }
+
+    /**
+     * SC-040：configuration.md 每組 SMTP 屬性表須逐列記載型別與預設值，且不得只驗證鍵名存在——
+     * 刪除任一列（例如 smtp-auth-enable）仍須被本測試攔截（review 節點確認的既有缺口：
+     * 舊版 requiredKeys 只檢查鍵名字串，刪除整列表格仍可通過）。
+     */
+    @Test
+    void configuration_perServerFieldsTableDocumentsExactTypeAndDefault() throws IOException {
+        String content = read("configuration.md");
+        List<String> requiredRows = List.of(
+                "| `mail.servers[i].name` | String | — | 伺服器識別名稱，僅用於日誌辨識，未設定時以 `host:port` 顯示 |",
+                "| `mail.servers[i].host` | String | — | 該組 SMTP 主機 |",
+                "| `mail.servers[i].port` | String | — | 該組 SMTP 連接埠 |",
+                "| `mail.servers[i].username` | String | — | 該組帳號 |",
+                "| `mail.servers[i].pa55word` | String | — | 該組密碼 |",
+                "| `mail.servers[i].smtp-auth-enable` | Boolean | `true` | 該組是否啟用 SMTP 認證 |",
+                "| `mail.servers[i].smtp-start-tls-enable` | Boolean | `false` | 該組是否啟用 STARTTLS |",
+                "| `mail.servers[i].encrypt-enable` | Boolean | `false` | 該組密碼是否為 Base64 編碼 |");
+        for (String row : requiredRows) {
+            assertThat(content).as("configuration.md 應逐列記載型別與預設值：%s", row).contains(row);
+        }
+        assertThat(content)
+                .as("mail.servers[i].transport-protocol 應記載型別 String 與預設值 \"smtp\"")
+                .contains("| `mail.servers[i].transport-protocol` | String | `\"smtp\"` |");
     }
 
     /**
@@ -211,6 +267,44 @@ class MailFailoverDocumentationContractTest {
     }
 
     /**
+     * SC-042：architecture.md 須明確說明容錯切換為「依候選清單順序」的循序（非輪詢）機制，
+     * 與 index.md 的概覽敘述分開驗證，避免只有其中一份文件涵蓋此描述
+     * （review 節點確認的既有缺口：舊版 architecture 測試未對此三項分別斷言）。
+     */
+    @Test
+    void architecture_describesSequentialNonPollingFailoverOrder() throws IOException {
+        String content = read("architecture.md");
+        assertThat(content).as("architecture.md 應說明依候選清單順序嘗試").contains("依候選清單順序");
+        assertThat(content).as("architecture.md 應明示為優先序 failover").contains("優先序 failover");
+        assertThat(content).as("architecture.md 應明示非輪詢分流").contains("非輪詢");
+    }
+
+    /**
+     * SC-042：architecture.md 須明確說明彙整例外型別 MailFailoverException 的性質
+     * （繼承 Spring MailException、為 unchecked、以 addSuppressed 掛載各組原始例外）。
+     */
+    @Test
+    void architecture_describesMailFailoverExceptionType() throws IOException {
+        String content = read("architecture.md");
+        assertThat(content).contains("MailFailoverException");
+        assertThat(content).as("應說明繼承 Spring MailException").contains("繼承 Spring");
+        assertThat(content).as("應說明為 unchecked").contains("unchecked");
+        assertThat(content).as("應說明以 addSuppressed 掛載各組原始例外").contains("addSuppressed");
+    }
+
+    /**
+     * SC-042：architecture.md 須明確說明 MailService Bean 可由業務系統以 ConditionalOnMissingBean
+     * 語意整顆覆寫（含實際覆寫程式碼範例），而非只提及「可覆寫」一詞帶過。
+     */
+    @Test
+    void architecture_describesBeanOverrideMechanismWithExample() throws IOException {
+        String content = read("architecture.md");
+        assertThat(content).as("應有「覆蓋 Starter 的 Bean」章節").contains("覆蓋 Starter 的 Bean");
+        assertThat(content).contains("@ConditionalOnMissingBean");
+        assertThat(content).as("應提供覆寫 MailService Bean 的實際程式碼範例").contains("public MailService mailService()");
+    }
+
+    /**
      * SC-042：index.md 須說明循序（非輪詢）容錯切換機制、彙整例外型別 MailFailoverException，
      * 以及 MailService Bean 可由業務系統以 ConditionalOnMissingBean 語意覆寫，
      * 使概覽頁與 architecture.md 對這三項描述一致，不遺漏於其中一份文件。
@@ -235,6 +329,28 @@ class MailFailoverDocumentationContractTest {
         assertThat(content).doesNotContain("只支援單一 SMTP");
         assertThat(content).doesNotContain("只支援單組 SMTP");
         assertThat(content).doesNotContain("僅支援單一 SMTP");
+    }
+
+    /**
+     * SC-043：quickstart.md 的最小設定步驟須逐鍵記載扁平 mail.* 必要欄位與完整五步驟，
+     * 而非只驗證出現 mail.servers 字樣與排除過時字句
+     * （review 節點確認的既有缺口：舊版測試未驗證最小設定鍵與步驟本身）。
+     */
+    @Test
+    void quickstart_minimalSetupStepsAndFlatMailKeysAreDocumented() throws IOException {
+        String content = read("quickstart.md");
+        List<String> requiredSteps = List.of(
+                "## Step 1：安裝模組", "## Step 2：加入依賴", "## Step 3：設定 application.yml",
+                "## Step 4：程式碼範例", "## Step 5：執行驗證");
+        for (String step : requiredSteps) {
+            assertThat(content).as("quickstart.md 應包含步驟標題 %s", step).contains(step);
+        }
+        List<String> requiredMinimalKeys =
+                List.of("host: smtp.example.com", "port: 587", "username: noreply@example.com",
+                        "pa55word: ${MAIL_PASSWORD}", "smtp-auth-enable: true");
+        for (String key : requiredMinimalKeys) {
+            assertThat(content).as("quickstart.md 最小設定範例應包含 %s", key).contains(key);
+        }
     }
 
     /**

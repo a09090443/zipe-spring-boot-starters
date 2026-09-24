@@ -9,6 +9,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
@@ -106,7 +107,13 @@ class MailServiceSmtpsScenariosTest {
      */
     @Test
     void smtpsReadTimeout_isConfigurable_andTakesEffect_afterSuccessfulHandshake() throws Exception {
+        AtomicBoolean handshakeCompleted = new AtomicBoolean(false);
         ScriptableTlsSmtpServer server = startServer((reader, writer) -> {
+            // ScriptableTlsSmtpServer.serve() 會先呼叫 socket.startHandshake() 且成功返回後才執行本
+            // handler，故進入此處即代表 TLS 交握已完成；以旗標明確證實這點，避免僅憑耗時區間
+            // 間接推論（耗時區間無法排除「交握卡住後失敗、又剛好落在容忍窗內」的反例，
+            // review 節點確認的既有缺口）。
+            handshakeCompleted.set(true);
             // 刻意在 TLS 交握完成後不回任何位元組，讓客戶端卡在等待 220 greeting 直到 read-timeout。
             sleepQuietly(15_000);
         });
@@ -133,9 +140,14 @@ class MailServiceSmtpsScenariosTest {
         service.simpleMailSend(plainTextMail("SC-024-SC-051"));
         long elapsed = System.currentTimeMillis() - start;
 
+        assertThat(handshakeCompleted.get())
+                .as("伺服器端須已完成 TLS 交握才進入 handler，此測試才能證明是 read-timeout 而非 connection-timeout／交握失敗生效")
+                .isTrue();
+
         MimeMessage[] messages = greenMailSmtp.getReceivedMessages();
         assertThat(messages).hasSize(1);
         assertThat(messages[0].getSubject()).isEqualTo("SC-024-SC-051");
+        assertThat(GreenMailUtil.getBody(messages[0])).isEqualTo("body-SC-024-SC-051");
 
         // read-timeout 覆寫為 300ms，遠小於 6000ms 的整體逾時；若未真正生效，只能靠整體逾時兜底，
         // 耗時將遠高於此處的寬鬆上限。
