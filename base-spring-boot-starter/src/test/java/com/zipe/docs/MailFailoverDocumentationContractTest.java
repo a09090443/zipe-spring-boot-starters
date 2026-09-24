@@ -209,4 +209,82 @@ class MailFailoverDocumentationContractTest {
                     .contains(expectedSignature);
         }
     }
+
+    /**
+     * SC-042：index.md 須說明循序（非輪詢）容錯切換機制、彙整例外型別 MailFailoverException，
+     * 以及 MailService Bean 可由業務系統以 ConditionalOnMissingBean 語意覆寫，
+     * 使概覽頁與 architecture.md 對這三項描述一致，不遺漏於其中一份文件。
+     */
+    @Test
+    void index_describesSequentialFailoverMechanismExceptionTypeAndBeanOverride() throws IOException {
+        String content = read("index.md");
+        assertThat(content).contains("依序").contains("容錯切換");
+        assertThat(content).contains("MailFailoverException");
+        assertThat(content).containsAnyOf("ConditionalOnMissingBean", "覆寫");
+    }
+
+    /**
+     * SC-043：quickstart.md 的最小設定步驟須與現行多組 SMTP 屬性一致，且不得殘留
+     * 「僅支援單組 SMTP」等已被多組容錯切換取代的過時敘述，避免使用者誤以為無法設定多組伺服器。
+     */
+    @Test
+    void quickstart_mentionsMultiServerOption_withoutClaimingSingleSmtpOnly() throws IOException {
+        String content = read("quickstart.md");
+        assertThat(content).contains("mail.servers");
+        assertThat(content).doesNotContain("僅支援單組 SMTP");
+        assertThat(content).doesNotContain("只支援單一 SMTP");
+        assertThat(content).doesNotContain("只支援單組 SMTP");
+        assertThat(content).doesNotContain("僅支援單一 SMTP");
+    }
+
+    /**
+     * SC-044：根目錄 README 的模組清單與快速開始段落須與多組 SMTP 容錯切換的實作一致，
+     * 涵蓋向後相容與至少一次投遞風險的引導說明，避免版控最外層文件落後於 doc-site。
+     */
+    @Test
+    void rootReadme_describesMultiSmtpFailoverConsistentWithImplementation() throws IOException {
+        Path moduleDir = Paths.get("").toAbsolutePath();
+        Path rootReadme = moduleDir.resolveSibling("README.md");
+        assertThat(Files.isRegularFile(rootReadme)).as("根目錄 README.md 應存在：%s", rootReadme).isTrue();
+        String content = Files.readString(rootReadme, StandardCharsets.UTF_8);
+        assertThat(content).contains("多組 SMTP").contains("容錯");
+        assertThat(content).contains("向後相容");
+    }
+
+    /**
+     * SC-044：base-spring-boot-starter 模組自身 README 的功能概述與基本設定範例須與多組 SMTP
+     * 容錯切換的實作一致，且指向 configuration.md 取得完整屬性與重複寄送風險說明。
+     */
+    @Test
+    void baseStarterReadme_describesMailFailoverFeatureConsistentWithImplementation() throws IOException {
+        Path moduleDir = Paths.get("").toAbsolutePath();
+        Path moduleReadme = moduleDir.resolve("README.md");
+        assertThat(Files.isRegularFile(moduleReadme)).as("base-spring-boot-starter/README.md 應存在：%s", moduleReadme)
+                .isTrue();
+        String content = Files.readString(moduleReadme, StandardCharsets.UTF_8);
+        assertThat(content).contains("多組 SMTP").contains("容錯切換");
+        assertThat(content).contains("mail.servers");
+    }
+
+    /**
+     * SC-045：MailServiceImpl 類別層級註解須揭露「DATA 階段之後失敗切換可能造成重複投遞」的
+     * 至少一次投遞語意，且不得反過來宣稱保證不重複（exactly-once），
+     * 避免文件字面退化為過度承諾而誤導呼叫端省略冪等處理。
+     */
+    @Test
+    void mailServiceImpl_classJavadocDisclosesDataStageDuplicationRisk_withoutOverclaimingExactlyOnce()
+            throws IOException {
+        Path moduleDir = Paths.get("").toAbsolutePath();
+        Path sourceFile = moduleDir.resolve("src/main/java/com/zipe/service/impl/MailServiceImpl.java");
+        assertThat(Files.isRegularFile(sourceFile)).as("MailServiceImpl.java 應存在：%s", sourceFile).isTrue();
+        String content = Files.readString(sourceFile, StandardCharsets.UTF_8);
+        String classJavadoc = content.substring(0, content.indexOf("public class MailServiceImpl"));
+
+        assertThat(classJavadoc).contains("DATA");
+        assertThat(classJavadoc).contains("重複");
+        assertThat(classJavadoc).doesNotContainIgnoringCase("exactly-once");
+        assertThat(classJavadoc).doesNotContain("保證不會重複");
+        assertThat(classJavadoc).doesNotContain("保證不重複");
+        assertThat(classJavadoc).doesNotContain("一定不會重複");
+    }
 }

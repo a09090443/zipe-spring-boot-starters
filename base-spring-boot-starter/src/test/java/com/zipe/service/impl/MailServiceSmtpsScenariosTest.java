@@ -1,11 +1,15 @@
 package com.zipe.service.impl;
 
+import static com.zipe.service.impl.MailFailoverTestSupport.greenMailServer;
 import static com.zipe.service.impl.MailFailoverTestSupport.plainTextMail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.icegreen.greenmail.configuration.GreenMailConfiguration;
+import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
@@ -13,6 +17,7 @@ import com.zipe.model.Mail;
 import com.zipe.service.impl.MailFailoverTlsTestSupport.ScriptableTlsSmtpServer;
 import com.zipe.service.impl.MailFailoverTlsTestSupport.TlsFixture;
 import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -43,6 +49,10 @@ import org.junit.jupiter.api.io.TempDir;
  * 以及需要完整 TLS 交握後才能觀察到的 read-timeout／write-timeout 行為（SC-024、SC-025）。</p>
  */
 class MailServiceSmtpsScenariosTest {
+
+    @RegisterExtension
+    static GreenMailExtension greenMailSmtp = new GreenMailExtension(ServerSetupTest.SMTP.dynamicPort())
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("smtpsBackupUser", "smtpsBackupPw"));
 
     private static TlsFixture tlsFixture;
     private static SSLContext previousDefaultSslContext;
@@ -89,9 +99,10 @@ class MailServiceSmtpsScenariosTest {
     }
 
     /**
-     * SC-024：smtps 組別的 read-timeout 真正生效——伺服器已完成 TLS 交握（區別於連線／交握階段的
-     * connection-timeout），僅是完成交握後不回任何 SMTP 回應，須在 read-timeout 加容忍值內結束，
-     * 且不得是由更大的 overall-timeout 兜底結束（AC-020-02）。
+     * SC-024／SC-051：smtps 組別的 read-timeout 真正生效——伺服器已完成 TLS 交握（區別於連線／交握階段的
+     * connection-timeout），僅是完成交握後不回任何 SMTP 回應，須在 read-timeout 加容忍值內結束並切換至
+     * 第二組可用 SMTP 伺服器，由備援組實際收件且內容正確，而不只是拋出彙整例外
+     * （AC-020-02、AC-015-02；先前版本僅驗證耗時上下限，未證明逾時後確實透過容錯切換送達）。
      */
     @Test
     void smtpsReadTimeout_isConfigurable_andTakesEffect_afterSuccessfulHandshake() throws Exception {
@@ -100,9 +111,12 @@ class MailServiceSmtpsScenariosTest {
             sleepQuietly(15_000);
         });
 
-        MailServerProperty candidate = smtpsServer("hanging-smtps-read", server.port());
+        MailServerProperty primaryCandidate = smtpsServer("hanging-smtps-read", server.port());
+        MailServerProperty backupCandidate = greenMailServer(
+                "backup-smtp-after-read-timeout", greenMailSmtp.getSmtp().getPort(), "smtpsBackupUser", "smtpsBackupPw");
         MailPropertyConfig cfg = new MailPropertyConfig();
-        cfg.getServers().add(candidate);
+        cfg.getServers().add(primaryCandidate);
+        cfg.getServers().add(backupCandidate);
         cfg.setConnectionTimeout(3000);
         cfg.setReadTimeout(300);
         cfg.setWriteTimeout(3000);
@@ -116,14 +130,17 @@ class MailServiceSmtpsScenariosTest {
         }
 
         long start = System.currentTimeMillis();
-        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-024")))
-                .isInstanceOf(MailFailoverException.class);
+        service.simpleMailSend(plainTextMail("SC-024-SC-051"));
         long elapsed = System.currentTimeMillis() - start;
+
+        MimeMessage[] messages = greenMailSmtp.getReceivedMessages();
+        assertThat(messages).hasSize(1);
+        assertThat(messages[0].getSubject()).isEqualTo("SC-024-SC-051");
 
         // read-timeout 覆寫為 300ms，遠小於 6000ms 的整體逾時；若未真正生效，只能靠整體逾時兜底，
         // 耗時將遠高於此處的寬鬆上限。
         assertThat(elapsed).isLessThan(3000);
-        // SC-051：下限確保耗時貼近本組 read-timeout（300ms）本身，而非誤套用遠小的
+        // 下限確保耗時貼近本組 read-timeout（300ms）本身，而非誤套用遠小的
         // connection-timeout（TLS 交握已於伺服器端完成，不應在交握階段就被截斷）。
         assertThat(elapsed).isGreaterThanOrEqualTo(250);
     }

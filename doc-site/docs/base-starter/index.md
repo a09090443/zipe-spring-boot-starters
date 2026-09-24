@@ -15,7 +15,7 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 
 ## 主要特性
 
-- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版；可設定多組 SMTP 伺服器，單組失敗時依序自動容錯切換至下一組。
+- **郵件發送**：透過 `MailService` 發送純文字、HTML 或帶附件的郵件，支援 Velocity 樣板套版；可設定多組 SMTP 伺服器，單組失敗時依序（非輪詢）自動容錯切換至下一組，全部組別皆失敗時拋出彙整例外 `MailFailoverException`。
 - **加解密工具**：提供 AES、3DES、MD5、Base64、Hex 等多種加解密與編碼工具。
 - **文件處理**：`ExcelUtil` 支援以 Annotation 方式匯入匯出 Excel；`JasperReportUtil` 支援報表輸出。
 - **HTTP 請求**：`OkHttpUtil` 封裝 OkHttp，簡化 GET / POST 等 HTTP 呼叫。
@@ -85,4 +85,8 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 
 :::tip 建議搭配
 本模組為其他 Starter 的共用基礎，`db`、`logon`、`web` 等模組皆會間接依賴其工具類別，建議優先安裝。
+:::
+
+:::tip 覆寫預設 MailService 實作
+`BaseAutoConfiguration` 以 `@ConditionalOnMissingBean` 註冊預設的 `MailServiceImpl`；業務系統若需要自訂郵件發送邏輯，宣告同型別（`MailService`）的 Bean 即可整顆覆寫，不受多組 SMTP 容錯切換機制限制。詳見[架構與開發指南](./architecture.md#54-覆蓋-starter-的-bean)。
 :::

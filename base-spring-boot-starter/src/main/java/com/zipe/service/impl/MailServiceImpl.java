@@ -59,8 +59,10 @@ import org.springframework.mail.javamail.MimeMessageHelper;
  * 自本版本起支援設定多組 SMTP 伺服器（{@link MailPropertyConfig#getServers()}），
  * 五個發送方法皆透過 {@link #executeWithFailover(String, MailSendOperation)} 依清單順序
  * （優先序 failover）逐組嘗試，任一組成功即返回；全部失敗則拋出彙整各組失敗原因的
- * {@link MailFailoverException}。此機制為「至少一次投遞」語意：若 SMTP 已接收郵件內容
- * 才回報失敗，切換重送可能導致收件者收到重複郵件，屬機制本質限制。
+ * {@link MailFailoverException}。此機制為「至少一次投遞」語意：若某組 SMTP 已在
+ * DATA 階段接收完整郵件內容、僅是回報連線層級失敗（例如回應逾時或連線中斷），
+ * 切換重送可能導致收件者收到重複郵件，此為「至少一次投遞」機制本質限制，並非缺陷；
+ * 呼叫端如需避免重複處理，應自行以業務層識別碼實作冪等或去重。
  * </p>
  *
  * @author : Gary Tsai
