@@ -151,7 +151,7 @@ base-spring-boot-starter/
 | `simpleMailSend(mail)` | 最輕量，純文字，無附件 | 系統內部通知、純文字警報 |
 | `sendEmail(mail)` | 支援 HTML content，可設定 To / CC；全部伺服器皆失敗時**不外拋例外**，僅記錄 ERROR 日誌 | 一般 HTML 格式郵件 |
 | `attachedSend(mail)` | 多附件，`MimeMessageHelper.addAttachment()` | 需要附件但不含 HTML 內文 |
-| `richContentSend(mail)` | HTML 內文 + 附件 | 精美格式報表 + 附件 |
+| `richContentSend(mail)` | HTML 內文 + 內嵌資源（`inlineResources`，以 `MimeMessageHelper.addInline` 設定真正的 Content-ID）+ 附件 | 精美格式報表、HTML 內嵌圖片 |
 | `sendBatchMailWithFile(mail)` | 多收件人 + 多附件，自行組裝 `MimeMultipart`；以 `MimeUtility.encodeText()` 防中文亂碼 | 批次寄送，大量收件人 |
 
 **多 SMTP 容錯切換機制（`executeWithFailover`）：**
@@ -183,7 +183,8 @@ base-spring-boot-starter/
 | `mailSubject` | `String` | 主旨 |
 | `mailContent` | `String` | 郵件內文 |
 | `contentType` | `String` | 預設 `"text/plain"`；HTML 郵件改為 `"text/html"` |
-| `attachments` | `List<File>` | 附件清單 |
+| `attachments` | `List<File>` | 附件清單，以 `MimeMessageHelper.addAttachment` 加入，郵件用戶端顯示為一般附件 |
+| `inlineResources` | `Map<String, File>` | HTML 內文以 `cid:` 參照的內嵌資源，key 為 Content-ID（不含 `cid:` 前綴）、value 為對應檔案；僅 `richContentSend` 會處理，以 `MimeMessageHelper.addInline` 設定真正的 Content-ID，與 `attachments` 不同（不會顯示為一般附件） |
 
 ---
 

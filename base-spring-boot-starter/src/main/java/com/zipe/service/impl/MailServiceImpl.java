@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -547,7 +548,7 @@ public class MailServiceImpl implements MailService {
      * 若副本收件人（CC）清單為空則略過設定，避免傳入空陣列導致例外。
      * </p>
      *
-     * @param mail 包含收件人、副本、主旨、HTML 內容及附件清單的郵件資料物件
+     * @param mail 包含收件人、副本、主旨、HTML 內容、內嵌資源及附件清單的郵件資料物件
      */
     @Override
     public void richContentSend(Mail mail) {
@@ -562,11 +563,16 @@ public class MailServiceImpl implements MailService {
                 mimeMessageHelper.setCc(mail.getMailCc());
             }
             mimeMessageHelper.setSubject(mail.getMailSubject());
-            // 第二個參數 true 表示 text 的內容為 HTML；注意 <img/> 標籤中 src='cid:file'，
-            // 'cid' 是 contentId 的縮寫，'file' 是一個識別標記，
-            // 需在後續程式碼中呼叫 MimeMessageHelper 的 addInline 方法將其替換為實際檔案
+            // 第二個參數 true 表示 text 的內容為 HTML；<img/> 標籤中 src='cid:xxx' 的 'xxx'
+            // 須對應 mail.getInlineResources() 的 key，才會被下方 addInline 產生真正的 Content-ID 內嵌資源，
+            // 否則信件用戶端僅會顯示為一般附件，無法解析為內嵌圖片
             mimeMessageHelper.setText(mail.getMailContent(), true);
 
+            if (null != mail.getInlineResources()) {
+                for (Map.Entry<String, File> inline : mail.getInlineResources().entrySet()) {
+                    mimeMessageHelper.addInline(inline.getKey(), inline.getValue());
+                }
+            }
             if (null != mail.getAttachments()) {
                 for (File file : mail.getAttachments()) {
                     mimeMessageHelper.addAttachment(file.getName(), file);

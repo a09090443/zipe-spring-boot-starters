@@ -2,11 +2,12 @@ package com.zipe.model;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 
 /**
  * 郵件資料模型，封裝寄送一封電子郵件所需的所有屬性，
- * 包含寄件者、收件者、副本、密件副本、主旨、內文、內容類型與附件清單。
+ * 包含寄件者、收件者、副本、密件副本、主旨、內文、內容類型、附件清單與內嵌資源。
  * <p>
  * 供 {@code MailService} 作為參數傳遞，統一收集郵件發送所需資訊。
  * </p>
@@ -37,6 +38,10 @@ public class Mail {
 
 	// 附件檔案清單
 	private List<File> attachments;
+
+	// 內嵌資源（HTML 內文以 cid: 參照的圖片等檔案），key 為 Content-ID（不含 cid: 前綴），value 為對應檔案；
+	// 僅 richContentSend 會處理此欄位，並以 MimeMessageHelper#addInline 設定 Content-ID，與一般附件（attachments）不同
+	private Map<String, File> inlineResources;
 
 	/**
 	 * 建立一個預設的 Mail 實例。

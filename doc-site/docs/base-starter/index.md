@@ -46,7 +46,7 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 |---|---|---|
 | `BaseAutoConfiguration` | `autoconfiguration` | 模組自動配置入口，無條件註冊核心 Bean |
 | `MailService` / `MailServiceImpl` | `service` | 郵件發送介面與實作（五種發送方式），內建多組 SMTP 依序容錯切換 |
-| `Mail` | `model` | 郵件資料模型（from / to / cc / bcc / subject / content / attachments） |
+| `Mail` | `model` | 郵件資料模型（from / to / cc / bcc / subject / content / attachments / inlineResources） |
 | `MailServerProperty` | `config` | 單組 SMTP 伺服器設定，作為 `mail.servers` 清單中的一個元素 |
 | `MailFailoverProperty` | `config` | 多 SMTP 容錯切換行為設定（最大嘗試組數、整體切換時間上限） |
 | `MailFailoverException` | `exception` | 全部 SMTP 皆嘗試失敗時拋出的彙整例外（unchecked） |

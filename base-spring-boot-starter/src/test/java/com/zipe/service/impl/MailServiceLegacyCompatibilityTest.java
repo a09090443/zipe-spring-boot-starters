@@ -70,4 +70,53 @@ class MailServiceLegacyCompatibilityTest {
                             .doesNotThrowAnyException();
                 });
     }
+
+    /**
+     * SC-036：逐一核對全部 10 個既有扁平 {@code mail.*} 設定鍵仍可正確繫結且語意不變
+     * （AC-011-02），而非僅驗證其中一部分欄位。每個鍵皆設為非預設值，並核對
+     * {@link MailPropertyConfig#resolveServers()} 合成的唯一一組候選確實逐一採用這些值。
+     */
+    @Test
+    void allTenLegacyFlatKeys_bindCorrectly_andAreUsedByResolveServers() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(BaseAutoConfiguration.class))
+                .withPropertyValues(
+                        "mail.host=legacy-host.example.test",
+                        "mail.port=2525",
+                        "mail.username=legacy-user",
+                        "mail.pa55word=legacy-pass",
+                        "mail.sender=legacy-sender@example.test",
+                        "mail.smtp-auth-enable=false",
+                        "mail.smtp-start-tls-enable=true",
+                        "mail.transport-protocol=smtps",
+                        "mail.encrypt-enable=true",
+                        "mail.debug-enable=true")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(MailPropertyConfig.class);
+                    MailPropertyConfig cfg = context.getBean(MailPropertyConfig.class);
+
+                    assertThat(cfg.getHost()).isEqualTo("legacy-host.example.test");
+                    assertThat(cfg.getPort()).isEqualTo("2525");
+                    assertThat(cfg.getUsername()).isEqualTo("legacy-user");
+                    assertThat(cfg.getPa55word()).isEqualTo("legacy-pass");
+                    assertThat(cfg.getSender()).isEqualTo("legacy-sender@example.test");
+                    assertThat(cfg.getSmtpAuthEnable()).isFalse();
+                    assertThat(cfg.getSmtpStartTlsEnable()).isTrue();
+                    assertThat(cfg.getTransportProtocol()).isEqualTo("smtps");
+                    assertThat(cfg.getEncryptEnable()).isTrue();
+                    assertThat(cfg.getDebugEnable()).isTrue();
+
+                    var candidates = cfg.resolveServers();
+                    assertThat(candidates).hasSize(1);
+                    var onlyCandidate = candidates.get(0);
+                    assertThat(onlyCandidate.getHost()).isEqualTo("legacy-host.example.test");
+                    assertThat(onlyCandidate.getPort()).isEqualTo("2525");
+                    assertThat(onlyCandidate.getUsername()).isEqualTo("legacy-user");
+                    assertThat(onlyCandidate.getPa55word()).isEqualTo("legacy-pass");
+                    assertThat(onlyCandidate.getSmtpAuthEnable()).isFalse();
+                    assertThat(onlyCandidate.getSmtpStartTlsEnable()).isTrue();
+                    assertThat(onlyCandidate.getTransportProtocol()).isEqualTo("smtps");
+                    assertThat(onlyCandidate.getEncryptEnable()).isTrue();
+                });
+    }
 }

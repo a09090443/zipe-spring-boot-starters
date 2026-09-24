@@ -41,6 +41,15 @@ sidebar_position: 3
 三種底層逾時與整體切換時間上限對 `transport-protocol: smtp`（含 STARTTLS）與 `transport-protocol: smtps`（隱式 TLS，例如 465 埠）兩種協定皆會生效，不需為 smtps 額外設定。內部依該組實際協定將逾時值同時寫入對應的 JavaMail 屬性前綴，使用者只需維持既有 `mail.connection-timeout` 等單一設定鍵，不需依協定分別設定。
 :::
 
+:::caution 連線／讀取／寫入逾時為本次新增的行為，升級前無此限制
+`mail.connection-timeout`（5000ms）、`mail.read-timeout`（3000ms）、`mail.write-timeout`（5000ms）
+三者為**本次多 SMTP 容錯切換一併引入**的預設逾時上限；升級前的單組 SMTP 呼叫**未曾對這三個階段
+設定任何逾時**，理論上會無限期等待底層 socket。若既有 SMTP 伺服器的網路延遲或處理時間**已經**
+超過上述任一預設值（例如連線建立、等待回應或大附件寫入需要 5 秒以上），升級後可能因逾時而改用
+下一組（或在未設定 `mail.servers` 時直接視為該唯一一組失敗），與升級前「無限等待直到成功或連線
+逾時」的行為不同。若您的環境需要更長的等待時間，請明確調高對應的 `mail.*-timeout` 屬性。
+:::
+
 :::warning smtps（隱式 TLS）強制驗證伺服器憑證主機名稱
 `transport-protocol: smtps` 的連線由內部截止機制接手建立與交握，交握時會依標準 HTTPS 規則驗證伺服器憑證的主機名稱（Subject Alternative Name／Common Name）是否與 `host` 設定相符，避免整體逾時機制在不知情下削弱既有的 TLS 安全保證。若目標 SMTP 伺服器使用自簽憑證或憑證未涵蓋設定的主機名稱，交握將會失敗並依容錯機制切換至下一組；請確認 `host` 與憑證上的主機名稱一致（建議使用網域名稱而非 IP），或改用信任鏈完整的正式憑證。
 :::

@@ -15,14 +15,20 @@ import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLContext;
@@ -108,6 +114,10 @@ class MailServiceSmtpsTimeoutTest {
         // connection-timeout 覆寫為 300ms，遠小於 10000ms 的整體逾時；若 smtps 前綴未生效，
         // 只能靠整體逾時兜底，耗時將遠高於此處的寬鬆上限
         assertThat(elapsed).isLessThan(2000);
+        // SC-050：下限確保確實等待了 connection-timeout（而非被連線拒絕等其他成因瞬間失敗，
+        // 使上限斷言在錯誤情境下也恰好通過）——若誤套用 read-timeout（5000ms）反而會等更久，
+        // 上限 2000ms 已可攔截；此下限進一步確認耗時貼近本組設定的 300ms 而非近乎 0ms。
+        assertThat(elapsed).isGreaterThanOrEqualTo(250);
     }
 
     /**
@@ -175,6 +185,111 @@ class MailServiceSmtpsTimeoutTest {
         assertThat(messages[0].getSubject()).isEqualTo("SC-027");
         // smtps 組別須確實在自身 connection-timeout（300ms）內結束才會切換，而非拖到更大的預設值
         assertThat(elapsed).isLessThan(3000);
+    }
+
+    /**
+     * SC-053（黑箱／真實生產路徑，非反射）：smtps 組別若實際指向一個只會明文對話的 SMTP 伺服器
+     * （未實作 TLS），必須因 TLS handshake 失敗而視為該組失敗並容錯切換至下一組，
+     * 絕不能悄悄退化為明文並與該伺服器完成完整 SMTP 對話——即使該明文伺服器完全正常運作、
+     * 也「願意」接受明文連線。本測試不透過反射直接建構 {@code DeadlineSocketFactory}
+     * （見 {@link #smtpsHandshake_enforcesHostnameVerification_ratherThanFallingBackToPlaintext()}
+     * 的白箱驗證），而是完整走過 {@link MailServiceImpl} 的公開發送路徑，證明
+     * {@code senderForAttempt()} 依協定自動計算的 {@code fallbackToPlainSocket=false}
+     * 確實在真實情境下生效。
+     */
+    @Test
+    void smtpsCandidate_pointedAtPlaintextServer_neverCompletesPlaintextDialogue_fallsBackToRealBackup()
+            throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean plaintextDialogueCompleted =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        try (ServerSocket plaintextServer = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))) {
+            int plaintextPort = plaintextServer.getLocalPort();
+            Thread acceptor = new Thread(() -> handlePlaintextImposter(plaintextServer, plaintextDialogueCompleted));
+            acceptor.setDaemon(true);
+            acceptor.start();
+
+            MailServerProperty imposter = smtpsServer("plaintext-imposter", "127.0.0.1", plaintextPort);
+            MailPropertyConfig cfg = config(
+                    imposter, greenMailServer("backup-smtp", greenMailSmtp.getSmtp().getPort(), "mixedUser", "mixedPw"));
+            cfg.setConnectionTimeout(1000);
+            cfg.setReadTimeout(1000);
+            cfg.setWriteTimeout(1000);
+
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            try {
+                service.setInitData();
+            } catch (MessagingException ignored) {
+                // imposter 於初始化階段的 TLS handshake 預期失敗，仍保留候選清單供後續發送嘗試
+            }
+
+            service.simpleMailSend(plainTextMail("SC-053"));
+
+            MimeMessage[] messages = greenMailSmtp.getReceivedMessages();
+            assertThat(messages).hasSize(1);
+            assertThat(messages[0].getSubject()).isEqualTo("SC-053");
+            assertThat(plaintextDialogueCompleted.get())
+                    .as("smtps 組別不得因委派工廠找不到憑證／TLS 協定不符而退化為明文，與明文伺服器完成完整 SMTP 對話")
+                    .isFalse();
+        }
+    }
+
+    /**
+     * 模擬一個完全正常、願意接受明文連線的 SMTP 伺服器；若 smtps 組別誤退化為明文，會在此完成整段對話。
+     * 迴圈接受多次連線（setInitData 的連線測試與實際發送各會連線一次），避免第二次連線因無人 accept
+     * 而拖到逾時，讓測試更快、更穩定地反映真實失敗原因（TLS handshake 失敗，而非單純逾時）。
+     */
+    private static void handlePlaintextImposter(
+            ServerSocket serverSocket, java.util.concurrent.atomic.AtomicBoolean dialogueCompleted) {
+        while (!serverSocket.isClosed()) {
+            try (Socket socket = serverSocket.accept()) {
+                handlePlaintextConnection(socket, dialogueCompleted);
+            } catch (IOException ignored) {
+                // close() 會關閉 ServerSocket，使 accept() 正常結束；單次連線失敗不影響後續接受。
+            }
+        }
+    }
+
+    private static void handlePlaintextConnection(
+            Socket socket, java.util.concurrent.atomic.AtomicBoolean dialogueCompleted) {
+        try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
+                BufferedWriter writer = new BufferedWriter(
+                        new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.US_ASCII))) {
+            reply(writer, "220 plaintext-imposter ESMTP ready");
+            boolean readingData = false;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (readingData) {
+                    if (".".equals(line)) {
+                        dialogueCompleted.set(true);
+                        reply(writer, "250 queued");
+                        readingData = false;
+                    }
+                    continue;
+                }
+                String upper = line.toUpperCase(Locale.ROOT);
+                if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+                    reply(writer, "250-plaintext-imposter\r\n250 8BITMIME");
+                } else if (upper.equals("DATA")) {
+                    reply(writer, "354 End data with <CR><LF>.<CR><LF>");
+                    readingData = true;
+                } else if (upper.equals("QUIT")) {
+                    reply(writer, "221 Bye");
+                    return;
+                } else {
+                    reply(writer, "250 OK");
+                }
+            }
+        } catch (IOException ignored) {
+            // 預期行為：smtps 組別嘗試 TLS handshake 而非明文對話，本明文伺服器收到的位元組
+            // 不是合法 TLS ClientHello，讀寫可能提早中止或拋出例外，此為正常結果。
+        }
+    }
+
+    private static void reply(BufferedWriter writer, String response) throws IOException {
+        writer.write(response);
+        writer.write("\r\n");
+        writer.flush();
     }
 
     /**

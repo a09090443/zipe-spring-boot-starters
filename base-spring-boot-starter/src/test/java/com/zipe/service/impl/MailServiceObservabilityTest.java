@@ -184,6 +184,88 @@ class MailServiceObservabilityTest {
         assertThat(messages).noneMatch(m -> m.contains("成功"));
     }
 
+    /**
+     * SC-034：前兩組失敗、第三組成功時，日誌須能還原完整的嘗試順序——依序看到 primary、secondary
+     * 兩筆 WARN 失敗記錄（且順序與候選清單一致），最後才是 tertiary 的成功 INFO 記錄；
+     * 不得只留下最終成功訊息而遺漏中途的失敗記錄，也不得順序錯亂。
+     */
+    @Test
+    void twoFailuresThenSuccess_logsPreserveFullAttemptOrder() throws Exception {
+        MailPropertyConfig cfg = config(
+                unreachableServer("primary", 1),
+                unreachableServer("secondary", 2),
+                greenMailServer("tertiary", greenMail.getSmtp().getPort(), "authUser", "correctPw"));
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // primary/secondary 於初始化階段即失敗，仍保留候選清單供後續發送嘗試
+        }
+
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        service.simpleMailSend(MailFailoverTestSupport.plainTextMail("SC-034"));
+
+        List<String> messages =
+                appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
+
+        int primaryWarnIndex = indexOfFirstMatch(messages, m -> m.contains("primary") && m.contains("將嘗試下一組"));
+        int secondaryWarnIndex = indexOfFirstMatch(messages, m -> m.contains("secondary") && m.contains("將嘗試下一組"));
+        int tertiarySuccessIndex = indexOfFirstMatch(messages, m -> m.contains("tertiary") && m.contains("成功"));
+
+        assertThat(primaryWarnIndex).as("primary 的 WARN 失敗記錄須存在").isNotNegative();
+        assertThat(secondaryWarnIndex).as("secondary 的 WARN 失敗記錄須存在").isNotNegative();
+        assertThat(tertiarySuccessIndex).as("tertiary 的成功 INFO 記錄須存在").isNotNegative();
+        assertThat(primaryWarnIndex).as("primary 須早於 secondary 被記錄").isLessThan(secondaryWarnIndex);
+        assertThat(secondaryWarnIndex).as("secondary 須早於 tertiary 成功被記錄").isLessThan(tertiarySuccessIndex);
+    }
+
+    /**
+     * SC-035：max-attempts 小於已設定組數、且被嘗試的組別全數失敗時，ERROR 彙整日誌須顯示
+     * 「實際嘗試組數」（等於 max-attempts），而非誤植為候選清單的總組數；未被嘗試的多餘組別
+     * 也不得出現在彙整清單中，避免維運誤判實際嘗試了多少組。
+     */
+    @Test
+    void allAttemptedServersDown_errorLogShowsActualAttemptedCount_notTotalCandidateCount() throws Exception {
+        MailPropertyConfig cfg = config(
+                unreachableServer("primary", 1), unreachableServer("secondary", 2), unreachableServer("tertiary", 3));
+        cfg.getFailover().setMaxAttempts(2);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 三組皆於初始化階段失敗，仍保留候選清單供後續發送嘗試
+        }
+
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        Throwable failure =
+                catchThrowable(() -> service.simpleMailSend(MailFailoverTestSupport.plainTextMail("SC-035")));
+        assertThat(failure).isInstanceOf(MailFailoverException.class);
+
+        List<String> errorMessages = appender.list.stream()
+                .filter(event -> event.getLevel().toString().equals("ERROR"))
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.toList());
+
+        assertThat(errorMessages).as("須有一筆最終失敗的 ERROR 日誌").hasSize(1);
+        String errorMessage = errorMessages.get(0);
+        // 已嘗試組數須為 max-attempts（2），而非候選總數（3）
+        assertThat(errorMessage).contains("已嘗試 2 組");
+        assertThat(errorMessage).doesNotContain("已嘗試 3 組");
+        assertThat(errorMessage).contains("primary").contains("secondary");
+        assertThat(errorMessage).doesNotContain("tertiary");
+    }
+
+    private static int indexOfFirstMatch(List<String> messages, java.util.function.Predicate<String> predicate) {
+        for (int i = 0; i < messages.size(); i++) {
+            if (predicate.test(messages.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private static String exceptionText(Throwable failure) {
         StringWriter text = new StringWriter();
         failure.printStackTrace(new PrintWriter(text));

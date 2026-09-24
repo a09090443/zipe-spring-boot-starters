@@ -162,6 +162,38 @@ class MailFailoverDocumentationContractTest {
         assertThat(content).containsAnyOf("fallbackToPlainSocket", "退回明文 socket");
     }
 
+    /**
+     * SC-040：configuration.md 須明示連線／讀取／寫入逾時預設值為本次新增的行為，升級前無此限制，
+     * 避免使用者誤以為套用預設值後與升級前行為完全相同（design 階段核實發現的既有文件缺口）。
+     */
+    @Test
+    void configuration_documentsTimeoutDefaultsAreNewBehaviorNotPresentBeforeUpgrade() throws IOException {
+        String content = read("configuration.md");
+        assertThat(content).contains("升級前").contains("無此限制");
+        assertThat(content).contains("mail.connection-timeout").contains("mail.read-timeout").contains("mail.write-timeout");
+    }
+
+    /**
+     * SC-042：architecture.md 的 {@code Mail} 欄位表須涵蓋 {@code inlineResources}，並明確區分
+     * 其與 {@code attachments} 的差異（{@code addInline} vs {@code addAttachment}），
+     * 避免文件落後於 richContentSend 內嵌資源修正後的實際行為。
+     */
+    @Test
+    void architecture_documentsInlineResourcesFieldDistinctFromAttachments() throws IOException {
+        String content = read("architecture.md");
+        assertThat(content).contains("inlineResources");
+        assertThat(content).contains("addInline");
+        assertThat(content).contains("addAttachment");
+    }
+
+    /** SC-041：examples.md 須提供 richContentSend 使用 inlineResources 產生真正內嵌資源的範例。 */
+    @Test
+    void examples_demonstratesInlineResourcesUsage() throws IOException {
+        String content = read("examples.md");
+        assertThat(content).contains("inlineResources");
+        assertThat(content).contains("cid:");
+    }
+
     /** AC-013-03：examples.md 的方法簽章（名稱與參數型別）須與 MailService 介面完全一致，不得使用已不存在的方法。 */
     @Test
     void examples_methodSignaturesMatchMailServiceInterface() throws IOException {

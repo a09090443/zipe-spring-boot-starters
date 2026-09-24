@@ -5,6 +5,7 @@ import static com.zipe.service.impl.MailFailoverTestSupport.greenMailServer;
 import static com.zipe.service.impl.MailFailoverTestSupport.plainTextMail;
 import static com.zipe.service.impl.MailFailoverTestSupport.unreachableServer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
@@ -13,6 +14,7 @@ import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
+import jakarta.mail.internet.MimeMessage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -270,6 +272,50 @@ class MailServiceTimeoutAndLimitsTest {
         service.simpleMailSend(plainTextMail("unbounded-send"));
 
         assertThat(greenMail.getReceivedMessages()).hasSize(1);
+    }
+
+    /**
+     * SC-031（負值邊界）：overall-timeout 為負值時比照 0，視為不限制整體耗時，而非被誤判為
+     * 「立即逾時」或被傳入排程器／{@code TimeUnit} 換算成負數等待時間導致例外或行為異常；
+     * 各組仍受各自的連線／讀取／寫入逾時限制（本測試以正常送達證明兩者皆成立）。
+     */
+    @Test
+    void overallTimeout_negative_keepsUnboundedSendPath_andDoesNotThrowOrMisbehave() throws Exception {
+        MailPropertyConfig cfg = config(
+                greenMailServer("unbounded-negative", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        cfg.getFailover().setOverallTimeout(-1L);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        service.setInitData();
+
+        assertThatCode(() -> service.simpleMailSend(plainTextMail("unbounded-negative-send")))
+                .doesNotThrowAnyException();
+
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertThat(messages).hasSize(1);
+        assertThat(messages[0].getSubject()).isEqualTo("unbounded-negative-send");
+    }
+
+    /**
+     * SC-031（負值邊界，失敗路徑）：overall-timeout 為負值且全部伺服器皆不可達時，仍須如「不限制整體
+     * 耗時」語意逐組嘗試至候選清單結束，而非因負值被誤判為 0 次嘗試或立即以整體逾時原因結束；
+     * 失敗摘要須包含全部組別、且不得誤標為 overall-timeout 原因。
+     */
+    @Test
+    void overallTimeout_negative_stillAttemptsAllCandidates_whenAllUnavailable() throws Exception {
+        MailPropertyConfig cfg = config(unreachableServer("primary", 1), unreachableServer("secondary", 2));
+        cfg.getFailover().setOverallTimeout(-100L);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 兩組皆不可用，仍保留候選清單供後續發送嘗試
+        }
+
+        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-031-negative-all-down")))
+                .isInstanceOf(MailFailoverException.class)
+                .hasMessageContaining("primary")
+                .hasMessageContaining("secondary")
+                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("整體逾時"));
     }
 
     /** SocketFactory 的所有連線建立入口都必須受到同一絕對截止時間保護。 */

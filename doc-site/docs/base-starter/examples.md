@@ -181,6 +181,22 @@ public class NotifyService {
 | `richContentSend(Mail)` | 內嵌圖片等多媒體內容 |
 | `sendBatchMailWithFile(Mail)` | 批次發送含附件郵件 |
 
+`richContentSend` 若要讓 HTML 中的 `<img src="cid:xxx"/>` 真正顯示為內嵌圖片（而非一般附件），
+須透過 `Mail.inlineResources`（`Map<Content-ID, File>`）指定，**不要**把內嵌圖片放進
+`attachments`（`attachments` 一律以一般附件形式送出）：
+
+```java
+Mail mail = new Mail();
+mail.setMailTo(new String[]{"user@example.com"});
+mail.setMailSubject("內嵌圖片範例");
+mail.setContentType("text/html");
+mail.setMailContent("<p>您好，附上公司 Logo：</p><img src=\"cid:logo\"/>");
+mail.setInlineResources(java.util.Map.of("logo", new java.io.File("logo.png")));
+
+mailService.setInitData();
+mailService.richContentSend(mail);
+```
+
 ### 設定多組 SMTP 容錯切換
 
 設定 `mail.servers`（見 [配置參考](./configuration.md#多組-smtp-容錯切換mailservers)）後，

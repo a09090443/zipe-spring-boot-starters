@@ -123,6 +123,9 @@ class MailServiceSmtpsScenariosTest {
         // read-timeout 覆寫為 300ms，遠小於 6000ms 的整體逾時；若未真正生效，只能靠整體逾時兜底，
         // 耗時將遠高於此處的寬鬆上限。
         assertThat(elapsed).isLessThan(3000);
+        // SC-051：下限確保耗時貼近本組 read-timeout（300ms）本身，而非誤套用遠小的
+        // connection-timeout（TLS 交握已於伺服器端完成，不應在交握階段就被截斷）。
+        assertThat(elapsed).isGreaterThanOrEqualTo(250);
     }
 
     /**

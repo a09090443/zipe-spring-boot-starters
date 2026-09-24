@@ -351,19 +351,13 @@ class MailServiceFailoverTest {
     }
 
     /**
-     * SC-018（部分）：richContentSend 經備援組送達時，HTML 內容中 {@code cid:} 參照文字與隨附的
-     * 二進位資源皆須位元正確送達。
-     *
-     * <p><b>已知缺口（非本次容錯切換範圍）</b>：{@link MailServiceImpl#richContentSend} 目前對
-     * {@code attachments} 一律呼叫 {@code MimeMessageHelper.addAttachment}，並未呼叫
-     * {@code addInline} 設定 Content-ID，因此 HTML 中的 {@code cid:} 參照實際上無法被信件用戶端
-     * 解析為內嵌圖片（僅會顯示為一般附件）。這是 {@code richContentSend} 既有（容錯切換之前即存在）
-     * 的行為缺口，而非本次多 SMTP 容錯切換引入的問題；{@code Mail} 模型也未區分「內嵌資源」與
-     * 「一般附件」，要修正需先決定兩者的 API 區分方式，屬需另行核准的產品設計取捨，
-     * 故本測試僅驗證現況下可驗證的部分（HTML 文字與附件位元正確性），不驗證真正的 Content-ID 解析。</p>
+     * SC-018：richContentSend 經備援組送達時，HTML 內容中 {@code cid:} 參照的內嵌資源須以真正的
+     * MIME Content-ID（{@code addInline}）送達，而非退化為一般附件（{@code addAttachment}）；
+     * 一般附件（{@code attachments}）與內嵌資源（{@code inlineResources}）須能同時共存且互不混淆，
+     * 內嵌資源的二進位內容須逐位元正確。
      */
     @Test
-    void richContentSend_firstServerDown_deliversHtmlCidReferenceAndBinaryResourceToBackup_byteForByte(
+    void richContentSend_firstServerDown_deliversHtmlCidReferenceAsRealInlineResource_byteForByte(
             @TempDir Path tempDir) throws Exception {
         MailServiceImpl service = new MailServiceImpl(twoServerConfig());
         service.setInitData();
@@ -373,19 +367,50 @@ class MailServiceFailoverTest {
         Path inlineImage = tempDir.resolve("inline-logo.png");
         Files.write(inlineImage, inlineImageBytes);
 
+        Path plainAttachment = tempDir.resolve("report.txt");
+        Files.writeString(plainAttachment, "SC-018-plain-attachment", StandardCharsets.UTF_8);
+
         Mail mail = plainTextMail("SC-018-inline");
         mail.setContentType("text/html");
-        mail.setMailContent("<p>SC-018-inline</p><img src='cid:inline-logo.png'/>");
-        mail.setAttachments(List.of(inlineImage.toFile()));
+        mail.setMailContent("<p>SC-018-inline</p><img src='cid:inline-logo'/>");
+        mail.setInlineResources(java.util.Map.of("inline-logo", inlineImage.toFile()));
+        mail.setAttachments(List.of(plainAttachment.toFile()));
 
         assertThatCode(() -> service.richContentSend(mail)).doesNotThrowAnyException();
 
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
-        assertThat(textContent(messages[0])).contains("cid:inline-logo.png");
-        Part attachmentPart = findAttachment(messages[0], "inline-logo.png");
-        assertThat(attachmentPart).as("內嵌資源檔案 inline-logo.png").isNotNull();
-        assertThat(attachmentPart.getInputStream().readAllBytes()).isEqualTo(inlineImageBytes);
+        assertThat(textContent(messages[0])).contains("cid:inline-logo");
+
+        Part inlinePart = findByContentId(messages[0], "inline-logo");
+        assertThat(inlinePart).as("內嵌資源須以 Content-ID inline-logo 存在，而非一般附件").isNotNull();
+        assertThat(inlinePart.getDisposition()).isEqualToIgnoringCase(Part.INLINE);
+        assertThat(inlinePart.getInputStream().readAllBytes()).isEqualTo(inlineImageBytes);
+
+        // 一般附件仍須維持既有 addAttachment 行為，與內嵌資源互不混淆
+        assertAttachment(messages[0], "report.txt", "SC-018-plain-attachment");
+        Part plainAttachmentPart = findAttachment(messages[0], "report.txt");
+        assertThat(plainAttachmentPart.getDisposition()).isEqualToIgnoringCase(Part.ATTACHMENT);
+    }
+
+    /** 找出指定 Content-ID（不含 {@code cid:} 前綴與角括號）的 MIME part，用於驗證真正的內嵌資源。 */
+    private static Part findByContentId(Part part, String expectedContentId) throws Exception {
+        if (part instanceof jakarta.mail.internet.MimePart mimePart) {
+            String contentId = mimePart.getContentID();
+            if (contentId != null && contentId.replaceAll("[<>]", "").equals(expectedContentId)) {
+                return part;
+            }
+        }
+        Object content = part.getContent();
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                Part found = findByContentId(multipart.getBodyPart(i), expectedContentId);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     /** SC-09：sendBatchMailWithFile 第一組失敗、第二組成功時，多位收件人皆收到含附件的信。 */
