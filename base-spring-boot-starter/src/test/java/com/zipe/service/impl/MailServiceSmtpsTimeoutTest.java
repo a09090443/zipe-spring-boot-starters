@@ -372,18 +372,19 @@ class MailServiceSmtpsTimeoutTest {
 
         Class<?> factoryType = Class.forName(MailServiceImpl.class.getName() + "$DeadlineSocketFactory");
         var constructor = factoryType.getDeclaredConstructor(
-                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class);
+                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class, boolean.class);
         constructor.setAccessible(true);
 
         int port = greenMailSmtps.getSmtps().getPort();
-        // fallbackToPlainSocket=false，與生產程式碼中 implicitSsl（smtps）強制關閉明文退回的行為一致
+        // fallbackToPlainSocket=false、implicitSsl=true，與生產程式碼中 smtps 強制關閉明文退回的行為一致
         SocketFactory factory = (SocketFactory) constructor.newInstance(
                 System.nanoTime() + TimeUnit.SECONDS.toNanos(10),
                 SSLSocketFactory.getDefault(),
                 false,
                 2000,
                 "127.0.0.1",
-                port);
+                port,
+                true);
 
         assertThatThrownBy(() -> factory.createSocket("127.0.0.1", port))
                 .isInstanceOf(IOException.class)

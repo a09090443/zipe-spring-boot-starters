@@ -323,7 +323,7 @@ class MailServiceTimeoutAndLimitsTest {
     void deadlineSocketFactory_guardsEveryConnectedSocketCreationVariant() throws Exception {
         Class<?> factoryType = Class.forName(MailServiceImpl.class.getName() + "$DeadlineSocketFactory");
         var constructor = factoryType.getDeclaredConstructor(
-                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class);
+                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class, boolean.class);
         constructor.setAccessible(true);
 
         List<Socket> clients = new ArrayList<>();
@@ -336,7 +336,8 @@ class MailServiceTimeoutAndLimitsTest {
                     true,
                     2000,
                     "127.0.0.1",
-                    listener.getLocalPort());
+                    listener.getLocalPort(),
+                    false);
 
             clients.add(factory.createSocket("127.0.0.1", listener.getLocalPort()));
             peers.add(listener.accept());
@@ -380,7 +381,7 @@ class MailServiceTimeoutAndLimitsTest {
     void deadlineSocketFactory_delegatesActualSocketCreation_preservingTlsSemantics() throws Exception {
         Class<?> factoryType = Class.forName(MailServiceImpl.class.getName() + "$DeadlineSocketFactory");
         var constructor = factoryType.getDeclaredConstructor(
-                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class);
+                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class, boolean.class);
         constructor.setAccessible(true);
 
         InetAddress loopback = InetAddress.getByName("127.0.0.1");
@@ -425,7 +426,8 @@ class MailServiceTimeoutAndLimitsTest {
                     true,
                     2000,
                     "127.0.0.1",
-                    listener.getLocalPort());
+                    listener.getLocalPort(),
+                    false);
 
             Socket client = factory.createSocket("127.0.0.1", listener.getLocalPort());
             try (Socket peer = listener.accept()) {
@@ -443,7 +445,7 @@ class MailServiceTimeoutAndLimitsTest {
     void deadlineSocketFactory_fallsBackToPlainSocket_whenDelegateFailsAndFallbackEnabled() throws Exception {
         Class<?> factoryType = Class.forName(MailServiceImpl.class.getName() + "$DeadlineSocketFactory");
         var constructor = factoryType.getDeclaredConstructor(
-                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class);
+                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class, boolean.class);
         constructor.setAccessible(true);
 
         InetAddress loopback = InetAddress.getByName("127.0.0.1");
@@ -454,7 +456,8 @@ class MailServiceTimeoutAndLimitsTest {
                     true,
                     2000,
                     "127.0.0.1",
-                    listener.getLocalPort());
+                    listener.getLocalPort(),
+                    false);
 
             try (Socket client = factory.createSocket("127.0.0.1", listener.getLocalPort());
                     Socket peer = listener.accept()) {
@@ -468,7 +471,7 @@ class MailServiceTimeoutAndLimitsTest {
     void deadlineSocketFactory_propagatesDelegateFailure_whenFallbackDisabled() throws Exception {
         Class<?> factoryType = Class.forName(MailServiceImpl.class.getName() + "$DeadlineSocketFactory");
         var constructor = factoryType.getDeclaredConstructor(
-                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class);
+                long.class, SocketFactory.class, boolean.class, int.class, String.class, int.class, boolean.class);
         constructor.setAccessible(true);
 
         SocketFactory factory = (SocketFactory) constructor.newInstance(
@@ -477,7 +480,8 @@ class MailServiceTimeoutAndLimitsTest {
                 false,
                 2000,
                 "127.0.0.1",
-                1);
+                1,
+                false);
 
         assertThatThrownBy(() -> factory.createSocket("127.0.0.1", 1))
                 .isInstanceOf(IOException.class)

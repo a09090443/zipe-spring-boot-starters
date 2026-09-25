@@ -20,9 +20,13 @@ import jakarta.mail.internet.MimeMultipart;
 import jakarta.mail.internet.MimeUtility;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -309,7 +313,8 @@ public class MailServiceImpl implements MailService {
                 fallbackToPlainSocket,
                 connectTimeoutMillis,
                 configured.getHost(),
-                configured.getPort());
+                configured.getPort(),
+                implicitSsl);
         properties.put("mail." + protocolPrefix + ".socketFactory", deadlineSocketFactory);
         if (implicitSsl) {
             properties.put("mail." + protocolPrefix + ".ssl.socketFactory", deadlineSocketFactory);
@@ -688,6 +693,7 @@ public class MailServiceImpl implements MailService {
         private final int connectTimeoutMillis;
         private final String targetHost;
         private final int targetPort;
+        private final boolean implicitSsl;
 
         private DeadlineSocketFactory(
                 long deadlineNanos,
@@ -695,21 +701,36 @@ public class MailServiceImpl implements MailService {
                 boolean fallbackToPlainSocket,
                 int connectTimeoutMillis,
                 String targetHost,
-                int targetPort) {
+                int targetPort,
+                boolean implicitSsl) {
             this.deadlineNanos = deadlineNanos;
             this.delegate = delegate;
             this.fallbackToPlainSocket = fallbackToPlainSocket;
             this.connectTimeoutMillis = Math.max(1, connectTimeoutMillis);
             this.targetHost = targetHost;
             this.targetPort = targetPort;
+            this.implicitSsl = implicitSsl;
         }
 
         @Override
         public Socket createSocket() throws IOException {
-            // Angus/JavaMail 的 SocketFetcher 對「以 mail.smtp.socketFactory 提供實例」的用法，
-            // 只會呼叫本無參數版本取得 socket，之後自行 connect()；因此連線與（若為 SSL）handshake
-            // 必須在此就緒完成並回傳「已連線」的 socket，才能沿用原本委派工廠的 TLS／fallback 語意。
-            return guard(newConnectedSocket(targetHost, targetPort, null, 0));
+            // 隱式 TLS（smtps）透過 mail.<prefix>.ssl.socketFactory 註冊同一實例；JavaMail／Angus
+            // 對此鍵的用法是直接使用本方法回傳、已連線且已完成 handshake 的 SSLSocket，不會另外
+            // 呼叫 connect()，也不會等它 instanceof SSLSocket 才放行——因此隱式 TLS 情境維持原本
+            // 就地連線＋handshake 的行為，不能延遲。
+            //
+            // 明文 smtp（含仍會嘗試 SSL handshake 再退回明文的既有相容邏輯）僅透過
+            // mail.smtp.socketFactory 註冊；Angus/JavaMail 的 SocketFetcher 對此鍵的用法只會呼叫
+            // 本無參數版本取得「尚未連線」的 socket，之後自行呼叫 socket.connect(SocketAddress, int)。
+            // 若在此就先行完成連線，呼叫端這次 connect() 會因 socket 已連線而拋出例外；SocketFetcher
+            // 會捕捉此例外並改用它自己完全不受本截止機制保護、也不會被排程關閉的一般 socket，使整個
+            // 逾時／TLS 委派機制對這次連線失效（呼叫端仍會在整體逾時內收到例外，但底層 SMTP 對話會
+            // 在背景不受限制地繼續進行）。因此明文情境改為回傳延遲連線的包裝物件，實際連線、TLS
+            // handshake、fallback 判斷與到期關閉排程皆遞延至呼叫端呼叫 connect() 時才執行。
+            if (implicitSsl) {
+                return guard(newConnectedSocket(targetHost, targetPort, null, 0));
+            }
+            return new DeferredConnectSocket();
         }
 
         @Override
@@ -736,9 +757,17 @@ public class MailServiceImpl implements MailService {
 
         private Socket newConnectedSocket(String host, int port, InetAddress localAddress, int localPort)
                 throws IOException {
+            Socket delegateSocket = null;
             try {
-                return connectAndHandshake(delegate.createSocket(), host, port, localAddress, localPort);
+                delegateSocket = delegate.createSocket();
+                return connectAndHandshake(delegateSocket, host, port, localAddress, localPort);
             } catch (IOException e) {
+                // 委派工廠已實際建立 TCP 連線（甚至完成部分 handshake）才失敗時，該 socket 對遠端而言
+                // 仍是一條存活的連線；若不在此明確關閉，退回明文 socket 後原本這條連線會被靜默丟棄，
+                // 造成連線與檔案描述元洩漏，且伺服器端會誤以為該連線仍在等待後續資料。
+                if (delegateSocket != null) {
+                    closeQuietly(delegateSocket);
+                }
                 if (!fallbackToPlainSocket) {
                     throw e;
                 }
@@ -793,6 +822,118 @@ public class MailServiceImpl implements MailService {
                 socket.close();
             } catch (IOException ignored) {
                 // 截止關閉採 best effort；socket 已關閉時不需另外處理。
+            }
+        }
+
+        /**
+         * {@link #createSocket()} 無參數版本回傳的延遲連線包裝物件。
+         * <p>
+         * 建構時尚未連線；直到呼叫端（JavaMail 的 {@code SocketFetcher}）呼叫
+         * {@link #connect(SocketAddress, int)} 時，才實際委派 {@link #newConnectedSocket}
+         * 完成連線、TLS handshake 判斷與 fallback，並在成功後才排入到期關閉排程——避免
+         * 提早連線導致呼叫端的 {@code connect()} 因「socket 已連線」而失敗，讓真正用於
+         * SMTP 對話的連線改由呼叫端自行建立、脫離本截止機制與 TLS 委派語意的保護。
+         * 所有實際 I/O 皆委派給連線完成後取得的 {@link #real} socket。
+         * </p>
+         */
+        private final class DeferredConnectSocket extends Socket {
+
+            private volatile Socket real;
+
+            @Override
+            public void connect(SocketAddress endpoint, int timeout) throws IOException {
+                InetSocketAddress target = (InetSocketAddress) endpoint;
+                this.real = guard(newConnectedSocket(
+                        target.getHostString(), target.getPort(), null, 0));
+            }
+
+            @Override
+            public void connect(SocketAddress endpoint) throws IOException {
+                connect(endpoint, 0);
+            }
+
+            @Override
+            public void bind(SocketAddress bindpoint) {
+                // 委派工廠回傳的 socket 一律以目標 host/port 直接連線，不支援先行 bind 本地位址；
+                // JavaMail 的 SocketFetcher 在無參數版本情境下不會傳入本地位址，故安全忽略。
+            }
+
+            private Socket real() throws SocketException {
+                Socket socket = real;
+                if (socket == null) {
+                    throw new SocketException("尚未連線：請先呼叫 connect()");
+                }
+                return socket;
+            }
+
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return real().getInputStream();
+            }
+
+            @Override
+            public OutputStream getOutputStream() throws IOException {
+                return real().getOutputStream();
+            }
+
+            @Override
+            public void setSoTimeout(int timeout) throws SocketException {
+                real().setSoTimeout(timeout);
+            }
+
+            @Override
+            public int getSoTimeout() throws SocketException {
+                return real().getSoTimeout();
+            }
+
+            @Override
+            public void close() throws IOException {
+                Socket socket = real;
+                if (socket != null) {
+                    socket.close();
+                }
+            }
+
+            @Override
+            public boolean isConnected() {
+                Socket socket = real;
+                return socket != null && socket.isConnected();
+            }
+
+            @Override
+            public boolean isClosed() {
+                Socket socket = real;
+                return socket == null || socket.isClosed();
+            }
+
+            @Override
+            public boolean isBound() {
+                Socket socket = real;
+                return socket != null && socket.isBound();
+            }
+
+            @Override
+            public InetAddress getInetAddress() {
+                Socket socket = real;
+                return socket != null ? socket.getInetAddress() : null;
+            }
+
+            @Override
+            public int getPort() {
+                Socket socket = real;
+                return socket != null ? socket.getPort() : 0;
+            }
+
+            @Override
+            public int getLocalPort() {
+                Socket socket = real;
+                return socket != null ? socket.getLocalPort() : -1;
+            }
+
+            @Override
+            public SocketAddress getRemoteSocketAddress() {
+                Socket socket = real;
+                return socket != null ? socket.getRemoteSocketAddress() : null;
             }
         }
     }
