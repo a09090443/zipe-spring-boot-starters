@@ -18,16 +18,21 @@ import com.zipe.model.Mail;
 import com.zipe.service.impl.MailFailoverTlsTestSupport.ScriptableTlsSmtpServer;
 import com.zipe.service.impl.MailFailoverTlsTestSupport.TlsFixture;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
@@ -223,8 +228,10 @@ class MailServiceSmtpsScenariosTest {
     @Test
     void smtpsOverallTimeout_boundsWholeOperation_acrossMultipleProtocolStages() throws Exception {
         int stageDelayMs = 300;
-        AtomicBoolean accepted = new AtomicBoolean(false);
+        AtomicInteger greetings = new AtomicInteger();
+        AtomicInteger ehloCommands = new AtomicInteger();
         ScriptableTlsSmtpServer server = startServer((reader, writer) -> {
+            greetings.incrementAndGet();
             sleepQuietly(stageDelayMs);
             ScriptableTlsSmtpServer.reply(writer, "220 localhost ESMTP ready");
             boolean readingData = false;
@@ -232,7 +239,6 @@ class MailServiceSmtpsScenariosTest {
             while ((line = reader.readLine()) != null) {
                 if (readingData) {
                     if (".".equals(line)) {
-                        accepted.set(true);
                         sleepQuietly(stageDelayMs);
                         ScriptableTlsSmtpServer.reply(writer, "250 queued");
                         readingData = false;
@@ -241,6 +247,7 @@ class MailServiceSmtpsScenariosTest {
                 }
                 String upper = line.toUpperCase(Locale.ROOT);
                 if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+                    ehloCommands.incrementAndGet();
                     sleepQuietly(stageDelayMs);
                     ScriptableTlsSmtpServer.reply(writer, "250-localhost\r\n250 8BITMIME");
                 } else if (upper.startsWith("MAIL FROM") || upper.startsWith("RCPT TO")) {
@@ -269,17 +276,29 @@ class MailServiceSmtpsScenariosTest {
 
         MailServiceImpl service = new MailServiceImpl(cfg);
         service.setInitData();
+        greetings.set(0);
+        ehloCommands.set(0);
 
-        long start = System.currentTimeMillis();
-        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-026-multi-stage")))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("multi-stage-smtps")
-                .hasMessageContaining("整體逾時");
-        long elapsed = System.currentTimeMillis() - start;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int currentAttempt = attempt;
+            int greetingsBefore = greetings.get();
+            int ehloBefore = ehloCommands.get();
+            long start = System.nanoTime();
+            assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-048-multi-stage-" + currentAttempt)))
+                    .isInstanceOf(MailFailoverException.class)
+                    .hasMessageContaining("multi-stage-smtps")
+                    .hasMessageContaining("overall-timeout")
+                    .hasMessageContaining("已嘗試 1 組");
+            long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
-        // 每個階段只延遲 300ms，均低於個別逾時（2000ms）；若只限制各 socket 操作而非整體，
-        // 累積延遲（連線＋EHLO＋MAIL＋RCPT＋DATA 至少 5 個階段）將遠超過 1.5 秒。
-        assertThat(elapsed).isLessThanOrEqualTo(1500);
+            // 每個延遲階段皆為 300ms，低於單項 2000ms；500ms 的絕對截止應落在 greeting 與 EHLO
+            // 累積期間。上下限會攔截「進入 SMTPS 路徑即提前回報 overall-timeout」的弱實作。
+            assertThat(elapsed).as("第 %d 次 SMTPS 多階段累積截止", attempt).isBetween(490L, 1200L);
+            assertThat(greetings.get()).as("第 %d 次須完成 TLS 並進入 SMTP greeting 階段", attempt)
+                    .isGreaterThan(greetingsBefore);
+            assertThat(ehloCommands.get()).as("第 %d 次須在截止前進入 EHLO 階段", attempt)
+                    .isGreaterThan(ehloBefore);
+        }
     }
 
     /**
@@ -290,6 +309,8 @@ class MailServiceSmtpsScenariosTest {
     @Test
     void smtpsWithLegitimateCertificate_deliversSuccessfully() throws Exception {
         AtomicReference<String> capturedData = new AtomicReference<>("");
+        AtomicReference<String> capturedRecipient = new AtomicReference<>("");
+        AtomicInteger dataDeliveries = new AtomicInteger();
         ScriptableTlsSmtpServer server = startServer((reader, writer) -> {
             ScriptableTlsSmtpServer.reply(writer, "220 localhost ESMTP ready");
             StringBuilder dataBuffer = new StringBuilder();
@@ -299,6 +320,7 @@ class MailServiceSmtpsScenariosTest {
                 if (readingData) {
                     if (".".equals(line)) {
                         capturedData.set(dataBuffer.toString());
+                        dataDeliveries.incrementAndGet();
                         ScriptableTlsSmtpServer.reply(writer, "250 OK queued");
                         readingData = false;
                     } else {
@@ -309,7 +331,10 @@ class MailServiceSmtpsScenariosTest {
                 String upper = line.toUpperCase(Locale.ROOT);
                 if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
                     ScriptableTlsSmtpServer.reply(writer, "250-localhost\r\n250 8BITMIME");
-                } else if (upper.startsWith("MAIL FROM") || upper.startsWith("RCPT TO")) {
+                } else if (upper.startsWith("MAIL FROM")) {
+                    ScriptableTlsSmtpServer.reply(writer, "250 OK");
+                } else if (upper.startsWith("RCPT TO")) {
+                    capturedRecipient.set(line);
                     ScriptableTlsSmtpServer.reply(writer, "250 OK");
                 } else if (upper.equals("DATA")) {
                     ScriptableTlsSmtpServer.reply(writer, "354 End data with <CR><LF>.<CR><LF>");
@@ -334,9 +359,18 @@ class MailServiceSmtpsScenariosTest {
         MailServiceImpl service = new MailServiceImpl(cfg);
         service.setInitData();
 
-        service.simpleMailSend(plainTextMail("SC-028"));
+        Mail mail = plainTextMail("SC-050-合法-SMTPS");
+        mail.setMailContent("SC-050 Unicode 本文：多組 SMTP 備援成功");
+        service.simpleMailSend(mail);
 
-        assertThat(capturedData.get()).contains("SC-028");
+        assertThat(dataDeliveries.get()).as("合法 SMTPS 成功情境只能投遞一次 DATA").isEqualTo(1);
+        assertThat(capturedRecipient.get()).isEqualTo("RCPT TO:<receiver@test.local>");
+        MimeMessage delivered = new MimeMessage(
+                Session.getInstance(new Properties()),
+                new ByteArrayInputStream(capturedData.get().getBytes(StandardCharsets.US_ASCII)));
+        assertThat(delivered.getSubject()).isEqualTo("SC-050-合法-SMTPS");
+        assertThat(delivered.getAllRecipients()).extracting(Object::toString).containsExactly("receiver@test.local");
+        assertThat(delivered.getContent()).isEqualTo("SC-050 Unicode 本文：多組 SMTP 備援成功");
     }
 
     /**

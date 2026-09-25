@@ -69,22 +69,38 @@ class MailServiceFailoverTest {
     /** SC-03：前兩組皆失敗時依序改用第三組；每次呼叫皆從清單第一組開始嘗試（優先序而非輪詢分流）。 */
     @Test
     void simpleMailSend_firstTwoServersDown_fallsBackToThird_andEveryCallRetriesFromFirst() throws Exception {
-        MailPropertyConfig cfg = config(
-                unreachableServer("primary", 1),
-                unreachableServer("secondary", 2),
-                greenMailServer("tertiary", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
-        MailServiceImpl service = new MailServiceImpl(cfg);
-        service.setInitData();
+        try (MailFailoverTestSupport.CountingTcpServer primary = new MailFailoverTestSupport.CountingTcpServer();
+                MailFailoverTestSupport.CountingTcpServer secondary =
+                        new MailFailoverTestSupport.CountingTcpServer()) {
+            MailPropertyConfig cfg = config(
+                    MailFailoverTestSupport.server("primary", "127.0.0.1", primary.port(), "user", "pass"),
+                    MailFailoverTestSupport.server("secondary", "127.0.0.1", secondary.port(), "user", "pass"),
+                    greenMailServer("tertiary", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            service.setInitData();
+            primary.resetCount();
+            secondary.resetCount();
 
-        service.simpleMailSend(plainTextMail("SC-03-first"));
-        assertThat(greenMail.getReceivedMessages()).hasSize(1);
-        greenMail.purgeEmailFromAllMailboxes();
+            service.simpleMailSend(plainTextMail("SC-03-first"));
+            assertThat(greenMail.getReceivedMessages()).hasSize(1);
+            int primaryAfterFirstCall = primary.connectionCount();
+            int secondaryAfterFirstCall = secondary.connectionCount();
+            assertThat(primaryAfterFirstCall).as("第一次呼叫必須先嘗試 primary").isPositive();
+            assertThat(secondaryAfterFirstCall).as("第一次呼叫必須再嘗試 secondary").isPositive();
+            greenMail.purgeEmailFromAllMailboxes();
 
-        // 第二次呼叫：候選清單不因上次成功而改變順序，本次應再次歷經 primary/secondary 失敗後由 tertiary 送達
-        service.simpleMailSend(plainTextMail("SC-03-second"));
-        MimeMessage[] messages = greenMail.getReceivedMessages();
-        assertThat(messages).hasSize(1);
-        assertThat(messages[0].getSubject()).isEqualTo("SC-03-second");
+            // 第二次呼叫仍須重新從 primary 開始。若實作黏著上次成功的 tertiary，兩個計數都不會增加。
+            service.simpleMailSend(plainTextMail("SC-03-second"));
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertThat(messages).hasSize(1);
+            assertThat(messages[0].getSubject()).isEqualTo("SC-03-second");
+            assertThat(primary.connectionCount())
+                    .as("第二次呼叫不得略過 primary 而黏著 tertiary")
+                    .isGreaterThan(primaryAfterFirstCall);
+            assertThat(secondary.connectionCount())
+                    .as("第二次呼叫仍須依序嘗試 secondary")
+                    .isGreaterThan(secondaryAfterFirstCall);
+        }
     }
 
     /**

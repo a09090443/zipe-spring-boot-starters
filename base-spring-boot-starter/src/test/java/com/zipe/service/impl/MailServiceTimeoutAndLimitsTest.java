@@ -36,6 +36,7 @@ import javax.net.SocketFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -53,6 +54,7 @@ class MailServiceTimeoutAndLimitsTest {
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("backupUser", "backupPw"));
 
     private ServerSocket blackHole;
+    private final AtomicInteger blackHoleConnections = new AtomicInteger();
     private final List<Socket> heldSockets = new CopyOnWriteArrayList<>();
     private MultiStageDelaySmtpServer delayedSmtp;
     private MultiStageDelaySmtpServer backupSmtp;
@@ -382,6 +384,13 @@ class MailServiceTimeoutAndLimitsTest {
         assertThat(greenMail.getReceivedMessages()).hasSize(1);
     }
 
+    /** SC-034（0 邊界）：停用整體上限不得連帶停用各候選的 read-timeout，三組黑洞皆須被嘗試後結束。 */
+    @Test
+    @Timeout(10)
+    void overallTimeout_zero_stillUsesPerServerTimeout_andAttemptsEveryCandidate() throws Exception {
+        assertUnboundedOverallTimeoutStillUsesPerServerTimeout(0L, "zero");
+    }
+
     /**
      * SC-031（負值邊界）：overall-timeout 為負值時比照 0，視為不限制整體耗時，而非被誤判為
      * 「立即逾時」或被傳入排程器／{@code TimeUnit} 換算成負數等待時間導致例外或行為異常；
@@ -424,6 +433,13 @@ class MailServiceTimeoutAndLimitsTest {
                 .hasMessageContaining("primary")
                 .hasMessageContaining("secondary")
                 .satisfies(e -> assertThat(e.getMessage()).doesNotContain("整體逾時"));
+    }
+
+    /** SC-034（負值邊界）：負值與 0 相同，僅停用 overall-timeout，各候選的 read-timeout 仍須生效。 */
+    @Test
+    @Timeout(10)
+    void overallTimeout_negative_stillUsesPerServerTimeout_andAttemptsEveryCandidate() throws Exception {
+        assertUnboundedOverallTimeoutStillUsesPerServerTimeout(-1L, "negative");
     }
 
     /** SocketFactory 的所有連線建立入口都必須受到同一絕對截止時間保護。 */
@@ -663,6 +679,7 @@ class MailServiceTimeoutAndLimitsTest {
             while (!blackHole.isClosed()) {
                 try {
                     Socket socket = blackHole.accept();
+                    blackHoleConnections.incrementAndGet();
                     heldSockets.add(socket);
                     Thread holder = new Thread(() -> {
                         try (socket) {
@@ -682,6 +699,43 @@ class MailServiceTimeoutAndLimitsTest {
         acceptor.setDaemon(true);
         acceptor.start();
         return port;
+    }
+
+    private void assertUnboundedOverallTimeoutStillUsesPerServerTimeout(long overallTimeout, String label)
+            throws Exception {
+        int port = startBlackHoleServer();
+        MailPropertyConfig cfg = config(
+                hangingServer(label + "-first", port),
+                hangingServer(label + "-second", port),
+                hangingServer(label + "-third", port));
+        cfg.setConnectionTimeout(1000);
+        cfg.setReadTimeout(250);
+        cfg.setWriteTimeout(1000);
+        cfg.getFailover().setOverallTimeout(overallTimeout);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 三組初始化皆會受 read-timeout 結束；保留候選清單供本次發送逐組驗證。
+        }
+        blackHoleConnections.set(0);
+
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-034-" + label)))
+                .isInstanceOf(MailFailoverException.class)
+                .hasMessageContaining(label + "-first")
+                .hasMessageContaining(label + "-second")
+                .hasMessageContaining(label + "-third")
+                .hasMessageContaining("已嘗試 3 組")
+                .satisfies(error -> assertThat(error.getMessage()).doesNotContain("overall-timeout"));
+        long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+        assertThat(elapsed)
+                .as("三組都須各自等到 250ms read-timeout，且不能因停用單項 timeout 而永久卡住")
+                .isBetween(700L, 2500L);
+        assertThat(blackHoleConnections.get())
+                .as("三組候選都必須建立實體連線；每組至少包含一次 TLS 探測及一次明文 SMTP 連線")
+                .isGreaterThanOrEqualTo(6);
     }
 
     private static MailServerProperty hangingServer(String name, int port) {
