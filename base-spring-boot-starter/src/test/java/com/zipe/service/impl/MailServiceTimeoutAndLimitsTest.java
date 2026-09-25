@@ -53,7 +53,9 @@ class MailServiceTimeoutAndLimitsTest {
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("backupUser", "backupPw"));
 
     private ServerSocket blackHole;
+    private final List<Socket> heldSockets = new CopyOnWriteArrayList<>();
     private MultiStageDelaySmtpServer delayedSmtp;
+    private MultiStageDelaySmtpServer backupSmtp;
 
     @BeforeEach
     void purgeMailbox() throws Exception {
@@ -65,8 +67,14 @@ class MailServiceTimeoutAndLimitsTest {
         if (blackHole != null && !blackHole.isClosed()) {
             blackHole.close();
         }
+        for (Socket socket : heldSockets) {
+            socket.close();
+        }
         if (delayedSmtp != null) {
             delayedSmtp.close();
+        }
+        if (backupSmtp != null) {
+            backupSmtp.close();
         }
     }
 
@@ -178,14 +186,113 @@ class MailServiceTimeoutAndLimitsTest {
 
         for (int attempt = 0; attempt < 3; attempt++) {
             String subject = "SC-18-" + attempt;
-            long start = System.currentTimeMillis();
+            long start = System.nanoTime();
             assertThatThrownBy(() -> service.simpleMailSend(plainTextMail(subject)))
                     .isInstanceOf(MailFailoverException.class)
                     .hasMessageContaining("整體逾時");
-            long elapsed = System.currentTimeMillis() - start;
+            long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
-            // 若無整體上限，8 組個別耗時 300ms 累加將達 2400ms；有整體上限（700ms）時應明顯低於此值
-            assertThat(elapsed).isLessThanOrEqualTo(1200);
+            // 若無整體上限，8 組個別耗時 300ms 累加將達 2400ms；有整體上限（700ms）時應明顯低於此值。
+            // 下限：300ms 的讀取逾時短於剩餘預算，不得被誤判為整體逾時而提前停止切換，
+            // 故必須實際耗盡 700ms 的整體預算才結束（絕對截止時間不會早於起點 + 700ms）。
+            assertThat(elapsed).isBetween(690L, 1200L);
+        }
+    }
+
+    /**
+     * SC-030：單一 SMTP 階段的逾時（3000ms）長於 overall-timeout（700ms）時，流程須在整體上限附近截止
+     * （不早於上限、不超過容忍上限），失敗原因標示為整體逾時，且後續可用組於發送階段連線數為 0。
+     * 重複量測三次，排除單次排程抖動。
+     */
+    @Test
+    void overallTimeout_singleStageLongerThanBudget_stopsNearDeadline_andNeverTouchesLaterServer() throws Exception {
+        int port = startBlackHoleServer();
+        backupSmtp = new MultiStageDelaySmtpServer(0);
+        MailPropertyConfig cfg = config(
+                hangingServer("hanging-first", port), hangingServer("usable-second", backupSmtp.port()));
+        cfg.setReadTimeout(3000);
+        cfg.setConnectionTimeout(3000);
+        cfg.setWriteTimeout(3000);
+        cfg.getFailover().setOverallTimeout(700L);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 第一組初始化時亦會逾時；保留候選清單供發送嘗試
+        }
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int connectionsBeforeSend = backupSmtp.connectionCount();
+            String subject = "SC-030-" + attempt;
+            long start = System.nanoTime();
+            assertThatThrownBy(() -> service.simpleMailSend(plainTextMail(subject)))
+                    .isInstanceOf(MailFailoverException.class)
+                    .hasMessageContaining("hanging-first")
+                    .hasMessageContaining("整體逾時（overall-timeout）")
+                    .hasMessageContaining("已嘗試 1 組")
+                    .satisfies(e -> assertThat(e.getMessage()).doesNotContain("usable-second"));
+            long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+            assertThat(elapsed).as("第 %d 次：不得早於整體上限，亦不得超過容忍上限", attempt).isBetween(690L, 1200L);
+            assertThat(backupSmtp.connectionCount())
+                    .as("整體預算耗盡後不得再連線後續可用組")
+                    .isEqualTo(connectionsBeforeSend);
+            assertThat(backupSmtp.acceptedMessages()).isZero();
+        }
+    }
+
+    /**
+     * SC-031：某組實際的讀取逾時（300ms）短於剩餘整體預算（1500ms）時，即使連線／寫入逾時（3000ms）
+     * 因剩餘預算較短而被縮限，該次讀取逾時仍屬該伺服器本身的失敗：必須繼續切換至下一組並送達，
+     * 耗時不得早於讀取逾時，且第一組的失敗原因不得被標示為整體逾時。
+     * <p>
+     * 計畫原始數值為 read=300／connection、write=1000／overall=700；實測第一組（TLS 探測＋明文讀取逾時）
+     * 約耗 540ms，剩餘約 160ms 不足以讓備援組完成首次投遞，屬時間門檻過緊。此處等比放寬為
+     * read=300／connection、write=3000／overall=1500，仍維持「讀取逾時 &lt; 剩餘預算 &lt; 其他單項逾時」
+     * 的交叉條件：以「任一單項逾時被縮限即判定整體逾時」的弱實作，仍會在第一組讀取逾時時提前停止而失敗。
+     * </p>
+     */
+    @Test
+    void readTimeoutShorterThanRemainingBudget_isNotOverallTimeout_andFailsOverToNextServer() throws Exception {
+        int port = startBlackHoleServer();
+        MailPropertyConfig cfg = config(
+                hangingServer("read-timeout-first", port),
+                greenMailServer("backup", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        cfg.setReadTimeout(300);
+        cfg.setConnectionTimeout(3000);
+        cfg.setWriteTimeout(3000);
+        cfg.getFailover().setOverallTimeout(1500L);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        service.setInitData();
+
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logs =
+                MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+        try {
+            long start = System.nanoTime();
+            assertThatCode(() -> service.simpleMailSend(plainTextMail("SC-031-read-timeout")))
+                    .doesNotThrowAnyException();
+            long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+            assertThat(elapsed).as("第一組須實際等到讀取逾時才切換，不得提前停止").isGreaterThanOrEqualTo(300L);
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertThat(messages).hasSize(1);
+            assertThat(messages[0].getSubject()).isEqualTo("SC-031-read-timeout");
+
+            List<String> messagesLogged = logs.list.stream()
+                    .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                    .toList();
+            assertThat(messagesLogged)
+                    .anySatisfy(line -> assertThat(line)
+                            .contains("郵件發送失敗（simpleMailSend）")
+                            .contains("read-timeout-first")
+                            .contains("將嘗試下一組"))
+                    .anySatisfy(line -> assertThat(line)
+                            .contains("郵件發送成功（simpleMailSend）")
+                            .contains("backup"))
+                    .noneSatisfy(line -> assertThat(line).contains("整體時間上限"));
+        } finally {
+            ((ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(MailServiceImpl.class))
+                    .detachAppender(logs);
         }
     }
 
@@ -216,7 +323,8 @@ class MailServiceTimeoutAndLimitsTest {
         long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
         // 每個回應只延遲 300ms，均低於個別 read timeout；若只限制各 socket 操作，累積會超過 1 秒。
-        assertThat(elapsedMs).isLessThanOrEqualTo(1000);
+        // 下限：絕對截止時間不會早於起點 + 500ms，提前停止的弱實作會低於此值。
+        assertThat(elapsedMs).isBetween(490L, 1000L);
         assertThat(delayedSmtp.awaitNoClients(800)).isTrue();
         // 設計取捨 D7：整體逾時僅於「嘗試之間」檢查，不強制中斷已在進行中的單次連線；
         // 呼叫端已在整體上限內收到明確的 MailFailoverException（上方斷言），但背景執行緒
@@ -539,7 +647,15 @@ class MailServiceTimeoutAndLimitsTest {
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
-    /** 建立一個「可連線但永不回應」的本機伺服器，模擬會拖到讀取逾時才失敗的 SMTP 伺服器。 */
+    /**
+     * 建立一個「可連線但永不回應」的本機伺服器，模擬會拖到讀取逾時才失敗的 SMTP 伺服器。
+     * <p>
+     * 明文 smtp 組別的截止工廠會先以 TLS handshake 探測對方（客戶端主動送出 ClientHello），
+     * 失敗後才退回明文連線。本伺服器收到任何客戶端位元組（即 TLS 探測）時立即關閉該連線，
+     * 讓探測快速失敗；明文連線則因客戶端等待問候語、不會送出資料而一直卡住，直到客戶端的
+     * 讀取逾時到期。每個已接受的連線皆保留強參考，避免被 GC 回收而提前關閉、使逾時時間失真。
+     * </p>
+     */
     private int startBlackHoleServer() throws IOException {
         blackHole = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
         int port = blackHole.getLocalPort();
@@ -547,8 +663,17 @@ class MailServiceTimeoutAndLimitsTest {
             while (!blackHole.isClosed()) {
                 try {
                     Socket socket = blackHole.accept();
-                    // 刻意不寫回任何位元組，讓客戶端等待初始問候語直到讀取逾時
-                    socket.getClass();
+                    heldSockets.add(socket);
+                    Thread holder = new Thread(() -> {
+                        try (socket) {
+                            // 刻意不寫回任何位元組；收到客戶端資料（TLS 探測）或對方關閉時才結束
+                            socket.getInputStream().read();
+                        } catch (IOException ignored) {
+                            // 客戶端逾時關閉或測試結束關閉連線屬正常結束
+                        }
+                    }, "black-hole-holder");
+                    holder.setDaemon(true);
+                    holder.start();
                 } catch (IOException ignored) {
                     // ServerSocket 關閉時 accept() 拋出例外屬正常結束
                 }
@@ -557,6 +682,15 @@ class MailServiceTimeoutAndLimitsTest {
         acceptor.setDaemon(true);
         acceptor.start();
         return port;
+    }
+
+    private static MailServerProperty hangingServer(String name, int port) {
+        MailServerProperty server = new MailServerProperty();
+        server.setName(name);
+        server.setHost("127.0.0.1");
+        server.setPort(String.valueOf(port));
+        server.setSmtpAuthEnable(false);
+        return server;
     }
 
     private static JavaMailSenderImpl initializedSender(MailPropertyConfig config) throws Exception {
@@ -699,6 +833,10 @@ class MailServiceTimeoutAndLimitsTest {
 
         private int acceptedMessages() {
             return acceptedMessages.get();
+        }
+
+        private int connectionCount() {
+            return connectionCount.get();
         }
 
         @Override

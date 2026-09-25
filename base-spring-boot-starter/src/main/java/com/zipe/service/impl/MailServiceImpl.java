@@ -253,22 +253,19 @@ public class MailServiceImpl implements MailService {
     }
 
     /**
-     * 沿例外鏈往下尋找是否由 {@link java.net.SocketTimeoutException} 造成。
-     * 用於分辨「socket 逾時因剩餘整體預算被 capTimeout 縮限而提前觸發」與其他種類的 SMTP 失敗，
-     * 避免把單純的連線被拒、認證失敗等與逾時無關的錯誤誤判為整體逾時。
+     * 前一組失敗後整體預算已耗盡、仍有候選未嘗試時，於最後一筆失敗摘要補註整體逾時原因。
+     * 不新增摘要筆數，使彙整例外的「已嘗試 N 組」仍等於實際嘗試組數。
      *
-     * @param e 例外物件
-     * @return 例外鏈中含有 {@link java.net.SocketTimeoutException} 時為 true
+     * @param failureSummaries 目前的逐組失敗摘要（可修改）
+     * @param operationName    發送方法名稱，用於日誌辨識
      */
-    private static boolean isTimeoutCaused(Throwable e) {
-        Throwable current = e;
-        while (current != null) {
-            if (current instanceof java.net.SocketTimeoutException) {
-                return true;
-            }
-            current = current.getCause();
+    private static void markStoppedByOverallTimeout(List<String> failureSummaries, String operationName) {
+        log.warn("郵件發送超過整體時間上限（{}），停止嘗試其餘伺服器", operationName);
+        if (!failureSummaries.isEmpty()) {
+            int last = failureSummaries.size() - 1;
+            failureSummaries.set(
+                    last, failureSummaries.get(last) + "（其後整體逾時（overall-timeout）已到期，未再嘗試其餘伺服器）");
         }
-        return false;
     }
 
     /**
@@ -456,22 +453,22 @@ public class MailServiceImpl implements MailService {
             long remainingNanos = overallTimeoutNanos == Long.MAX_VALUE
                     ? Long.MAX_VALUE
                     : overallTimeoutNanos - elapsedNanos;
-            if (attempted >= maxAttempts || remainingNanos <= 0) {
+            if (attempted >= maxAttempts) {
+                break;
+            }
+            if (remainingNanos <= 0) {
+                // 前一組以一般原因失敗時整體預算恰好耗盡：其餘候選因整體逾時未再嘗試，
+                // 於最後一筆摘要補註原因（不計入嘗試組數），避免彙整訊息看不出是整體逾時截止。
+                markStoppedByOverallTimeout(failureSummaries, operationName);
                 break;
             }
             attempted++;
             boolean deadlineReached = false;
+            // 無條件進位為毫秒：縮限後的 socket 逾時自本輪起點起算必不早於絕對截止時間到期，
+            // 使「因縮限而觸發的 socket 逾時」與「截止時間已到」在時間上一致，可由下方以實際時間判定。
             long remainingMs = remainingNanos == Long.MAX_VALUE
                     ? Long.MAX_VALUE
-                    : Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
-            // 剩餘預算若已小於此組任一單項逾時設定，capTimeout 會把該組實際套用的 socket 逾時
-            // 縮限到剩餘預算以內；此時若真的以逾時失敗，代表是整體時間預算被榨乾所致而非該伺服器
-            // 本身異常，應歸類為整體逾時。否則 socket 層縮限後的逾時與下方 Future 層的整體逾時偵測
-            // 會互相搶跑，導致同一次「整體預算耗盡」事件隨機回報成不同原因（見類別註解與 SC-18）。
-            boolean timeoutBudgetCapped = remainingMs != Long.MAX_VALUE
-                    && remainingMs < Math.max(
-                            mailPropertyConfig.getConnectionTimeout(),
-                            Math.max(mailPropertyConfig.getReadTimeout(), mailPropertyConfig.getWriteTimeout()));
+                    : Math.max(1, (remainingNanos + 999_999L) / 1_000_000L);
             try {
                 sendWithinDeadline(
                         operation, senderForAttempt(candidate.sender(), remainingMs, deadlineNanos), deadlineNanos);
@@ -491,7 +488,11 @@ public class MailServiceImpl implements MailService {
                 failureSummaries.add(candidate.label() + " - " + reason);
                 failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
             } catch (Exception e) {
-                if (timeoutBudgetCapped && isTimeoutCaused(e)) {
+                // 僅在失敗發生時絕對截止時間確實已到，才歸類為整體逾時。單項逾時短於剩餘預算時
+                // （例如 read-timeout 300ms、剩餘 700ms），即使其他單項逾時被縮限，該次逾時仍屬
+                // 此伺服器本身的失敗，須繼續嘗試下一組；反之被縮限的 socket 逾時、或截止排程關閉
+                // socket 造成的例外，必定發生於截止時間之後，與 Future 層整體逾時判定結果一致。
+                if (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0) {
                     deadlineReached = true;
                     String reason = "整體逾時（overall-timeout）已到期";
                     log.warn("郵件發送超過整體時間上限（{}），伺服器：{}", operationName, candidate.label());
