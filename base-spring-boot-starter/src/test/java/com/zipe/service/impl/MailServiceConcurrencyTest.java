@@ -97,106 +97,97 @@ class MailServiceConcurrencyTest {
 
     /**
      * SC-039：某執行緒觸發整體逾時截止時，不得耗用或影響另一執行緒的嘗試預算與結果。
-     * 恢復核准測試計畫的「成功／失敗交叉」情境（review 節點確認的既有缺口：舊版測試讓
-     * 兩個呼叫都走同一黑洞、只各自比對耗時下限，未驗證另一執行緒仍可由備援組成功送達，
-     * 若共享截止時間被延後仍可能通過）：
+     * 改用「同一個」{@link MailServiceImpl} 實例發起兩個執行緒（review 節點確認的既有缺口：
+     * 舊版測試分別建立 serviceA、serviceB 兩個獨立實例，核准反例「deadline 存在服務欄位」
+     * 即使成立，兩個實例的欄位仍彼此獨立，該測試結構本身就無法攔截這種弱實作）：
      * <ul>
-     *   <li>執行緒 A 使用獨立的 {@link MailServiceImpl} 實例，僅有一組永遠不回應的候選，
-     *       overall-timeout 設為較短的 500ms，依自身預算截止並以 {@code MailFailoverException} 失敗。</li>
-     *   <li>執行緒 B 使用另一個獨立實例，候選為「先黑洞、後可用備援」，overall-timeout 設為
-     *       遠大於 A 的 5000ms，於連線逾時後改用備援並實際成功送達。</li>
+     *   <li>執行緒 A 先以共用實例呼叫發送。候選為「先黑洞、後可用備援」，呼叫當下讀到的
+     *       overall-timeout 為較大的 5000ms，預期經一次黑洞讀取逾時（300ms）後切換至備援成功送達。</li>
+     *   <li>A 已開始執行、仍卡在黑洞讀取階段時，測試主執行緒直接修改「同一份」共用
+     *       {@link MailPropertyConfig} 的 {@code failover.overallTimeout} 為極短的 50ms，
+     *       再以「同一個」服務實例發起執行緒 B。B 因自身極短預算，經一次黑洞逾時後預算即耗盡，
+     *       無法再嘗試備援，預期以 {@code MailFailoverException} 失敗。</li>
      * </ul>
-     * 兩者同時執行，B 的成功送達與其耗時（明顯長於 A 的 500ms 上限）證明 B 的截止時間
-     * 未被 A 的較短預算污染或提前截斷；若截止時間以共享靜態欄位保存，B 極可能被錯誤地
-     * 提前中止而收不到郵件，或 A 反而錯誤沿用 B 較長的截止時間而遲遲不失敗。
+     * 若截止時間正確地在每次呼叫內以區域變數保存（而非存在服務欄位等共享可變狀態），
+     * A 應完全依照其呼叫當下讀到的 5000ms 預算完成切換並成功送達，不受 B 之後才寫入同一份
+     * 設定物件的極短逾時影響；若截止時間以服務欄位保存並在兩次呼叫間共用，B 覆寫欄位後，
+     * A 於下一輪迴圈檢查剩餘時間時會誤讀到 B 的極短截止而提前中止，導致 A 應成功卻改為失敗
+     * ——此為本測試實際驗證的分辨點。
      */
     @Test
-    void overallTimeoutDeadline_isolatedAcrossConcurrentCalls_shortFailureDoesNotAffectConcurrentBackupSuccess()
+    void overallTimeoutDeadline_isolatedAcrossConcurrentCallsOnSharedInstance_laterShortCallDoesNotStarveEarlierCall()
             throws Exception {
-        java.net.ServerSocket blackHoleA =
-                new java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"));
-        java.net.ServerSocket blackHoleB =
+        java.net.ServerSocket blackHole =
                 new java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"));
         try {
-            startBlackHoleAcceptor(blackHoleA);
-            startBlackHoleAcceptor(blackHoleB);
+            startBlackHoleAcceptor(blackHole);
 
-            // 執行緒 A：獨立實例，僅有黑洞候選、overall-timeout 短（500ms），必然依自身預算失敗。
-            MailPropertyConfig cfgA = config(hangingServer("hanging-a", blackHoleA.getLocalPort()));
-            cfgA.setReadTimeout(5000);
-            cfgA.setConnectionTimeout(5000);
-            cfgA.getFailover().setOverallTimeout(500L);
-            MailServiceImpl serviceA = new MailServiceImpl(cfgA);
+            // 單一共用設定與單一共用服務實例；A、B 兩個執行緒皆呼叫同一個 service。
+            MailPropertyConfig cfg = config(
+                    hangingServer("hanging", blackHole.getLocalPort()),
+                    greenMailServer("backup", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+            cfg.setReadTimeout(300);
+            cfg.setConnectionTimeout(300);
+            cfg.getFailover().setOverallTimeout(5000L);
+            MailServiceImpl service = new MailServiceImpl(cfg);
             try {
-                serviceA.setInitData();
+                service.setInitData();
             } catch (jakarta.mail.MessagingException ignored) {
                 // 黑洞候選於初始化階段亦會逾時失敗，仍保留候選清單供後續發送嘗試。
             }
 
-            // 執行緒 B：獨立實例，候選為「先黑洞、後可用備援」，overall-timeout 遠大於 A（5000ms）。
-            // 黑洞伺服器會接受連線但不回應問候語，實際卡住的階段是等待伺服器問候的讀取逾時
-            // （而非連線建立本身），故 read-timeout 與 connection-timeout 皆設為短值（600ms），
-            // 使其能在整體預算內快速完成一次黑洞逾時後切換至備援成功送達。
-            MailPropertyConfig cfgB = config(
-                    hangingServer("hanging-b", blackHoleB.getLocalPort()),
-                    greenMailServer("backup-b", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
-            cfgB.setReadTimeout(600);
-            cfgB.setConnectionTimeout(600);
-            cfgB.getFailover().setOverallTimeout(5000L);
-            MailServiceImpl serviceB = new MailServiceImpl(cfgB);
-            try {
-                serviceB.setInitData();
-            } catch (jakarta.mail.MessagingException ignored) {
-                // 黑洞候選於初始化階段亦會逾時失敗，仍保留候選清單供後續發送嘗試。
-            }
-
-            java.util.concurrent.atomic.AtomicLong elapsedA = new java.util.concurrent.atomic.AtomicLong();
-            java.util.concurrent.atomic.AtomicLong elapsedB = new java.util.concurrent.atomic.AtomicLong();
             java.util.concurrent.atomic.AtomicReference<RuntimeException> failureA =
                     new java.util.concurrent.atomic.AtomicReference<>();
             java.util.concurrent.atomic.AtomicReference<RuntimeException> failureB =
                     new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicLong elapsedA = new java.util.concurrent.atomic.AtomicLong();
 
             Thread threadA = new Thread(() -> {
                 long start = System.nanoTime();
                 try {
-                    serviceA.simpleMailSend(plainTextMail("SC-039-A"));
+                    service.simpleMailSend(plainTextMail("SC-039-A"));
                 } catch (RuntimeException e) {
                     failureA.set(e);
                 }
                 elapsedA.set(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
             });
+            threadA.start();
+
+            // 給予 A 充分餘裕，確保它已讀取（區域變數）當下 5000ms 的 overall-timeout 並卡在
+            // 黑洞讀取階段，才變更共用設定；此為測試時序保護，非斷言依據。
+            Thread.sleep(150);
+
+            // 直接修改「同一份」共用設定物件（非另建新設定），模擬若容錯機制把上次讀到的截止時間
+            // 存在服務欄位、被下一次呼叫覆寫的情境；B 與 A 使用同一個 service 實例。
+            cfg.getFailover().setOverallTimeout(50L);
             Thread threadB = new Thread(() -> {
-                long start = System.nanoTime();
                 try {
-                    serviceB.simpleMailSend(plainTextMail("SC-039-B"));
+                    service.simpleMailSend(plainTextMail("SC-039-B"));
                 } catch (RuntimeException e) {
                     failureB.set(e);
                 }
-                elapsedB.set(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
             });
-
-            threadA.start();
             threadB.start();
-            threadA.join(3000);
-            threadB.join(6000);
 
-            // A 依自身 500ms 預算失敗（給予寬容上限，避免測試環境時間抖動誤判）。
-            assertThat(elapsedA.get()).as("A 應接近其自身 500ms 的整體逾時上限").isBetween(400L, 2000L);
-            assertThat(failureA.get()).as("A 全部候選（僅黑洞）皆失敗，應拋出彙整例外").isNotNull();
+            threadA.join(5000);
+            threadB.join(5000);
 
-            // B 未受 A 較短截止時間影響，仍完整經歷一次 connection-timeout 才切換至備援，並實際成功送達。
-            assertThat(failureB.get()).as("B 應由備援組成功送達，不應拋出例外").isNull();
-            assertThat(elapsedB.get())
-                    .as("B 的耗時應反映自身 600ms 的 connection-timeout，未被 A 的 500ms 截斷")
-                    .isGreaterThanOrEqualTo(500L);
+            // B 自身預算僅 50ms，經一次黑洞逾時後即耗盡，不足以再嘗試備援，應以彙整例外失敗。
+            assertThat(failureB.get()).as("B 應因自身極短的 50ms 整體逾時而失敗").isNotNull();
+
+            // A 應完全依照呼叫當下讀到的 5000ms 預算完成一次黑洞逾時（約 300ms）後切換至備援成功送達，
+            // 不受 B 之後才寫入同一份設定物件的極短逾時影響。
+            assertThat(failureA.get()).as("A 不應被 B 之後才變更的共用設定值提前中止而失敗").isNull();
+            assertThat(elapsedA.get())
+                    .as("A 應實際經歷一次黑洞讀取逾時（約 300ms）才切換至備援，證明真的走過容錯路徑")
+                    .isBetween(250L, 3000L);
+
             MimeMessage[] messages = greenMail.getReceivedMessages();
             assertThat(messages).hasSize(1);
-            assertThat(subjectOf(messages[0])).isEqualTo("SC-039-B");
-            assertThat(GreenMailUtil.getBody(messages[0])).isEqualTo("body-SC-039-B");
+            assertThat(subjectOf(messages[0])).isEqualTo("SC-039-A");
+            assertThat(GreenMailUtil.getBody(messages[0])).isEqualTo("body-SC-039-A");
         } finally {
-            blackHoleA.close();
-            blackHoleB.close();
+            blackHole.close();
         }
     }
 

@@ -165,6 +165,11 @@ class MailFailoverDocumentationContractTest {
      * SC-040：configuration.md 每組 SMTP 屬性表須逐列記載型別與預設值，且不得只驗證鍵名存在——
      * 刪除任一列（例如 smtp-auth-enable）仍須被本測試攔截（review 節點確認的既有缺口：
      * 舊版 requiredKeys 只檢查鍵名字串，刪除整列表格仍可通過）。
+     *
+     * <p>transport-protocol 一列比照其餘欄位一併納入完整列（含說明欄）比對，而非只核對到
+     * 預設值欄為止：review 節點確認的既有缺口——舊版斷言只檢查到型別與預設值的表格前綴
+     * （{@code | String | "smtp" |}），刪除該列的說明文字（僅保留前綴）仍可通過，
+     * 無法證明說明欄本身也受文件契約保護。</p>
      */
     @Test
     void configuration_perServerFieldsTableDocumentsExactTypeAndDefault() throws IOException {
@@ -177,13 +182,13 @@ class MailFailoverDocumentationContractTest {
                 "| `mail.servers[i].pa55word` | String | — | 該組密碼 |",
                 "| `mail.servers[i].smtp-auth-enable` | Boolean | `true` | 該組是否啟用 SMTP 認證 |",
                 "| `mail.servers[i].smtp-start-tls-enable` | Boolean | `false` | 該組是否啟用 STARTTLS |",
-                "| `mail.servers[i].encrypt-enable` | Boolean | `false` | 該組密碼是否為 Base64 編碼 |");
+                "| `mail.servers[i].encrypt-enable` | Boolean | `false` | 該組密碼是否為 Base64 編碼 |",
+                "| `mail.servers[i].transport-protocol` | String | `\"smtp\"` | 該組傳輸協定，可設為 `smtp`"
+                        + "（含 STARTTLS）或 `smtps`（隱式 TLS，例如 465 埠）；同一清單可混用兩種協定，"
+                        + "逾時與整體截止對兩者皆生效 |");
         for (String row : requiredRows) {
             assertThat(content).as("configuration.md 應逐列記載型別與預設值：%s", row).contains(row);
         }
-        assertThat(content)
-                .as("mail.servers[i].transport-protocol 應記載型別 String 與預設值 \"smtp\"")
-                .contains("| `mail.servers[i].transport-protocol` | String | `\"smtp\"` |");
     }
 
     /**
