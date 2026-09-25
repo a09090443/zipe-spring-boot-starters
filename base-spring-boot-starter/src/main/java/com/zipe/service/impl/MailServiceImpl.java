@@ -253,6 +253,25 @@ public class MailServiceImpl implements MailService {
     }
 
     /**
+     * 沿例外鏈往下尋找是否由 {@link java.net.SocketTimeoutException} 造成。
+     * 用於分辨「socket 逾時因剩餘整體預算被 capTimeout 縮限而提前觸發」與其他種類的 SMTP 失敗，
+     * 避免把單純的連線被拒、認證失敗等與逾時無關的錯誤誤判為整體逾時。
+     *
+     * @param e 例外物件
+     * @return 例外鏈中含有 {@link java.net.SocketTimeoutException} 時為 true
+     */
+    private static boolean isTimeoutCaused(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current instanceof java.net.SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    /**
      * 複製候選 sender，並把三種底層 socket 逾時縮到本次剩餘的整體時間內。
      * 不修改共用 sender，避免併發寄信互相覆寫 JavaMail 設定。
      * <p>
@@ -442,10 +461,18 @@ public class MailServiceImpl implements MailService {
             }
             attempted++;
             boolean deadlineReached = false;
+            long remainingMs = remainingNanos == Long.MAX_VALUE
+                    ? Long.MAX_VALUE
+                    : Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+            // 剩餘預算若已小於此組任一單項逾時設定，capTimeout 會把該組實際套用的 socket 逾時
+            // 縮限到剩餘預算以內；此時若真的以逾時失敗，代表是整體時間預算被榨乾所致而非該伺服器
+            // 本身異常，應歸類為整體逾時。否則 socket 層縮限後的逾時與下方 Future 層的整體逾時偵測
+            // 會互相搶跑，導致同一次「整體預算耗盡」事件隨機回報成不同原因（見類別註解與 SC-18）。
+            boolean timeoutBudgetCapped = remainingMs != Long.MAX_VALUE
+                    && remainingMs < Math.max(
+                            mailPropertyConfig.getConnectionTimeout(),
+                            Math.max(mailPropertyConfig.getReadTimeout(), mailPropertyConfig.getWriteTimeout()));
             try {
-                long remainingMs = remainingNanos == Long.MAX_VALUE
-                        ? Long.MAX_VALUE
-                        : Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
                 sendWithinDeadline(
                         operation, senderForAttempt(candidate.sender(), remainingMs, deadlineNanos), deadlineNanos);
                 log.info("郵件發送成功（{}），使用伺服器：{}", operationName, candidate.label());
@@ -464,15 +491,23 @@ public class MailServiceImpl implements MailService {
                 failureSummaries.add(candidate.label() + " - " + reason);
                 failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
             } catch (Exception e) {
-                String reason = safeReason(e);
-                log.warn(
-                        "郵件發送失敗（{}），伺服器：{}，原因：{}，將嘗試下一組",
-                        operationName,
-                        candidate.label(),
-                        reason);
-                failureSummaries.add(candidate.label() + " - " + reason);
-                // 不保留原始 cause/message，避免 SMTP 伺服器把密碼回顯進例外鏈。
-                failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
+                if (timeoutBudgetCapped && isTimeoutCaused(e)) {
+                    deadlineReached = true;
+                    String reason = "整體逾時（overall-timeout）已到期";
+                    log.warn("郵件發送超過整體時間上限（{}），伺服器：{}", operationName, candidate.label());
+                    failureSummaries.add(candidate.label() + " - " + reason);
+                    failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
+                } else {
+                    String reason = safeReason(e);
+                    log.warn(
+                            "郵件發送失敗（{}），伺服器：{}，原因：{}，將嘗試下一組",
+                            operationName,
+                            candidate.label(),
+                            reason);
+                    failureSummaries.add(candidate.label() + " - " + reason);
+                    // 不保留原始 cause/message，避免 SMTP 伺服器把密碼回顯進例外鏈。
+                    failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
+                }
             }
             if (deadlineReached) {
                 break;
