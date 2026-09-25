@@ -234,6 +234,94 @@ class MailServiceSmtpsTimeoutTest {
     }
 
     /**
+     * SC-030（STARTTLS 分支）：smtp 組別啟用 STARTTLS，伺服器同意升級（回 220）後卻送出非 TLS 位元組，
+     * 使 handshake 失敗。該組必須視為失敗並切換至下一組，同一候選不得略過 TLS 繼續以明文送出
+     * MAIL FROM／RCPT／DATA。若實作在 handshake 失敗後重建未啟用 STARTTLS 的 sender 或忽略錯誤續傳，
+     * 明文郵件指令計數會大於 0 而失敗；STARTTLS 請求計數則確認確實走到握手階段，而非其他成因提早失敗。
+     */
+    @Test
+    void startTlsHandshakeFailure_neverSendsMailCommandsInPlaintext_andFailsOverToBackup() throws Exception {
+        java.util.concurrent.atomic.AtomicInteger startTlsRequests = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger plaintextMailCommands =
+                new java.util.concurrent.atomic.AtomicInteger();
+        try (ServerSocket startTlsServer = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))) {
+            Thread acceptor = new Thread(
+                    () -> handleBrokenStartTls(startTlsServer, startTlsRequests, plaintextMailCommands));
+            acceptor.setDaemon(true);
+            acceptor.start();
+
+            MailServerProperty broken = MailFailoverTestSupport.server(
+                    "broken-starttls", "127.0.0.1", startTlsServer.getLocalPort(), "user", "pass");
+            broken.setSmtpAuthEnable(false);
+            broken.setSmtpStartTlsEnable(true);
+            MailPropertyConfig cfg = config(
+                    broken, greenMailServer("backup-smtp", greenMailSmtp.getSmtp().getPort(), "mixedUser", "mixedPw"));
+
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            try {
+                service.setInitData();
+            } catch (MessagingException ignored) {
+                // 初始化連線測試結果不影響本情境；只觀察實際發送階段
+            }
+            startTlsRequests.set(0);
+            plaintextMailCommands.set(0);
+
+            service.simpleMailSend(plainTextMail("SC-030-starttls"));
+
+            MimeMessage[] messages = greenMailSmtp.getReceivedMessages();
+            assertThat(messages).hasSize(1);
+            assertThat(messages[0].getSubject()).isEqualTo("SC-030-starttls");
+            assertThat(startTlsRequests.get())
+                    .as("第一組須確實送出 STARTTLS 並進入 handshake，失敗成因才是 TLS 握手")
+                    .isPositive();
+            assertThat(plaintextMailCommands.get())
+                    .as("STARTTLS 握手失敗後，同一組不得以明文送出 MAIL FROM／RCPT／DATA")
+                    .isZero();
+        }
+    }
+
+    /**
+     * 宣告支援 STARTTLS、收到 STARTTLS 後回 220 卻送出非 TLS 位元組並關閉連線的 SMTP 伺服器；
+     * 同時記錄任何明文郵件交易指令，供斷言同一候選未降級為明文。
+     */
+    private static void handleBrokenStartTls(
+            ServerSocket serverSocket,
+            java.util.concurrent.atomic.AtomicInteger startTlsRequests,
+            java.util.concurrent.atomic.AtomicInteger plaintextMailCommands) {
+        while (!serverSocket.isClosed()) {
+            try (Socket socket = serverSocket.accept();
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
+                    BufferedWriter writer = new BufferedWriter(
+                            new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.US_ASCII))) {
+                reply(writer, "220 broken-starttls ESMTP ready");
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String upper = line.toUpperCase(Locale.ROOT);
+                    if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+                        reply(writer, "250-broken-starttls\r\n250 STARTTLS");
+                    } else if (upper.equals("STARTTLS")) {
+                        startTlsRequests.incrementAndGet();
+                        reply(writer, "220 Ready to start TLS");
+                        reply(writer, "this-is-not-a-tls-record");
+                        break;
+                    } else if (upper.startsWith("MAIL FROM") || upper.startsWith("RCPT TO") || upper.equals("DATA")) {
+                        plaintextMailCommands.incrementAndGet();
+                        reply(writer, "250 OK");
+                    } else if (upper.equals("QUIT")) {
+                        reply(writer, "221 Bye");
+                        break;
+                    } else {
+                        reply(writer, "250 OK");
+                    }
+                }
+            } catch (IOException ignored) {
+                // SSL 探測連線或 handshake 失敗後的中斷屬預期；單次連線失敗不影響後續接受。
+            }
+        }
+    }
+
+    /**
      * 模擬一個完全正常、願意接受明文連線的 SMTP 伺服器；若 smtps 組別誤退化為明文，會在此完成整段對話。
      * 迴圈接受多次連線（setInitData 的連線測試與實際發送各會連線一次），避免第二次連線因無人 accept
      * 而拖到逾時，讓測試更快、更穩定地反映真實失敗原因（TLS handshake 失敗，而非單純逾時）。
