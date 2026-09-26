@@ -448,7 +448,8 @@ public class MailServiceImpl implements MailService {
         List<Throwable> failureCauses = new ArrayList<>();
         int attempted = 0;
 
-        for (MailServerCandidate candidate : currentCandidates) {
+        for (int index = 0; index < currentCandidates.size(); index++) {
+            MailServerCandidate candidate = currentCandidates.get(index);
             long elapsedNanos = System.nanoTime() - startedNanos;
             long remainingNanos = overallTimeoutNanos == Long.MAX_VALUE
                     ? Long.MAX_VALUE
@@ -500,11 +501,24 @@ public class MailServiceImpl implements MailService {
                     failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
                 } else {
                     String reason = safeReason(e);
-                    log.warn(
-                            "郵件發送失敗（{}），伺服器：{}，原因：{}，將嘗試下一組",
-                            operationName,
-                            candidate.label(),
-                            reason);
+                    // 切換事件須標示實際下一組識別；已達 max-attempts 或已是最後一組時明示不再切換。
+                    boolean hasNext = attempted < maxAttempts
+                            && index + 1 < currentCandidates.size()
+                            && (deadlineNanos == Long.MAX_VALUE || System.nanoTime() - deadlineNanos < 0);
+                    if (hasNext) {
+                        log.warn(
+                                "郵件發送失敗（{}），伺服器：{}，原因：{}，將嘗試下一組：{}",
+                                operationName,
+                                candidate.label(),
+                                reason,
+                                currentCandidates.get(index + 1).label());
+                    } else {
+                        log.warn(
+                                "郵件發送失敗（{}），伺服器：{}，原因：{}，已無下一組可嘗試",
+                                operationName,
+                                candidate.label(),
+                                reason);
+                    }
                     failureSummaries.add(candidate.label() + " - " + reason);
                     // 不保留原始 cause/message，避免 SMTP 伺服器把密碼回顯進例外鏈。
                     failureCauses.add(new IllegalStateException(candidate.label() + " - " + reason));
@@ -543,6 +557,8 @@ public class MailServiceImpl implements MailService {
                 mimeMessageHelper.setText(mail.getMailContent(), true);
                 sender.send(mimeMessageHelper.getMimeMessage());
             });
+        } catch (MailFailoverException e) {
+            // 全部候選皆失敗：executeWithFailover 已記錄一筆含逐組識別與原因的 ERROR，此處不重複記錄。
         } catch (RuntimeException e) {
             log.error("Sent mail error:{}", e.getMessage());
         }

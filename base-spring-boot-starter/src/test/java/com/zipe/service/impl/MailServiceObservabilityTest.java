@@ -60,8 +60,68 @@ class MailServiceObservabilityTest {
         List<String> messages =
                 appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
 
-        assertThat(messages).anyMatch(m -> m.contains("primary") && (m.contains("失敗") || m.contains("將嘗試下一組")));
-        assertThat(messages).anyMatch(m -> m.contains("backup") && m.contains("成功"));
+        int switchIndex = indexOfFirstMatch(
+                messages,
+                m -> m.contains("郵件發送失敗（simpleMailSend）")
+                        && m.contains("伺服器：primary(")
+                        && m.contains("將嘗試下一組：backup("));
+        int successIndex = indexOfFirstMatch(messages, m -> m.contains("成功") && m.contains("backup("));
+        assertThat(switchIndex).as("切換事件須同時標示失敗組 primary 與下一組 backup").isNotNegative();
+        assertThat(successIndex).as("成功事件須標示實際投遞組 backup").isNotNegative();
+        assertThat(switchIndex).as("切換事件須早於成功事件").isLessThan(successIndex);
+    }
+
+    /** SC-028：下一組未設定 name 時，切換事件須以 host:port 精確標示下一組，而非沿用目前失敗組。 */
+    @Test
+    void switchEvent_namesUnnamedNextCandidateByHostPort() throws Exception {
+        int backupPort = greenMail.getSmtp().getPort();
+        MailPropertyConfig cfg = config(
+                unreachableServer("primary"), greenMailServer(null, backupPort, "authUser", "correctPw"));
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // primary 初始化失敗，候選清單仍保留
+        }
+
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        service.simpleMailSend(plainTextMail("SC-028-unnamed"));
+
+        List<String> warnMessages = appender.list.stream()
+                .filter(event -> event.getLevel().toString().equals("WARN"))
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.toList());
+        assertThat(warnMessages)
+                .anySatisfy(m -> assertThat(m)
+                        .contains("伺服器：primary(")
+                        .endsWith("將嘗試下一組：127.0.0.1:" + backupPort));
+    }
+
+    /** SC-028：max-attempts 已達上限時，失敗事件不得宣稱將嘗試未被嘗試的組別。 */
+    @Test
+    void switchEvent_atMaxAttempts_doesNotAnnounceUntriedCandidate() throws Exception {
+        MailPropertyConfig cfg = config(
+                unreachableServer("primary", 1), unreachableServer("secondary", 2), unreachableServer("tertiary", 3));
+        cfg.getFailover().setMaxAttempts(2);
+        MailServiceImpl service = new MailServiceImpl(cfg);
+        try {
+            service.setInitData();
+        } catch (jakarta.mail.MessagingException ignored) {
+            // 三組皆於初始化階段失敗，仍保留候選清單供後續發送嘗試
+        }
+
+        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+        catchThrowable(() -> service.simpleMailSend(plainTextMail("SC-028-max-attempts")));
+
+        List<String> warnMessages = appender.list.stream()
+                .filter(event -> event.getLevel().toString().equals("WARN"))
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.toList());
+        assertThat(warnMessages).anyMatch(m -> m.contains("伺服器：primary(") && m.contains("將嘗試下一組：secondary("));
+        assertThat(warnMessages).anyMatch(m -> m.contains("伺服器：secondary(") && m.contains("已無下一組可嘗試"));
+        assertThat(warnMessages).noneMatch(m -> m.contains("tertiary"));
     }
 
     /**
@@ -180,8 +240,19 @@ class MailServiceObservabilityTest {
 
         List<String> messages =
                 appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
-        assertThat(messages).anyMatch(m -> m.contains("最終失敗"));
         assertThat(messages).noneMatch(m -> m.contains("成功"));
+
+        List<String> errorMessages = appender.list.stream()
+                .filter(event -> event.getLevel().toString().equals("ERROR"))
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.toList());
+        assertThat(errorMessages).as("sendEmail 全敗只能有一筆 ERROR").hasSize(1);
+        assertThat(errorMessages.get(0))
+                .contains("最終失敗（sendEmail）")
+                .contains("已嘗試 2 組")
+                .containsPattern("primary\\(127\\.0\\.0\\.1:1\\) - \\S+")
+                .containsPattern("secondary\\(127\\.0\\.0\\.1:2\\) - \\S+")
+                .doesNotContain("pass");
     }
 
     /**
@@ -209,9 +280,12 @@ class MailServiceObservabilityTest {
         List<String> messages =
                 appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
 
-        int primaryWarnIndex = indexOfFirstMatch(messages, m -> m.contains("primary") && m.contains("將嘗試下一組"));
-        int secondaryWarnIndex = indexOfFirstMatch(messages, m -> m.contains("secondary") && m.contains("將嘗試下一組"));
-        int tertiarySuccessIndex = indexOfFirstMatch(messages, m -> m.contains("tertiary") && m.contains("成功"));
+        int primaryWarnIndex = indexOfFirstMatch(
+                messages, m -> m.contains("伺服器：primary(") && m.contains("將嘗試下一組：secondary("));
+        int secondaryWarnIndex = indexOfFirstMatch(
+                messages, m -> m.contains("伺服器：secondary(") && m.contains("將嘗試下一組：tertiary("));
+        int tertiarySuccessIndex =
+                indexOfFirstMatch(messages, m -> m.contains("使用伺服器：tertiary(") && m.contains("成功"));
 
         assertThat(primaryWarnIndex).as("primary 的 WARN 失敗記錄須存在").isNotNegative();
         assertThat(secondaryWarnIndex).as("secondary 的 WARN 失敗記錄須存在").isNotNegative();

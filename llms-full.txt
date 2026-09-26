@@ -164,8 +164,8 @@ base-spring-boot-starter/
 - 依候選清單順序（優先序 failover，非輪詢）逐組嘗試，成功即返回；受 `mail.failover.max-attempts`（最大嘗試組數）與 `mail.failover.overall-timeout`（整體切換時間上限）限制。整體逾時為單次發送呼叫從頭到尾的絕對截止時間：每次嘗試會將底層 socket 逾時縮限為剩餘時間、並以獨立 daemon 執行緒執行該次 SMTP 對話，截止時間一到即強制關閉該次連線的 socket、取消該次嘗試，不會讓單一組別的連線卡住拖過整體上限。
 - **協定屬性前綴（`protocolPrefix()`）：** JavaMail／Angus 依通訊協定名稱決定讀取哪組屬性前綴——`transport-protocol: smtp` 讀 `mail.smtp.*`，`smtps`（隱式 TLS）讀 `mail.smtps.*`。`buildSender()` 與 `senderForAttempt()` 因此依該組實際協定，將連線／讀取／寫入逾時三鍵與 `socketFactory.class` 同時寫入 `mail.smtp.*` 與該組協定前綴（協定為 `smtp` 時兩者相同、僅寫入一次），使 `smtps` 組別也能讀到相同的逾時設定，不需使用者額外設定任何新屬性。
 - **截止 socket 工廠（`DeadlineSocketFactory`）：** 實際連線委派給原設定的 `socketFactory.class`（保留其 TLS 語意），本身只另外掛上到期關閉排程。委派為 SSL socket 時會主動 `startHandshake()` 並以 `SSLParameters.setEndpointIdentificationAlgorithm("HTTPS")` 執行標準主機名稱驗證（避免自行接管 handshake 而繞過驗證）；隱式 TLS（`smtps`）額外注入 `mail.smtps.ssl.socketFactory`，且**不得**退回明文 socket（`fallbackToPlainSocket` 強制為 `false`），確保逾時機制不會犧牲既有的 TLS 安全保證。
-- 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外僅記錄日誌，維持既有「不外拋」行為。
-- 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因）、最終成功記錄 INFO（含成功組別）、全部失敗記錄 ERROR（含彙整清單）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
+- 全部嘗試失敗時，拋出 `MailFailoverException`（繼承 Spring `MailException`，為 unchecked），訊息彙整各組標籤與失敗原因摘要，並以 `addSuppressed()` 掛載各次原始例外；`sendEmail` 內部另外 catch 此例外且不再重複記錄（全部失敗的 ERROR 已由 `executeWithFailover` 輸出一筆），維持既有「不外拋」行為。
+- 日誌：每次嘗試失敗記錄 WARN（含伺服器標籤與原因；仍有下一組可嘗試時標示「將嘗試下一組：`下一組標籤`」，已達 `max-attempts` 或已是最後一組時標示「已無下一組可嘗試」）、最終成功記錄 INFO（含成功組別）、全部失敗記錄一筆 ERROR（含實際嘗試組數與逐組標籤、失敗原因彙整清單，`sendEmail` 亦只有這一筆）；日誌與例外訊息僅包含伺服器標籤（`name(host:port)`）與例外類型/訊息，**不會輸出帳號密碼**。
 
 :::danger 已知限制：至少一次投遞語意
 若某組 SMTP 已將郵件內容送達（DATA 階段之後）才回報失敗，切換重送可能導致收件者收到重複郵件。
@@ -410,7 +410,7 @@ sequenceDiagram
     MailService->>MailServiceImpl: executeWithFailover("sendEmail", operation)
     MailServiceImpl->>Server1: 以組1 重新組裝 MimeMessage 並 send()
     Server1-->>MailServiceImpl: 連線／認證／傳輸失敗
-    Note over MailServiceImpl: 記錄 WARN（組1 標籤 + 原因），嘗試下一組
+    Note over MailServiceImpl: 記錄 WARN（組1 標籤 + 原因 + 下一組標籤），嘗試下一組
     MailServiceImpl->>Server2: 以組2 重新組裝 MimeMessage 並 send()
     Server2-->>MailServiceImpl: 送出成功
     Note over MailServiceImpl: 記錄 INFO（最終成功組別為組2）
