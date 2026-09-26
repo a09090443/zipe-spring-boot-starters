@@ -266,9 +266,15 @@ class MailServiceSmtpsScenariosTest {
             }
         });
 
+        // 後續可用的 SMTPS 組（SC-044）：可實際收件，並於 TLS 交握前的 accept 即計數，
+        // 用於證明整體截止後不再連線後續組，而非僅因沒有後續候選而結束。
+        AtomicInteger backupDeliveries = new AtomicInteger();
+        ScriptableTlsSmtpServer backupServer = startServer(deliveringHandler(backupDeliveries));
+
         MailServerProperty candidate = smtpsServer("multi-stage-smtps", server.port());
         MailPropertyConfig cfg = new MailPropertyConfig();
         cfg.getServers().add(candidate);
+        cfg.getServers().add(smtpsServer("backup-smtps-after-deadline", backupServer.port()));
         cfg.setConnectionTimeout(2000);
         cfg.setReadTimeout(2000);
         cfg.setWriteTimeout(2000);
@@ -276,6 +282,9 @@ class MailServiceSmtpsScenariosTest {
 
         MailServiceImpl service = new MailServiceImpl(cfg);
         service.setInitData();
+        assertThat(backupServer.connectionCount())
+                .as("後續 SMTPS 組須為可用端點：初始化連線測試應已連入")
+                .isPositive();
         greetings.set(0);
         ehloCommands.set(0);
 
@@ -283,6 +292,7 @@ class MailServiceSmtpsScenariosTest {
             int currentAttempt = attempt;
             int greetingsBefore = greetings.get();
             int ehloBefore = ehloCommands.get();
+            int backupConnectionsBefore = backupServer.connectionCount();
             long start = System.nanoTime();
             assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-048-multi-stage-" + currentAttempt)))
                     .isInstanceOf(MailFailoverException.class)
@@ -298,7 +308,44 @@ class MailServiceSmtpsScenariosTest {
                     .isGreaterThan(greetingsBefore);
             assertThat(ehloCommands.get()).as("第 %d 次須在截止前進入 EHLO 階段", attempt)
                     .isGreaterThan(ehloBefore);
+            // 給予寬限讓「不應發生」的後續組連線有機會被接受迴圈計數。
+            TimeUnit.MILLISECONDS.sleep(200);
+            assertThat(backupServer.connectionCount() - backupConnectionsBefore)
+                    .as("第 %d 次整體截止後，後續可用 SMTPS 組連線數須為 0", attempt)
+                    .isZero();
         }
+        assertThat(backupDeliveries.get()).as("截止後不得由後續組投遞").isZero();
+    }
+
+    /** 可實際收件的最小 SMTPS 對話腳本，每完成一次 DATA 即累加投遞次數。 */
+    private static ScriptableTlsSmtpServer.ConnectionHandler deliveringHandler(AtomicInteger deliveries) {
+        return (reader, writer) -> {
+            ScriptableTlsSmtpServer.reply(writer, "220 localhost ESMTP ready");
+            boolean readingData = false;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (readingData) {
+                    if (".".equals(line)) {
+                        deliveries.incrementAndGet();
+                        ScriptableTlsSmtpServer.reply(writer, "250 OK queued");
+                        readingData = false;
+                    }
+                    continue;
+                }
+                String upper = line.toUpperCase(Locale.ROOT);
+                if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+                    ScriptableTlsSmtpServer.reply(writer, "250-localhost\r\n250 8BITMIME");
+                } else if (upper.equals("DATA")) {
+                    ScriptableTlsSmtpServer.reply(writer, "354 End data with <CR><LF>.<CR><LF>");
+                    readingData = true;
+                } else if (upper.equals("QUIT")) {
+                    ScriptableTlsSmtpServer.reply(writer, "221 Bye");
+                    return;
+                } else {
+                    ScriptableTlsSmtpServer.reply(writer, "250 OK");
+                }
+            }
+        };
     }
 
     /**

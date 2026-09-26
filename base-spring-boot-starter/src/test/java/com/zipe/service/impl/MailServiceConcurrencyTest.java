@@ -6,6 +6,8 @@ import static com.zipe.service.impl.MailFailoverTestSupport.plainTextMail;
 import static com.zipe.service.impl.MailFailoverTestSupport.unreachableServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.GreenMailUtil;
@@ -13,11 +15,15 @@ import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
+import com.zipe.model.Mail;
+import jakarta.mail.Address;
+import jakarta.mail.Message;
 import jakarta.mail.internet.MimeMessage;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +37,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.LoggerFactory;
 
 /**
  * 多執行緒併發發送情境測試，對應情境測試計畫 SC-040、SC-041。
@@ -102,6 +109,113 @@ class MailServiceConcurrencyTest {
                     .as("每封郵件的主旨與內文須配對一致，不因併發而交錯")
                     .containsEntry(subject, "body-" + subject);
         });
+    }
+
+    /**
+     * SC-033（AC-012-01、AC-012-02）：同一個 {@link MailServiceImpl} 實例上，兩個成功呼叫 A、B 必須
+     * 確實重疊，且各自從第一組開始、依序切換至備援、只投遞一次、內容與收件人不交錯。
+     * <ol>
+     *   <li>閘門扣住第一組連線：A、B 都必須各自連入第一組並同時停在閘門內（heldCount=2），
+     *       此時備援尚未收到任何郵件，證明兩次呼叫確實重疊。</li>
+     *   <li>釋放閘門後，兩者的第一組嘗試都失敗並切換至備援送達。</li>
+     *   <li>以日誌事件的執行緒名稱逐呼叫核對候選順序：每個呼叫恰為「gated 失敗 → backup 成功」。</li>
+     *   <li>A、B 使用不同收件人、主旨與本文，逐封核對收件人↔主旨↔本文，每位收件人恰收到一封。</li>
+     * </ol>
+     * 共享候選索引而使 B 直接跳至備援的弱實作，會因 heldCount 無法達到 2 或 B 缺少 gated 失敗事件而失敗；
+     * 共用可變 MIME 的弱實作會因收件人與內容對應錯誤而失敗。
+     */
+    @Test
+    void overlappingSuccessfulCalls_eachStartFromFirstCandidate_andDeliverOwnContentExactlyOnce() throws Exception {
+        try (GatedServer gate = new GatedServer()) {
+            MailPropertyConfig cfg = config(
+                    gatedServer("gated", gate.port()),
+                    greenMailServer("backup", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+            // 單項逾時遠長於測試流程，確保兩個呼叫只會因閘門釋放而離開第一組。
+            cfg.setReadTimeout(20000);
+            cfg.setConnectionTimeout(20000);
+            cfg.setWriteTimeout(20000);
+            cfg.getFailover().setOverallTimeout(20000L);
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            service.setInitData();
+            int acceptedBeforeSend = gate.acceptedCount();
+            gate.hold();
+
+            ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+            try {
+                Map<String, Mail> mails = Map.of(
+                        "sc033-A", recipientMail("SC-033-A", "alice@test.local"),
+                        "sc033-B", recipientMail("SC-033-B", "bob@test.local"));
+                Map<String, AtomicReference<Throwable>> failures = new HashMap<>();
+                List<Thread> threads = new ArrayList<>();
+                for (Map.Entry<String, Mail> entry : mails.entrySet()) {
+                    AtomicReference<Throwable> failure = new AtomicReference<>();
+                    failures.put(entry.getKey(), failure);
+                    threads.add(new Thread(() -> {
+                        try {
+                            service.simpleMailSend(entry.getValue());
+                        } catch (Throwable e) {
+                            failure.set(e);
+                        }
+                    }, entry.getKey()));
+                }
+                threads.forEach(Thread::start);
+
+                assertThat(gate.awaitHeld(2, 10, TimeUnit.SECONDS))
+                        .as("A、B 須同時停在第一組閘門內，證明兩呼叫確實重疊且各自從第一組開始")
+                        .isTrue();
+                assertThat(threads).allMatch(Thread::isAlive);
+                assertThat(greenMail.getReceivedMessages()).as("閘門釋放前不得有任何呼叫已由備援送達").isEmpty();
+
+                gate.release();
+                for (Thread thread : threads) {
+                    thread.join(15000);
+                    assertThat(thread.isAlive()).isFalse();
+                }
+                failures.forEach((name, failure) ->
+                        assertThat(failure.get()).as("%s 應成功送達", name).isNull());
+                // 給予寬限讓「不應發生」的額外第一組連線（重試或重複嘗試）有機會被接受迴圈計數。
+                TimeUnit.MILLISECONDS.sleep(200);
+                assertThat(gate.acceptedCount() - acceptedBeforeSend)
+                        .as("發送階段第一組只有 A、B 各自被扣住的那一條連線，釋放後不再重連")
+                        .isEqualTo(2);
+
+                for (String threadName : mails.keySet()) {
+                    List<String> events = appender.list.stream()
+                            .filter(event -> threadName.equals(event.getThreadName()))
+                            .map(ILoggingEvent::getFormattedMessage)
+                            .filter(message -> message.startsWith("郵件發送"))
+                            .toList();
+                    assertThat(events).as("%s 的候選順序", threadName).hasSize(2);
+                    assertThat(events.get(0)).startsWith("郵件發送失敗").contains("伺服器：gated(");
+                    assertThat(events.get(1)).startsWith("郵件發送成功").contains("使用伺服器：backup(");
+                }
+            } finally {
+                ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(MailServiceImpl.class))
+                        .detachAppender(appender);
+            }
+
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertThat(messages).hasSize(2);
+            Map<String, MimeMessage> byRecipient = new HashMap<>();
+            for (MimeMessage message : messages) {
+                Address[] recipients = message.getRecipients(Message.RecipientType.TO);
+                assertThat(recipients).hasSize(1);
+                assertThat(byRecipient.put(recipients[0].toString(), message))
+                        .as("每位收件人只能收到一封")
+                        .isNull();
+            }
+            assertThat(byRecipient).containsOnlyKeys("alice@test.local", "bob@test.local");
+            assertThat(subjectOf(byRecipient.get("alice@test.local"))).isEqualTo("SC-033-A");
+            assertThat(GreenMailUtil.getBody(byRecipient.get("alice@test.local"))).isEqualTo("body-SC-033-A");
+            assertThat(subjectOf(byRecipient.get("bob@test.local"))).isEqualTo("SC-033-B");
+            assertThat(GreenMailUtil.getBody(byRecipient.get("bob@test.local"))).isEqualTo("body-SC-033-B");
+        }
+    }
+
+    private static Mail recipientMail(String subject, String recipient) {
+        Mail mail = plainTextMail(subject);
+        mail.setMailTo(new String[] {recipient});
+        return mail;
     }
 
     /**
@@ -219,6 +333,7 @@ class MailServiceConcurrencyTest {
         private final Object lock = new Object();
         private boolean holding;
         private int heldCount;
+        private int acceptedCount;
 
         private GatedServer() throws IOException {
             this.serverSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
@@ -236,6 +351,7 @@ class MailServiceConcurrencyTest {
                 try {
                     Socket socket = serverSocket.accept();
                     synchronized (lock) {
+                        acceptedCount++;
                         if (holding) {
                             held.add(socket);
                             heldCount++;
@@ -247,6 +363,13 @@ class MailServiceConcurrencyTest {
                 } catch (IOException ignored) {
                     // close() 會關閉 ServerSocket，使 accept() 正常結束。
                 }
+            }
+        }
+
+        /** 不論閘門狀態，累計接受過的連線數。 */
+        private int acceptedCount() {
+            synchronized (lock) {
+                return acceptedCount;
             }
         }
 
