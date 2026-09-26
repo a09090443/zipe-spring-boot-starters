@@ -289,6 +289,12 @@ class MailServiceFailoverTest {
             assertThatCode(() -> service.attachedSend(mail)).doesNotThrowAnyException();
 
             MimeMessage message = singleRecoveredMessage("SC-021-attached");
+            assertThat(message.getAllRecipients())
+                    .extracting(Object::toString)
+                    .containsExactly(mail.getMailTo());
+            Part textPart = findFirstMimeType(message, "text/plain");
+            assertThat(textPart).as("attachedSend 恢復後必須保留純文字 MIME 類型").isNotNull();
+            assertThat(String.valueOf(textPart.getContent())).isEqualTo("body-SC-021-attached");
             assertAttachmentBytes(message, "all-down-attachment.txt", "all-down".getBytes(StandardCharsets.UTF_8));
         }
     }

@@ -16,8 +16,14 @@ import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
+import com.zipe.model.Mail;
 import com.zipe.service.impl.MailFailoverTestSupport.SwitchableSmtpEndpoint;
 import com.zipe.util.crypto.Base64Util;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Message;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.internet.MimeMessage;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
@@ -273,16 +279,47 @@ class MailServiceObservabilityTest {
             unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
             appender.list.clear();
 
-            assertThatCode(() -> service.sendEmail(MailFailoverTestSupport.htmlMail("SC-023-sendEmail")))
-                    .doesNotThrowAnyException();
+            Mail recoveredMail = MailFailoverTestSupport.htmlMail("SC-023-sendEmail");
+            recoveredMail.setMailTo(new String[] {"recovered-to@test.local"});
+            recoveredMail.setMailCc(new String[] {"recovered-cc@test.local"});
+            assertThatCode(() -> service.sendEmail(recoveredMail)).doesNotThrowAnyException();
 
-            assertThat(greenMail.getReceivedMessages()).hasSize(1);
-            assertThat(greenMail.getReceivedMessages()[0].getSubject()).isEqualTo("SC-023-sendEmail");
+            MimeMessage[] recoveredMessages = greenMail.getReceivedMessages();
+            assertThat(recoveredMessages).as("To 與 Cc 信箱應各收到一份完整郵件").hasSize(2);
+            for (MimeMessage message : recoveredMessages) {
+                assertThat(message.getSubject()).isEqualTo("SC-023-sendEmail");
+                assertThat(message.getRecipients(Message.RecipientType.TO))
+                        .extracting(Object::toString)
+                        .containsExactly("recovered-to@test.local");
+                assertThat(message.getRecipients(Message.RecipientType.CC))
+                        .extracting(Object::toString)
+                        .containsExactly("recovered-cc@test.local");
+                Part htmlPart = findFirstMimeType(message, "text/html");
+                assertThat(htmlPart).as("sendEmail 恢復後必須保留 text/html MIME 類型").isNotNull();
+                assertThat(String.valueOf(htmlPart.getContent())).isEqualTo("<p>SC-023-sendEmail</p>");
+            }
             assertThat(appender.list)
                     .extracting(ILoggingEvent::getFormattedMessage)
                     .contains("郵件發送成功（sendEmail），使用伺服器：127.0.0.1:" + unnamed.port());
             assertThat(appender.list).noneMatch(event -> event.getLevel().toString().equals("ERROR"));
         }
+    }
+
+    private static Part findFirstMimeType(Part part, String mimeType) throws Exception {
+        if (part.isMimeType(mimeType)) {
+            return part;
+        }
+        Object content = part.getContent();
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                BodyPart bodyPart = multipart.getBodyPart(i);
+                Part found = findFirstMimeType(bodyPart, mimeType);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     /**
