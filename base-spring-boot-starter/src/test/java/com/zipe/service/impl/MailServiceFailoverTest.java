@@ -47,9 +47,19 @@ class MailServiceFailoverTest {
     static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP.dynamicPort())
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("backupUser", "backupPw"));
 
+    @RegisterExtension
+    static GreenMailExtension secondaryGreenMail = new GreenMailExtension(ServerSetupTest.SMTP.dynamicPort())
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("secondaryUser", "secondaryPw"));
+
+    @RegisterExtension
+    static GreenMailExtension tertiaryGreenMail = new GreenMailExtension(ServerSetupTest.SMTP.dynamicPort())
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("tertiaryUser", "tertiaryPw"));
+
     @BeforeEach
     void purgeMailbox() throws Exception {
         greenMail.purgeEmailFromAllMailboxes();
+        secondaryGreenMail.purgeEmailFromAllMailboxes();
+        tertiaryGreenMail.purgeEmailFromAllMailboxes();
     }
 
     private MailPropertyConfig twoServerConfig() {
@@ -165,12 +175,14 @@ class MailServiceFailoverTest {
      */
     @Test
     void allServersAvailable_onlyFirstIsContacted_othersRemainUntouched() throws Exception {
-        try (MailFailoverTestSupport.CountingTcpServer secondary = new MailFailoverTestSupport.CountingTcpServer();
-                MailFailoverTestSupport.CountingTcpServer tertiary = new MailFailoverTestSupport.CountingTcpServer()) {
+        try (MailFailoverTestSupport.CountingSmtpProxy secondary = new MailFailoverTestSupport.CountingSmtpProxy(
+                        "127.0.0.1", secondaryGreenMail.getSmtp().getPort());
+                MailFailoverTestSupport.CountingSmtpProxy tertiary = new MailFailoverTestSupport.CountingSmtpProxy(
+                        "127.0.0.1", tertiaryGreenMail.getSmtp().getPort())) {
             MailPropertyConfig cfg = config(
                     greenMailServer("primary", greenMail.getSmtp().getPort(), "backupUser", "backupPw"),
-                    MailFailoverTestSupport.server("secondary", "127.0.0.1", secondary.port(), "u", "p"),
-                    MailFailoverTestSupport.server("tertiary", "127.0.0.1", tertiary.port(), "u", "p"));
+                    greenMailServer("secondary", secondary.port(), "secondaryUser", "secondaryPw"),
+                    greenMailServer("tertiary", tertiary.port(), "tertiaryUser", "tertiaryPw"));
             MailServiceImpl service = new MailServiceImpl(cfg);
             service.setInitData();
             // setInitData() 依 REQ-007 會逐一測試每組連線（含 secondary／tertiary），
@@ -188,6 +200,8 @@ class MailServiceFailoverTest {
             secondary.waitBriefly(200);
             assertThat(secondary.connectionCount()).isZero();
             assertThat(tertiary.connectionCount()).isZero();
+            assertThat(secondaryGreenMail.getReceivedMessages()).isEmpty();
+            assertThat(tertiaryGreenMail.getReceivedMessages()).isEmpty();
         }
     }
 
@@ -298,7 +312,9 @@ class MailServiceFailoverTest {
             assertThat(message.getRecipients(jakarta.mail.Message.RecipientType.CC))
                     .extracting(Object::toString)
                     .containsExactly("cc-receiver@test.local");
-            assertThat(textContent(message)).contains("<p>SC-015-sendEmail</p>");
+            Part htmlPart = findFirstMimeType(message, "text/html");
+            assertThat(htmlPart).as("sendEmail 備援後必須保留 text/html MIME 類型").isNotNull();
+            assertThat(String.valueOf(htmlPart.getContent())).isEqualTo("<p>SC-015-sendEmail</p>");
         }
     }
 
@@ -440,29 +456,28 @@ class MailServiceFailoverTest {
         assertThat(String.valueOf(htmlPart.getContent()))
                 .isEqualTo("<p>SC-018-inline</p><img src='cid:inline-logo'/>");
 
-        Part inlinePart = findByContentId(messages[0], "inline-logo");
+        BodyPart inlinePart = related.getBodyPart(1);
+        assertThat(inlinePart.getHeader("Content-ID")).containsExactly("<inline-logo>");
         assertThat(inlinePart).as("內嵌資源須以 Content-ID inline-logo 存在，而非一般附件").isNotNull();
         assertThat(inlinePart.getDisposition()).isEqualToIgnoringCase(Part.INLINE);
         assertThat(inlinePart.getInputStream().readAllBytes()).isEqualTo(inlineImageBytes);
 
         // 一般附件仍須維持既有 addAttachment 行為，與內嵌資源互不混淆
-        assertAttachment(messages[0], "report.txt", "SC-018-plain-attachment");
-        Part plainAttachmentPart = findAttachment(messages[0], "report.txt");
+        BodyPart plainAttachmentPart = mixed.getBodyPart(1);
+        assertThat(plainAttachmentPart.getFileName()).isEqualTo("report.txt");
         assertThat(plainAttachmentPart.getDisposition()).isEqualToIgnoringCase(Part.ATTACHMENT);
+        assertThat(new String(plainAttachmentPart.getInputStream().readAllBytes(), StandardCharsets.UTF_8))
+                .isEqualTo("SC-018-plain-attachment");
     }
 
-    /** 找出指定 Content-ID（不含 {@code cid:} 前綴與角括號）的 MIME part，用於驗證真正的內嵌資源。 */
-    private static Part findByContentId(Part part, String expectedContentId) throws Exception {
-        if (part instanceof jakarta.mail.internet.MimePart mimePart) {
-            String contentId = mimePart.getContentID();
-            if (contentId != null && contentId.replaceAll("[<>]", "").equals(expectedContentId)) {
-                return part;
-            }
+    private static Part findFirstMimeType(Part part, String mimeType) throws Exception {
+        if (part.isMimeType(mimeType)) {
+            return part;
         }
         Object content = part.getContent();
         if (content instanceof Multipart multipart) {
             for (int i = 0; i < multipart.getCount(); i++) {
-                Part found = findByContentId(multipart.getBodyPart(i), expectedContentId);
+                Part found = findFirstMimeType(multipart.getBodyPart(i), mimeType);
                 if (found != null) {
                     return found;
                 }

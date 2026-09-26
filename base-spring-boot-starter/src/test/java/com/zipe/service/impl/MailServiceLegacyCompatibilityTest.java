@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.autoconfiguration.BaseAutoConfiguration;
 import com.zipe.config.MailPropertyConfig;
@@ -66,7 +67,14 @@ class MailServiceLegacyCompatibilityTest {
 
                     MimeMessage[] messages = greenMail.getReceivedMessages();
                     assertThat(messages).hasSize(1);
-                    assertThatCode(() -> assertThat(messages[0].getSubject()).isEqualTo("SC-14"))
+                    MimeMessage message = messages[0];
+                    assertThatCode(() -> {
+                                assertThat(message.getSubject()).isEqualTo("SC-14");
+                                assertThat(message.getAllRecipients())
+                                        .extracting(Object::toString)
+                                        .containsExactly("receiver@test.local");
+                                assertThat(GreenMailUtil.getBody(message)).isEqualTo("body-SC-14");
+                            })
                             .doesNotThrowAnyException();
                 });
     }

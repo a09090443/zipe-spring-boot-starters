@@ -7,10 +7,15 @@ import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.model.Mail;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.LoggerFactory;
@@ -152,6 +157,86 @@ final class MailFailoverTestSupport {
         @Override
         public void close() throws IOException {
             serverSocket.close();
+        }
+    }
+
+    /**
+     * 可完整轉送 SMTP 對話並計數連線的本機 TCP proxy。與 {@link CountingTcpServer} 不同，
+     * 此工具後方連接真正可投遞的 SMTP，供「候選可用但成功後不得被連線」的反例驗證。
+     */
+    static final class CountingSmtpProxy implements AutoCloseable {
+        private final ServerSocket serverSocket;
+        private final String upstreamHost;
+        private final int upstreamPort;
+        private final AtomicInteger connectionCount = new AtomicInteger();
+        private final ExecutorService executor = Executors.newCachedThreadPool(task -> {
+            Thread thread = new Thread(task, "counting-smtp-proxy");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        CountingSmtpProxy(String upstreamHost, int upstreamPort) throws IOException {
+            this.upstreamHost = upstreamHost;
+            this.upstreamPort = upstreamPort;
+            this.serverSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            executor.submit(this::acceptLoop);
+        }
+
+        int port() {
+            return serverSocket.getLocalPort();
+        }
+
+        int connectionCount() {
+            return connectionCount.get();
+        }
+
+        void resetCount() {
+            connectionCount.set(0);
+        }
+
+        void waitBriefly(long millis) throws InterruptedException {
+            TimeUnit.MILLISECONDS.sleep(millis);
+        }
+
+        private void acceptLoop() {
+            while (!serverSocket.isClosed()) {
+                try {
+                    Socket client = serverSocket.accept();
+                    connectionCount.incrementAndGet();
+                    executor.submit(() -> forward(client));
+                } catch (IOException ignored) {
+                    // close() 會關閉 ServerSocket，使 accept() 正常結束。
+                }
+            }
+        }
+
+        private void forward(Socket client) {
+            try (client; Socket upstream = new Socket(upstreamHost, upstreamPort)) {
+                Future<?> clientToUpstream = executor.submit(() -> pump(client, upstream));
+                Future<?> upstreamToClient = executor.submit(() -> pump(upstream, client));
+                clientToUpstream.get();
+                upstreamToClient.get();
+            } catch (Exception ignored) {
+                // 測試關閉連線或 SMTP 對話結束時，任一方向先結束皆屬正常清理。
+            }
+        }
+
+        private static void pump(Socket source, Socket target) {
+            try {
+                InputStream input = source.getInputStream();
+                OutputStream output = target.getOutputStream();
+                input.transferTo(output);
+                output.flush();
+                target.shutdownOutput();
+            } catch (IOException ignored) {
+                // 另一方向關閉 socket 時，阻塞中的轉送會在此正常結束。
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            serverSocket.close();
+            executor.shutdownNow();
         }
     }
 }
