@@ -14,12 +14,16 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
+import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
 import com.zipe.model.Mail;
+import com.zipe.util.crypto.Base64Util;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 /**
  * 多 SMTP 容錯切換核心行為情境測試，對應情境測試計畫 SC-02 ~ SC-09。
@@ -51,6 +56,29 @@ class MailServiceFailoverTest {
         return config(
                 unreachableServer("primary"),
                 greenMailServer("backup", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+    }
+
+    /**
+     * SC-001：同一候選清單混用明文與 Base64 密碼時，實際建立出的 sender 必須逐組保留或解碼，
+     * 不能只驗證 encrypt-enable 設定旗標。
+     */
+    @Test
+    void setInitData_mixedPasswordEncoding_buildsEachSenderWithItsEffectivePassword() throws Exception {
+        String plainPassword = "plain-password-for-primary";
+        String decodedPassword = "decoded-password-for-secondary";
+        String encodedPassword = new Base64Util().getEncrypt(decodedPassword);
+        MailServerProperty primary = unreachableServer("primary", 1);
+        primary.setPa55word(plainPassword);
+        MailServerProperty secondary = unreachableServer("secondary", 2);
+        secondary.setPa55word(encodedPassword);
+        secondary.setEncryptEnable(true);
+        MailServiceImpl service = new MailServiceImpl(config(primary, secondary));
+
+        assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
+
+        assertThat(candidateSenders(service))
+                .extracting(JavaMailSenderImpl::getPassword)
+                .containsExactly(plainPassword, decodedPassword);
     }
 
     /** SC-02：第一組連線失敗時自動改用第二組並成功送出，呼叫端未見任何例外。 */
@@ -176,7 +204,8 @@ class MailServiceFailoverTest {
                 .isInstanceOf(MailFailoverException.class)
                 .hasMessageContaining("richContentSend")
                 .hasMessageContaining("primary")
-                .hasMessageContaining("secondary");
+                .hasMessageContaining("secondary")
+                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
 
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
@@ -192,7 +221,7 @@ class MailServiceFailoverTest {
                 .hasMessageContaining("primary")
                 .hasMessageContaining("secondary")
                 .hasMessageContaining("MailSendException")
-                .satisfies(error -> assertThat(error.getSuppressed()).hasSize(2));
+                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
@@ -209,7 +238,8 @@ class MailServiceFailoverTest {
                 .isInstanceOf(MailFailoverException.class)
                 .hasMessageContaining("attachedSend")
                 .hasMessageContaining("primary")
-                .hasMessageContaining("secondary");
+                .hasMessageContaining("secondary")
+                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
@@ -228,7 +258,8 @@ class MailServiceFailoverTest {
                 .isInstanceOf(MailFailoverException.class)
                 .hasMessageContaining("sendBatchMailWithFile")
                 .hasMessageContaining("primary")
-                .hasMessageContaining("secondary");
+                .hasMessageContaining("secondary")
+                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
         assertThat(greenMail.getReceivedMessages()).isEmpty();
     }
 
@@ -444,16 +475,47 @@ class MailServiceFailoverTest {
 
         assertThatCode(() -> service.sendBatchMailWithFile(mail)).doesNotThrowAnyException();
 
-        // GreenMail 依「收件者信箱」各自儲存一份，2 位收件人各自的信箱皆應收到 1 封（合計 2 筆）
+        // 逐信箱核對 SMTP envelope 實際投遞對象，避免只看 To 標頭與總數而漏掉兩封都投給同一人的錯誤。
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(2);
-        assertThat(messages[0].getSubject()).isEqualTo("SC-09-batch");
-        assertThat(messages[1].getSubject()).isEqualTo("SC-09-batch");
-        assertThat(messages[0].getAllRecipients()).hasSize(2);
-        for (MimeMessage message : messages) {
+        for (String recipient : List.of("b1@test.local", "b2@test.local")) {
+            List<MimeMessage> recipientMessages = greenMail
+                    .findReceivedMessages(user -> recipient.equals(user.getEmail()), message -> true)
+                    .toList();
+            assertThat(recipientMessages).as("信箱 %s 必須恰好收到一封", recipient).hasSize(1);
+            MimeMessage message = recipientMessages.get(0);
+            assertThat(message.getSubject()).isEqualTo("SC-09-batch");
+            assertThat(message.getAllRecipients()).extracting(Object::toString).contains(recipient);
             assertThat(textContent(message)).contains("<p>SC-09-batch</p>");
-            assertAttachment(message, "sc09-attachment.txt", "sc09-content");
+            assertAttachmentBytes(
+                    message, "sc09-attachment.txt", "sc09-content".getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    private static List<JavaMailSenderImpl> candidateSenders(MailServiceImpl service) throws Exception {
+        Field candidatesField = MailServiceImpl.class.getDeclaredField("candidates");
+        candidatesField.setAccessible(true);
+        List<?> candidates = (List<?>) candidatesField.get(service);
+        Method senderAccessor = candidates.get(0).getClass().getDeclaredMethod("sender");
+        senderAccessor.setAccessible(true);
+        return candidates.stream()
+                .map(candidate -> {
+                    try {
+                        return (JavaMailSenderImpl) senderAccessor.invoke(candidate);
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                })
+                .toList();
+    }
+
+    private static void assertCompleteSuppressedReasons(MailFailoverException failure) {
+        assertThat(failure.getSuppressed())
+                .extracting(Throwable::getMessage)
+                .containsExactly(
+                        "primary(127.0.0.1:1) - MailSendException",
+                        "secondary(127.0.0.1:2) - MailSendException")
+                .doesNotContain("pass");
     }
 
     private static MailServiceImpl allServersDownService() {
@@ -469,6 +531,13 @@ class MailServiceFailoverTest {
         assertThat(attachment).as("附件 %s", expectedName).isNotNull();
         assertThat(new String(attachment.getInputStream().readAllBytes(), StandardCharsets.UTF_8))
                 .isEqualTo(expectedContent);
+    }
+
+    private static void assertAttachmentBytes(MimeMessage message, String expectedName, byte[] expectedContent)
+            throws Exception {
+        Part attachment = findAttachment(message, expectedName);
+        assertThat(attachment).as("附件 %s", expectedName).isNotNull();
+        assertThat(attachment.getInputStream().readAllBytes()).isEqualTo(expectedContent);
     }
 
     private static Part findAttachment(Part part, String expectedName) throws Exception {
