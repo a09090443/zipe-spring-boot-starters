@@ -89,21 +89,36 @@ class MailServiceTimeoutAndLimitsTest {
         assertThat(config.getWriteTimeout()).isEqualTo(5000);
     }
 
-    /** SC-19：預設值與自訂值皆須實際寫入候選 JavaMailSender，而非只停留在設定物件。 */
+    /**
+     * SC-020（AC-008-01／02）：預設值與自訂值皆須實際寫入「每一組」候選 JavaMailSender，而非只停留在
+     * 設定物件或只套用第一組；三組候選逐組精確核對連線、讀取、寫入三鍵。覆寫值三者互異，
+     * 可攔截 read／write 對調或後續候選遺漏任一鍵的實作。
+     */
     @Test
-    void timeoutProperties_areAppliedToInitializedJavaMailSenders() throws Exception {
-        MailPropertyConfig defaults = new MailPropertyConfig();
-        defaults.getServers().add(
-                greenMailServer("default", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
-        assertTimeouts(initializedSender(defaults), 5000, 3000, 5000);
+    void timeoutProperties_areAppliedToEveryInitializedJavaMailSender() throws Exception {
+        MailPropertyConfig defaults = threeGreenMailServers("default");
+        List<JavaMailSenderImpl> defaultSenders = initializedSenders(defaults, 3);
+        for (JavaMailSenderImpl sender : defaultSenders) {
+            assertTimeouts(sender, 5000, 3000, 5000);
+        }
 
-        MailPropertyConfig custom = new MailPropertyConfig();
-        custom.getServers().add(
-                greenMailServer("custom", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
-        custom.setConnectionTimeout(1000);
-        custom.setReadTimeout(800);
-        custom.setWriteTimeout(1000);
-        assertTimeouts(initializedSender(custom), 1000, 800, 1000);
+        MailPropertyConfig custom = threeGreenMailServers("custom");
+        custom.setConnectionTimeout(1100);
+        custom.setReadTimeout(700);
+        custom.setWriteTimeout(1300);
+        List<JavaMailSenderImpl> customSenders = initializedSenders(custom, 3);
+        for (JavaMailSenderImpl sender : customSenders) {
+            assertTimeouts(sender, 1100, 700, 1300);
+        }
+    }
+
+    private static MailPropertyConfig threeGreenMailServers(String prefix) {
+        MailPropertyConfig cfg = new MailPropertyConfig();
+        for (int i = 1; i <= 3; i++) {
+            cfg.getServers().add(
+                    greenMailServer(prefix + "-" + i, greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
+        }
+        return cfg;
     }
 
     /** 非數字的底層 timeout 屬性不得使 failover 本身失效，應安全縮限為剩餘整體時間。 */
@@ -787,11 +802,17 @@ class MailServiceTimeoutAndLimitsTest {
         return server;
     }
 
-    private static JavaMailSenderImpl initializedSender(MailPropertyConfig config) throws Exception {
+    private static List<JavaMailSenderImpl> initializedSenders(MailPropertyConfig config, int expectedCount)
+            throws Exception {
         MailServiceImpl service = initializedService(config);
         List<?> candidates = (List<?>) ReflectionTestUtils.getField(service, "candidates");
-        assertThat(candidates).isNotNull().hasSize(1);
-        return (JavaMailSenderImpl) ReflectionTestUtils.getField(candidates.get(0), "sender");
+        assertThat(candidates).isNotNull().hasSize(expectedCount);
+        List<JavaMailSenderImpl> senders = new ArrayList<>();
+        for (Object candidate : candidates) {
+            senders.add((JavaMailSenderImpl) ReflectionTestUtils.getField(candidate, "sender"));
+        }
+        assertThat(senders).doesNotContainNull().doesNotHaveDuplicates();
+        return senders;
     }
 
     private static MailServiceImpl initializedService(MailPropertyConfig config) throws Exception {

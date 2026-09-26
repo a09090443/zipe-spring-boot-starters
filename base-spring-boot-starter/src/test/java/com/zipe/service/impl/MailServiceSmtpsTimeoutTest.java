@@ -417,6 +417,8 @@ class MailServiceSmtpsTimeoutTest {
                 .isEqualTo("javax.net.ssl.SSLSocketFactory");
 
         assertThat(String.valueOf(smtpSender.getJavaMailProperties().get("mail.smtp.connectiontimeout"))).isEqualTo("1111");
+        assertThat(String.valueOf(smtpSender.getJavaMailProperties().get("mail.smtp.timeout"))).isEqualTo("2222");
+        assertThat(String.valueOf(smtpSender.getJavaMailProperties().get("mail.smtp.writetimeout"))).isEqualTo("3333");
         assertThat(smtpSender.getJavaMailProperties().get("mail.smtps.connectiontimeout")).isNull();
         assertThat(smtpSender.getJavaMailProperties().get("mail.smtps.timeout")).isNull();
         assertThat(smtpSender.getJavaMailProperties().get("mail.smtps.writetimeout")).isNull();
