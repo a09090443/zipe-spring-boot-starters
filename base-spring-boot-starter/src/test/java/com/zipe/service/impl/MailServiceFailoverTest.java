@@ -496,15 +496,15 @@ class MailServiceFailoverTest {
         Files.writeString(attachment, "sc09-content", StandardCharsets.UTF_8);
 
         Mail mail = htmlMail("SC-09-batch");
-        mail.setMailTo(new String[] {"b1@test.local", "b2@test.local"});
+        mail.setMailTo(new String[] {"b1@test.local", "b2@test.local", "b3@test.local"});
         mail.setAttachments(List.of(attachment.toFile()));
 
         assertThatCode(() -> service.sendBatchMailWithFile(mail)).doesNotThrowAnyException();
 
-        // 逐信箱核對 SMTP envelope 實際投遞對象，避免只看 To 標頭與總數而漏掉兩封都投給同一人的錯誤。
+        // 逐信箱核對 SMTP envelope 實際投遞對象，避免只看 To 標頭與總數而漏掉多封都投給同一人的錯誤。
         MimeMessage[] messages = greenMail.getReceivedMessages();
-        assertThat(messages).hasSize(2);
-        for (String recipient : List.of("b1@test.local", "b2@test.local")) {
+        assertThat(messages).hasSize(3);
+        for (String recipient : List.of("b1@test.local", "b2@test.local", "b3@test.local")) {
             List<MimeMessage> recipientMessages = greenMail
                     .findReceivedMessages(user -> recipient.equals(user.getEmail()), message -> true)
                     .toList();
@@ -512,7 +512,9 @@ class MailServiceFailoverTest {
             MimeMessage message = recipientMessages.get(0);
             assertThat(message.getSubject()).isEqualTo("SC-09-batch");
             assertThat(message.getAllRecipients()).extracting(Object::toString).contains(recipient);
-            assertThat(textContent(message)).contains("<p>SC-09-batch</p>");
+            Part htmlPart = findFirstMimeType(message, "text/html");
+            assertThat(htmlPart).as("信箱 %s 的本文必須保留 text/html MIME 類型", recipient).isNotNull();
+            assertThat(String.valueOf(htmlPart.getContent())).isEqualTo("<p>SC-09-batch</p>");
             assertAttachmentBytes(
                     message, "sc09-attachment.txt", "sc09-content".getBytes(StandardCharsets.UTF_8));
         }
