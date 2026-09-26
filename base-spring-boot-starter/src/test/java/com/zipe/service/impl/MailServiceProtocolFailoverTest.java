@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
@@ -214,6 +215,10 @@ class MailServiceProtocolFailoverTest {
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
         assertThat(messages[0].getSubject()).isEqualTo("SC-011");
+        assertThat(messages[0].getAllRecipients())
+                .extracting(Object::toString)
+                .containsExactly("receiver@test.local");
+        assertThat(GreenMailUtil.getBody(messages[0])).isEqualTo("body-SC-011");
     }
 
     /**

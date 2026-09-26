@@ -299,14 +299,14 @@ class MailServiceTimeoutAndLimitsTest {
     }
 
     /**
-     * SC-024（AC-008-07）：單次 SMTP 對話包含多個各自未逾時的延遲階段（MAIL FROM、RCPT TO 各 300ms，
-     * 均低於 2000ms 單項逾時），累積超過 overall-timeout（500ms）時，呼叫須在截止上下限內結束；
+     * SC-024（AC-008-07）：單次 SMTP 對話包含多個各自未逾時的延遲階段（MAIL FROM、RCPT TO 各 400ms，
+     * 均低於 2000ms 單項逾時），累積超過 overall-timeout（700ms）時，呼叫須在截止上下限內結束；
      * 截止時在途 socket 必須被關閉，使 SMTP 對話停在截止前的階段（不得進入 DATA、零投遞），
      * 且後續可用組零連線。重複三次，排除單次排程抖動。
      */
     @Test
     void overallTimeout_boundsWholeOperation_acrossMultipleSmtpStages() throws Exception {
-        delayedSmtp = new MultiStageDelaySmtpServer(300);
+        delayedSmtp = new MultiStageDelaySmtpServer(400);
         backupSmtp = new MultiStageDelaySmtpServer(0);
         MailServerProperty server = new MailServerProperty();
         server.setName("multi-stage-delay");
@@ -323,7 +323,7 @@ class MailServiceTimeoutAndLimitsTest {
         cfg.setReadTimeout(2000);
         cfg.setConnectionTimeout(2000);
         cfg.setWriteTimeout(2000);
-        cfg.getFailover().setOverallTimeout(500L);
+        cfg.getFailover().setOverallTimeout(700L);
 
         MailServiceImpl service = new MailServiceImpl(cfg);
         service.setInitData();
@@ -342,9 +342,9 @@ class MailServiceTimeoutAndLimitsTest {
                     .satisfies(e -> assertThat(e.getMessage()).doesNotContain("usable-after-deadline"));
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-            // 每個回應只延遲 300ms，均低於個別 read timeout；若只限制各 socket 操作，累積會超過 1 秒。
-            // 下限：絕對截止時間不會早於起點 + 500ms，提前停止的弱實作會低於此值。
-            assertThat(elapsedMs).as("第 %d 次：須在整體截止上下限內結束", attempt).isBetween(490L, 1000L);
+            // 每個回應只延遲 400ms，均低於個別 read timeout；若只限制各 socket 操作，累積會超過 1 秒。
+            // 下限：絕對截止時間不會早於起點 + 700ms，提前停止的弱實作會低於此值。
+            assertThat(elapsedMs).as("第 %d 次：須在整體截止上下限內結束", attempt).isBetween(690L, 1200L);
 
             // 截止時 DeadlineSocketFactory 須關閉在途 socket；伺服器端連線須隨之結束，
             // 背景執行緒不得在呼叫端收到失敗後繼續完成 SMTP 對話。
@@ -676,22 +676,31 @@ class MailServiceTimeoutAndLimitsTest {
     /** SC-26：可設定之最大嘗試組數小於已設定組數時，超過上限之組別不會被嘗試。 */
     @Test
     void maxAttempts_belowConfiguredServerCount_stopsBeforeRemainingServers() throws Exception {
-        MailPropertyConfig cfg = config(
-                unreachableServer("primary", 1),
-                unreachableServer("secondary", 2),
-                greenMailServer("tertiary", greenMail.getSmtp().getPort(), "backupUser", "backupPw"));
-        cfg.getFailover().setMaxAttempts(2);
+        try (MailFailoverTestSupport.CountingTcpServer tertiary =
+                new MailFailoverTestSupport.CountingTcpServer()) {
+            MailPropertyConfig cfg = config(
+                    unreachableServer("primary", 1),
+                    unreachableServer("secondary", 2),
+                    MailFailoverTestSupport.server(
+                            "tertiary", "127.0.0.1", tertiary.port(), "tertiary-user", "tertiary-password"));
+            cfg.getFailover().setMaxAttempts(2);
 
-        MailServiceImpl service = new MailServiceImpl(cfg);
-        service.setInitData();
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
+            tertiary.resetCount();
 
-        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-26")))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("primary")
-                .hasMessageContaining("secondary")
-                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("tertiary"));
+            assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-26")))
+                    .isInstanceOf(MailFailoverException.class)
+                    .hasMessageContaining("primary")
+                    .hasMessageContaining("secondary")
+                    .satisfies(e -> assertThat(e.getMessage()).doesNotContain("tertiary"));
 
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+            tertiary.waitBriefly(200);
+            assertThat(tertiary.connectionCount())
+                    .as("max-attempts=2 時第三組在發送階段不得建立任何連線")
+                    .isZero();
+            assertThat(greenMail.getReceivedMessages()).isEmpty();
+        }
     }
 
     /**

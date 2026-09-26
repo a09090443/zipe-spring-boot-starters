@@ -194,11 +194,7 @@ class MailServiceFailoverTest {
     /** SC-04：所有已設定 SMTP 皆嘗試失敗時，不可靜默視為成功，須拋出含各組失敗原因摘要的例外。 */
     @Test
     void richContentSend_allServersDown_throwsAggregatedFailoverException() {
-        MailPropertyConfig cfg = config(unreachableServer("primary", 1), unreachableServer("secondary", 2));
-        MailServiceImpl service = new MailServiceImpl(cfg);
-
-        // 兩組皆不可用：setInitData 依 REQ-005/SC-11 全部失敗仍拋例外，但候選清單保留，服務仍可再次嘗試發送
-        assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
+        MailServiceImpl service = allServersDownService();
 
         assertThatThrownBy(() -> service.richContentSend(htmlMail("SC-04")))
                 .isInstanceOf(MailFailoverException.class)
@@ -427,7 +423,22 @@ class MailServiceFailoverTest {
 
         MimeMessage[] messages = greenMail.getReceivedMessages();
         assertThat(messages).hasSize(1);
-        assertThat(textContent(messages[0])).contains("cid:inline-logo");
+        assertThat(messages[0].isMimeType("multipart/mixed"))
+                .as("含一般附件的富文字郵件外層須為 multipart/mixed")
+                .isTrue();
+        Multipart mixed = (Multipart) messages[0].getContent();
+        assertThat(mixed.getCount()).as("外層須包含 related 內文與一般附件").isEqualTo(2);
+
+        BodyPart relatedContainer = mixed.getBodyPart(0);
+        assertThat(relatedContainer.isMimeType("multipart/related"))
+                .as("HTML 與 inline 資源須位於 multipart/related 層")
+                .isTrue();
+        Multipart related = (Multipart) relatedContainer.getContent();
+        assertThat(related.getCount()).as("related 層須包含 HTML 與一個 inline 資源").isEqualTo(2);
+        BodyPart htmlPart = related.getBodyPart(0);
+        assertThat(htmlPart.isMimeType("text/html")).as("富文字本文 MIME 類型須為 text/html").isTrue();
+        assertThat(String.valueOf(htmlPart.getContent()))
+                .isEqualTo("<p>SC-018-inline</p><img src='cid:inline-logo'/>");
 
         Part inlinePart = findByContentId(messages[0], "inline-logo");
         assertThat(inlinePart).as("內嵌資源須以 Content-ID inline-logo 存在，而非一般附件").isNotNull();
@@ -514,12 +525,14 @@ class MailServiceFailoverTest {
                 .extracting(Throwable::getMessage)
                 .containsExactly(
                         "primary(127.0.0.1:1) - MailSendException",
-                        "secondary(127.0.0.1:2) - MailSendException")
+                        "secondary(127.0.0.1:" + greenMail.getSmtp().getPort() + ") - MailAuthenticationException")
                 .doesNotContain("pass");
     }
 
     private static MailServiceImpl allServersDownService() {
-        MailPropertyConfig cfg = config(unreachableServer("primary", 1), unreachableServer("secondary", 2));
+        MailPropertyConfig cfg = config(
+                unreachableServer("primary", 1),
+                greenMailServer("secondary", greenMail.getSmtp().getPort(), "wrong-user", "wrong-password"));
         MailServiceImpl service = new MailServiceImpl(cfg);
         assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
         return service;
