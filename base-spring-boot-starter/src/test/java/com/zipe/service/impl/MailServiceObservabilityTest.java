@@ -16,6 +16,7 @@ import com.icegreen.greenmail.util.ServerSetupTest;
 import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
+import com.zipe.service.impl.MailFailoverTestSupport.SwitchableSmtpEndpoint;
 import com.zipe.util.crypto.Base64Util;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -222,37 +223,66 @@ class MailServiceObservabilityTest {
         assertThat(allLogText).doesNotContain(encodedWrongPassword);
     }
 
-    /** SC-27：sendEmail 於全部 SMTP 皆失敗時仍不對外拋出例外，但須有可觀測之失敗日誌，且不得誤植為成功訊息。 */
+    /**
+     * SC-022／SC-023：sendEmail 於兩個具名、一個未具名共三組候選全敗時仍不對外拋出例外，只記錄一筆
+     * 列出三組識別與各自原因的 ERROR，且不得誤植為成功訊息；未具名候選恢復後，不重新 setInitData
+     * 直接再次呼叫即可由該組投遞。
+     */
     @Test
-    void sendEmail_allServersDown_doesNotThrow_butLogsFailureNotSuccess() throws Exception {
-        MailPropertyConfig cfg = config(unreachableServer("primary", 1), unreachableServer("secondary", 2));
-        MailServiceImpl service = new MailServiceImpl(cfg);
-        try {
-            service.setInitData();
-        } catch (jakarta.mail.MessagingException ignored) {
-            // 兩組皆不可用，setInitData 依 SC-11 語意拋出，候選清單仍保留供後續嘗試
+    void sendEmail_threeServersDown_doesNotThrow_logsSingleError_thenRecovers() throws Exception {
+        int greenMailPort = greenMail.getSmtp().getPort();
+        try (SwitchableSmtpEndpoint unnamed =
+                new SwitchableSmtpEndpoint("127.0.0.1", greenMailPort, SwitchableSmtpEndpoint.Mode.CLOSE)) {
+            MailPropertyConfig cfg = config(
+                    unreachableServer("primary", 1),
+                    greenMailServer("secondary", greenMailPort, "wrong-user", WRONG_PASSWORD_PLAIN),
+                    greenMailServer(null, unnamed.port(), "authUser", "correctPw"));
+            // 單項讀取逾時大於整體上限，使未具名候選的失敗原因為整體逾時，與前兩組原因互異。
+            cfg.setReadTimeout(10_000);
+            cfg.getFailover().setOverallTimeout(2500L);
+            MailServiceImpl service = new MailServiceImpl(cfg);
+            assertThat(catchThrowable(service::setInitData)).isInstanceOf(jakarta.mail.MessagingException.class);
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.HOLD);
+
+            ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
+
+            assertThatCode(() -> service.sendEmail(MailFailoverTestSupport.htmlMail("SC-022")))
+                    .doesNotThrowAnyException();
+
+            List<String> messages =
+                    appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
+            assertThat(messages).noneMatch(m -> m.contains("成功"));
+
+            List<String> errorMessages = appender.list.stream()
+                    .filter(event -> event.getLevel().toString().equals("ERROR"))
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .collect(Collectors.toList());
+            assertThat(errorMessages).as("sendEmail 全敗只能有一筆 ERROR").hasSize(1);
+            assertThat(errorMessages.get(0))
+                    .contains("最終失敗（sendEmail）")
+                    .contains("已嘗試 3 組")
+                    .contains("[primary(127.0.0.1:1) - MailSendException, "
+                            + "secondary(127.0.0.1:" + greenMailPort + ") - MailAuthenticationException, "
+                            + "127.0.0.1:" + unnamed.port() + " - 整體逾時（overall-timeout）已到期]")
+                    .doesNotContain("null(")
+                    .doesNotContain("wrong-user")
+                    .doesNotContain(WRONG_PASSWORD_PLAIN)
+                    .doesNotContain("correctPw");
+            assertThat(greenMail.getReceivedMessages()).isEmpty();
+
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
+            appender.list.clear();
+
+            assertThatCode(() -> service.sendEmail(MailFailoverTestSupport.htmlMail("SC-023-sendEmail")))
+                    .doesNotThrowAnyException();
+
+            assertThat(greenMail.getReceivedMessages()).hasSize(1);
+            assertThat(greenMail.getReceivedMessages()[0].getSubject()).isEqualTo("SC-023-sendEmail");
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .contains("郵件發送成功（sendEmail），使用伺服器：127.0.0.1:" + unnamed.port());
+            assertThat(appender.list).noneMatch(event -> event.getLevel().toString().equals("ERROR"));
         }
-
-        ListAppender<ILoggingEvent> appender = MailFailoverTestSupport.attachLogAppender(MailServiceImpl.class);
-
-        assertThatCode(() -> service.sendEmail(MailFailoverTestSupport.htmlMail("SC-27")))
-                .doesNotThrowAnyException();
-
-        List<String> messages =
-                appender.list.stream().map(ILoggingEvent::getFormattedMessage).collect(Collectors.toList());
-        assertThat(messages).noneMatch(m -> m.contains("成功"));
-
-        List<String> errorMessages = appender.list.stream()
-                .filter(event -> event.getLevel().toString().equals("ERROR"))
-                .map(ILoggingEvent::getFormattedMessage)
-                .collect(Collectors.toList());
-        assertThat(errorMessages).as("sendEmail 全敗只能有一筆 ERROR").hasSize(1);
-        assertThat(errorMessages.get(0))
-                .contains("最終失敗（sendEmail）")
-                .contains("已嘗試 2 組")
-                .containsPattern("primary\\(127\\.0\\.0\\.1:1\\) - \\S+")
-                .containsPattern("secondary\\(127\\.0\\.0\\.1:2\\) - \\S+")
-                .doesNotContain("pass");
     }
 
     /**

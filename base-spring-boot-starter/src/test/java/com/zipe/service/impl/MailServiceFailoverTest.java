@@ -17,11 +17,14 @@ import com.zipe.config.MailPropertyConfig;
 import com.zipe.config.MailServerProperty;
 import com.zipe.exception.MailFailoverException;
 import com.zipe.model.Mail;
+import com.zipe.service.impl.MailFailoverTestSupport.SwitchableSmtpEndpoint;
 import com.zipe.util.crypto.Base64Util;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -54,6 +57,9 @@ class MailServiceFailoverTest {
     @RegisterExtension
     static GreenMailExtension tertiaryGreenMail = new GreenMailExtension(ServerSetupTest.SMTP.dynamicPort())
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("tertiaryUser", "tertiaryPw"));
+
+    /** 三組全敗情境的整體時間上限，須足以涵蓋前兩組的快速失敗，並使未具名第三組因整體逾時截止。 */
+    private static final long ALL_DOWN_OVERALL_TIMEOUT_MS = 2500L;
 
     @BeforeEach
     void purgeMailbox() throws Exception {
@@ -205,72 +211,127 @@ class MailServiceFailoverTest {
         }
     }
 
-    /** SC-04：所有已設定 SMTP 皆嘗試失敗時，不可靜默視為成功，須拋出含各組失敗原因摘要的例外。 */
+    /**
+     * SC-021／SC-023：richContentSend 於兩個具名、一個未具名共三組候選全敗時，須拋出完整彙整例外；
+     * 未具名候選恢復後，不重新 setInitData 直接再次呼叫即可投遞，且 HTML 與附件完整。
+     */
     @Test
-    void richContentSend_allServersDown_throwsAggregatedFailoverException() {
-        MailServiceImpl service = allServersDownService();
+    void richContentSend_threeServersDown_throwsAggregatedFailoverException_thenRecovers(@TempDir Path tempDir)
+            throws Exception {
+        Path attachment = tempDir.resolve("all-down-rich.txt");
+        Files.writeString(attachment, "all-down-rich", StandardCharsets.UTF_8);
+        Mail mail = htmlMail("SC-021-rich");
+        mail.setAttachments(List.of(attachment.toFile()));
 
-        assertThatThrownBy(() -> service.richContentSend(htmlMail("SC-04")))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("richContentSend")
-                .hasMessageContaining("primary")
-                .hasMessageContaining("secondary")
-                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
+        try (SwitchableSmtpEndpoint unnamed = unnamedEndpoint()) {
+            MailServiceImpl service = allServersDownService(unnamed);
 
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+            assertThatThrownBy(() -> service.richContentSend(mail))
+                    .isInstanceOf(MailFailoverException.class)
+                    .satisfies(error -> assertThreeCandidateFailure(error, "richContentSend", unnamed.port()));
+            assertNothingDelivered();
+
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
+            assertThatCode(() -> service.richContentSend(mail)).doesNotThrowAnyException();
+
+            MimeMessage message = singleRecoveredMessage("SC-021-rich");
+            assertThat(textContent(message)).contains("<p>SC-021-rich</p>");
+            assertAttachment(message, "all-down-rich.txt", "all-down-rich");
+        }
     }
 
-    /** SC-04：simpleMailSend 的所有 SMTP 都失敗時，須彙整每一組識別與失敗原因。 */
+    /**
+     * SC-021／SC-023：simpleMailSend 於三組候選（含未具名）全敗時，須彙整每一組識別與失敗原因；
+     * 未具名候選恢復後可再次投遞完整純文字信件。
+     */
     @Test
-    void simpleMailSend_allServersDown_throwsAggregatedFailoverException() {
-        MailServiceImpl service = allServersDownService();
+    void simpleMailSend_threeServersDown_throwsAggregatedFailoverException_thenRecovers() throws Exception {
+        Mail mail = plainTextMail("SC-021-simple");
 
-        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-04-simple")))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("simpleMailSend")
-                .hasMessageContaining("primary")
-                .hasMessageContaining("secondary")
-                .hasMessageContaining("MailSendException")
-                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        try (SwitchableSmtpEndpoint unnamed = unnamedEndpoint()) {
+            MailServiceImpl service = allServersDownService(unnamed);
+
+            assertThatThrownBy(() -> service.simpleMailSend(mail))
+                    .isInstanceOf(MailFailoverException.class)
+                    .satisfies(error -> assertThreeCandidateFailure(error, "simpleMailSend", unnamed.port()));
+            assertNothingDelivered();
+
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
+            assertThatCode(() -> service.simpleMailSend(mail)).doesNotThrowAnyException();
+
+            MimeMessage message = singleRecoveredMessage("SC-021-simple");
+            assertThat(GreenMailUtil.getBody(message)).isEqualTo("body-SC-021-simple");
+            assertThat(message.getAllRecipients()).extracting(Object::toString).containsExactly(mail.getMailTo());
+        }
     }
 
-    /** REQ-003：attachedSend 的所有 SMTP 都失敗時，也必須回報完整的彙整例外。 */
+    /**
+     * SC-021／SC-023：attachedSend 於三組候選（含未具名）全敗時，也必須回報完整的彙整例外；
+     * 未具名候選恢復後可再次投遞，附件內容逐位元一致。
+     */
     @Test
-    void attachedSend_allServersDown_throwsAggregatedFailoverException(@TempDir Path tempDir) throws Exception {
-        MailServiceImpl service = allServersDownService();
+    void attachedSend_threeServersDown_throwsAggregatedFailoverException_thenRecovers(@TempDir Path tempDir)
+            throws Exception {
         Path attachment = tempDir.resolve("all-down-attachment.txt");
         Files.writeString(attachment, "all-down", StandardCharsets.UTF_8);
-        Mail mail = plainTextMail("all-down-attached");
+        Mail mail = plainTextMail("SC-021-attached");
         mail.setAttachments(List.of(attachment.toFile()));
 
-        assertThatThrownBy(() -> service.attachedSend(mail))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("attachedSend")
-                .hasMessageContaining("primary")
-                .hasMessageContaining("secondary")
-                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        try (SwitchableSmtpEndpoint unnamed = unnamedEndpoint()) {
+            MailServiceImpl service = allServersDownService(unnamed);
+
+            assertThatThrownBy(() -> service.attachedSend(mail))
+                    .isInstanceOf(MailFailoverException.class)
+                    .satisfies(error -> assertThreeCandidateFailure(error, "attachedSend", unnamed.port()));
+            assertNothingDelivered();
+
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
+            assertThatCode(() -> service.attachedSend(mail)).doesNotThrowAnyException();
+
+            MimeMessage message = singleRecoveredMessage("SC-021-attached");
+            assertAttachmentBytes(message, "all-down-attachment.txt", "all-down".getBytes(StandardCharsets.UTF_8));
+        }
     }
 
-    /** REQ-003：sendBatchMailWithFile 的所有 SMTP 都失敗時，也必須回報完整的彙整例外。 */
+    /**
+     * SC-021／SC-023：sendBatchMailWithFile 對三位收件人、於三組候選（含未具名）全敗時，也必須回報完整的
+     * 彙整例外；未具名候選恢復後三個信箱各恰好收到一封。
+     */
     @Test
-    void sendBatchMailWithFile_allServersDown_throwsAggregatedFailoverException(@TempDir Path tempDir)
-            throws Exception {
-        MailServiceImpl service = allServersDownService();
+    void sendBatchMailWithFile_threeServersDown_throwsAggregatedFailoverException_thenRecovers(
+            @TempDir Path tempDir) throws Exception {
         Path attachment = tempDir.resolve("all-down-batch.txt");
         Files.writeString(attachment, "all-down-batch", StandardCharsets.UTF_8);
-        Mail mail = htmlMail("all-down-batch");
-        mail.setMailTo(new String[] {"b1@test.local", "b2@test.local"});
+        Mail mail = htmlMail("SC-021-batch");
+        List<String> recipients = List.of("b1@test.local", "b2@test.local", "b3@test.local");
+        mail.setMailTo(recipients.toArray(String[]::new));
         mail.setAttachments(List.of(attachment.toFile()));
 
-        assertThatThrownBy(() -> service.sendBatchMailWithFile(mail))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("sendBatchMailWithFile")
-                .hasMessageContaining("primary")
-                .hasMessageContaining("secondary")
-                .satisfies(error -> assertCompleteSuppressedReasons((MailFailoverException) error));
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        try (SwitchableSmtpEndpoint unnamed = unnamedEndpoint()) {
+            MailServiceImpl service = allServersDownService(unnamed);
+
+            assertThatThrownBy(() -> service.sendBatchMailWithFile(mail))
+                    .isInstanceOf(MailFailoverException.class)
+                    .satisfies(error -> assertThreeCandidateFailure(error, "sendBatchMailWithFile", unnamed.port()));
+            assertNothingDelivered();
+
+            unnamed.switchTo(SwitchableSmtpEndpoint.Mode.FORWARD);
+            assertThatCode(() -> service.sendBatchMailWithFile(mail)).doesNotThrowAnyException();
+
+            assertThat(tertiaryGreenMail.getReceivedMessages()).hasSize(3);
+            for (String recipient : recipients) {
+                List<MimeMessage> recipientMessages = tertiaryGreenMail
+                        .findReceivedMessages(user -> recipient.equals(user.getEmail()), message -> true)
+                        .toList();
+                assertThat(recipientMessages).as("信箱 %s 必須恰好收到一封", recipient).hasSize(1);
+                MimeMessage message = recipientMessages.get(0);
+                assertThat(message.getSubject()).isEqualTo("SC-021-batch");
+                assertThat(String.valueOf(findFirstMimeType(message, "text/html").getContent()))
+                        .isEqualTo("<p>SC-021-batch</p>");
+                assertAttachmentBytes(
+                        message, "all-down-batch.txt", "all-down-batch".getBytes(StandardCharsets.UTF_8));
+            }
+        }
     }
 
     /** SC-05：sendEmail 第一組失敗、第二組成功時仍不拋出例外（維持既有不外拋行為），備援組實際收信。 */
@@ -537,22 +598,69 @@ class MailServiceFailoverTest {
                 .toList();
     }
 
-    private static void assertCompleteSuppressedReasons(MailFailoverException failure) {
+    /**
+     * 核對三組候選全敗的彙整例外：摘要含「已嘗試 3 組」與三個識別及原因，suppressed 恰三個且依序與候選
+     * 一對一對應（未具名候選只以 host:port 標示），三組原因互異，整段例外鏈不含任何帳號密碼。
+     */
+    private static void assertThreeCandidateFailure(Throwable error, String operationName, int unnamedPort) {
+        MailFailoverException failure = (MailFailoverException) error;
+        String primary = "primary(127.0.0.1:1) - MailSendException";
+        String secondary =
+                "secondary(127.0.0.1:" + greenMail.getSmtp().getPort() + ") - MailAuthenticationException";
+        String unnamed = "127.0.0.1:" + unnamedPort + " - 整體逾時（overall-timeout）已到期";
+
+        assertThat(failure.getMessage())
+                .startsWith("郵件發送失敗（" + operationName + "）：已嘗試 3 組")
+                .endsWith("-> " + primary + "; " + secondary + "; " + unnamed)
+                .doesNotContain("null(");
         assertThat(failure.getSuppressed())
                 .extracting(Throwable::getMessage)
-                .containsExactly(
-                        "primary(127.0.0.1:1) - MailSendException",
-                        "secondary(127.0.0.1:" + greenMail.getSmtp().getPort() + ") - MailAuthenticationException")
-                .doesNotContain("pass");
+                .containsExactly(primary, secondary, unnamed);
+
+        StringWriter trace = new StringWriter();
+        failure.printStackTrace(new PrintWriter(trace));
+        assertThat(trace.toString())
+                .doesNotContain("wrong-user")
+                .doesNotContain("wrong-password")
+                .doesNotContain("tertiaryUser")
+                .doesNotContain("tertiaryPw");
     }
 
-    private static MailServiceImpl allServersDownService() {
+    /** 未具名第三組候選的端點：初始化時立即關閉連線，發送時預設不回應（直到整體逾時）。 */
+    private static SwitchableSmtpEndpoint unnamedEndpoint() throws Exception {
+        return new SwitchableSmtpEndpoint(
+                "127.0.0.1", tertiaryGreenMail.getSmtp().getPort(), SwitchableSmtpEndpoint.Mode.CLOSE);
+    }
+
+    /**
+     * 建立兩個具名、一個未具名共三組皆會失敗、且失敗原因互異的候選：primary 拒絕連線、secondary 認證失敗、
+     * 未具名第三組接受連線但不回應，於整體逾時到期時被截止。第三組端點恢復為轉送後即可投遞。
+     */
+    private static MailServiceImpl allServersDownService(SwitchableSmtpEndpoint unnamed) {
         MailPropertyConfig cfg = config(
                 unreachableServer("primary", 1),
-                greenMailServer("secondary", greenMail.getSmtp().getPort(), "wrong-user", "wrong-password"));
+                greenMailServer("secondary", greenMail.getSmtp().getPort(), "wrong-user", "wrong-password"),
+                greenMailServer(null, unnamed.port(), "tertiaryUser", "tertiaryPw"));
+        // 單項讀取逾時大於整體上限，確保未具名候選的失敗原因是整體逾時而非 socket read timeout。
+        cfg.setReadTimeout(10_000);
+        cfg.getFailover().setOverallTimeout(ALL_DOWN_OVERALL_TIMEOUT_MS);
         MailServiceImpl service = new MailServiceImpl(cfg);
         assertThatThrownBy(service::setInitData).isInstanceOf(jakarta.mail.MessagingException.class);
+        unnamed.switchTo(SwitchableSmtpEndpoint.Mode.HOLD);
         return service;
+    }
+
+    private static void assertNothingDelivered() {
+        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        assertThat(tertiaryGreenMail.getReceivedMessages()).isEmpty();
+    }
+
+    private static MimeMessage singleRecoveredMessage(String expectedSubject) throws Exception {
+        MimeMessage[] messages = tertiaryGreenMail.getReceivedMessages();
+        assertThat(messages).as("恢復後須由未具名候選恰好投遞一封").hasSize(1);
+        assertThat(messages[0].getSubject()).isEqualTo(expectedSubject);
+        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        return messages[0];
     }
 
     private static void assertAttachment(MimeMessage message, String expectedName, String expectedContent)

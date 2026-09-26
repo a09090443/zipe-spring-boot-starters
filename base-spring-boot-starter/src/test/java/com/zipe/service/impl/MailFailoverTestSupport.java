@@ -239,4 +239,99 @@ final class MailFailoverTestSupport {
             executor.shutdownNow();
         }
     }
+
+    /**
+     * 可於執行期切換行為的本機 SMTP 端點，供「全敗後候選恢復即可再次投遞」情境使用。
+     *
+     * <ul>
+     *   <li>{@link Mode#CLOSE}：接受連線後立即關閉，使 {@code setInitData()} 的連線測試快速失敗。</li>
+     *   <li>{@link Mode#HOLD}：接受連線但完全不回應，直到客戶端（或整體截止排程）關閉連線。</li>
+     *   <li>{@link Mode#FORWARD}：完整轉送至後方可投遞的 SMTP，模擬伺服器已恢復。</li>
+     * </ul>
+     */
+    static final class SwitchableSmtpEndpoint implements AutoCloseable {
+
+        enum Mode {
+            CLOSE,
+            HOLD,
+            FORWARD
+        }
+
+        private final ServerSocket serverSocket;
+        private final String upstreamHost;
+        private final int upstreamPort;
+        private final List<Socket> heldClients = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private volatile Mode mode;
+        private final ExecutorService executor = Executors.newCachedThreadPool(task -> {
+            Thread thread = new Thread(task, "switchable-smtp-endpoint");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        SwitchableSmtpEndpoint(String upstreamHost, int upstreamPort, Mode initialMode) throws IOException {
+            this.upstreamHost = upstreamHost;
+            this.upstreamPort = upstreamPort;
+            this.mode = initialMode;
+            this.serverSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            executor.submit(this::acceptLoop);
+        }
+
+        int port() {
+            return serverSocket.getLocalPort();
+        }
+
+        void switchTo(Mode newMode) {
+            this.mode = newMode;
+        }
+
+        private void acceptLoop() {
+            while (!serverSocket.isClosed()) {
+                try {
+                    Socket client = serverSocket.accept();
+                    Mode current = mode;
+                    if (current == Mode.CLOSE) {
+                        client.close();
+                    } else if (current == Mode.HOLD) {
+                        heldClients.add(client);
+                        executor.submit(() -> hold(client));
+                    } else {
+                        executor.submit(() -> forward(client));
+                    }
+                } catch (IOException ignored) {
+                    // close() 會關閉 ServerSocket，使 accept() 正常結束。
+                }
+            }
+        }
+
+        private void hold(Socket client) {
+            try (client) {
+                // 不送出任何 SMTP greeting，僅讀到客戶端關閉為止。
+                client.getInputStream().transferTo(OutputStream.nullOutputStream());
+            } catch (IOException ignored) {
+                // 客戶端逾時或截止排程關閉 socket 時的正常結束路徑。
+            } finally {
+                heldClients.remove(client);
+            }
+        }
+
+        private void forward(Socket client) {
+            try (client; Socket upstream = new Socket(upstreamHost, upstreamPort)) {
+                Future<?> clientToUpstream = executor.submit(() -> CountingSmtpProxy.pump(client, upstream));
+                Future<?> upstreamToClient = executor.submit(() -> CountingSmtpProxy.pump(upstream, client));
+                clientToUpstream.get();
+                upstreamToClient.get();
+            } catch (Exception ignored) {
+                // SMTP 對話結束時，任一方向先結束皆屬正常清理。
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            serverSocket.close();
+            for (Socket client : heldClients) {
+                client.close();
+            }
+            executor.shutdownNow();
+        }
+    }
 }
