@@ -892,11 +892,21 @@ public class MailServiceImpl implements MailService {
 
             private volatile Socket real;
 
+            /**
+             * 連線前設定的讀取逾時。Angus/JavaMail 的 {@code SocketFetcher} 會在呼叫 {@code connect()}
+             * 之前先呼叫 {@link #setSoTimeout(int)}；若此時拋出例外，SocketFetcher 會改用自行建立、
+             * 不受截止關閉排程保護的一般 socket，使整體截止無法中斷在途 SMTP 對話。故先暫存，連線後再套用。
+             */
+            private volatile int pendingSoTimeout = -1;
+
             @Override
             public void connect(SocketAddress endpoint, int timeout) throws IOException {
                 InetSocketAddress target = (InetSocketAddress) endpoint;
-                this.real = guard(newConnectedSocket(
-                        target.getHostString(), target.getPort(), null, 0));
+                Socket socket = guard(newConnectedSocket(target.getHostString(), target.getPort(), null, 0));
+                if (pendingSoTimeout >= 0) {
+                    socket.setSoTimeout(pendingSoTimeout);
+                }
+                this.real = socket;
             }
 
             @Override
@@ -930,12 +940,21 @@ public class MailServiceImpl implements MailService {
 
             @Override
             public void setSoTimeout(int timeout) throws SocketException {
-                real().setSoTimeout(timeout);
+                Socket socket = real;
+                if (socket == null) {
+                    pendingSoTimeout = timeout;
+                    return;
+                }
+                socket.setSoTimeout(timeout);
             }
 
             @Override
             public int getSoTimeout() throws SocketException {
-                return real().getSoTimeout();
+                Socket socket = real;
+                if (socket == null) {
+                    return Math.max(0, pendingSoTimeout);
+                }
+                return socket.getSoTimeout();
             }
 
             @Override

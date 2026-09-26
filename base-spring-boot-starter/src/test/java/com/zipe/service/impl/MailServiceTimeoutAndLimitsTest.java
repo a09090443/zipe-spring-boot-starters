@@ -298,17 +298,28 @@ class MailServiceTimeoutAndLimitsTest {
         }
     }
 
-    /** SC-18：單次 SMTP 對話包含多個各自未逾時的延遲階段時，累積時間仍不得超過整體上限。 */
+    /**
+     * SC-024（AC-008-07）：單次 SMTP 對話包含多個各自未逾時的延遲階段（MAIL FROM、RCPT TO 各 300ms，
+     * 均低於 2000ms 單項逾時），累積超過 overall-timeout（500ms）時，呼叫須在截止上下限內結束；
+     * 截止時在途 socket 必須被關閉，使 SMTP 對話停在截止前的階段（不得進入 DATA、零投遞），
+     * 且後續可用組零連線。重複三次，排除單次排程抖動。
+     */
     @Test
     void overallTimeout_boundsWholeOperation_acrossMultipleSmtpStages() throws Exception {
         delayedSmtp = new MultiStageDelaySmtpServer(300);
+        backupSmtp = new MultiStageDelaySmtpServer(0);
         MailServerProperty server = new MailServerProperty();
         server.setName("multi-stage-delay");
         server.setHost("127.0.0.1");
         server.setPort(String.valueOf(delayedSmtp.port()));
         server.setSmtpAuthEnable(false);
+        MailServerProperty backup = new MailServerProperty();
+        backup.setName("usable-after-deadline");
+        backup.setHost("127.0.0.1");
+        backup.setPort(String.valueOf(backupSmtp.port()));
+        backup.setSmtpAuthEnable(false);
 
-        MailPropertyConfig cfg = config(server);
+        MailPropertyConfig cfg = config(server, backup);
         cfg.setReadTimeout(2000);
         cfg.setConnectionTimeout(2000);
         cfg.setWriteTimeout(2000);
@@ -317,22 +328,42 @@ class MailServiceTimeoutAndLimitsTest {
         MailServiceImpl service = new MailServiceImpl(cfg);
         service.setInitData();
 
-        long startedNanos = System.nanoTime();
-        assertThatThrownBy(() -> service.simpleMailSend(plainTextMail("SC-18-multi-stage")))
-                .isInstanceOf(MailFailoverException.class)
-                .hasMessageContaining("multi-stage-delay")
-                .hasMessageContaining("整體逾時");
-        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int commandsBeforeSend = delayedSmtp.commands().size();
+            int backupConnectionsBeforeSend = backupSmtp.connectionCount();
+            String subject = "SC-024-multi-stage-" + attempt;
 
-        // 每個回應只延遲 300ms，均低於個別 read timeout；若只限制各 socket 操作，累積會超過 1 秒。
-        // 下限：絕對截止時間不會早於起點 + 500ms，提前停止的弱實作會低於此值。
-        assertThat(elapsedMs).isBetween(490L, 1000L);
-        assertThat(delayedSmtp.awaitNoClients(800)).isTrue();
-        // 設計取捨 D7：整體逾時僅於「嘗試之間」檢查，不強制中斷已在進行中的單次連線；
-        // 呼叫端已在整體上限內收到明確的 MailFailoverException（上方斷言），但背景執行緒
-        // 可能仍完成該次已在途的 SMTP 對話，此為至少一次投遞語意下的已知、已核准限制
-        // （REQ-MAIL-FAILOVER-007），故僅斷言不會重複计數，不要求一定是 0。
-        assertThat(delayedSmtp.acceptedMessages()).isLessThanOrEqualTo(1);
+            long startedNanos = System.nanoTime();
+            assertThatThrownBy(() -> service.simpleMailSend(plainTextMail(subject)))
+                    .isInstanceOf(MailFailoverException.class)
+                    .hasMessageContaining("multi-stage-delay")
+                    .hasMessageContaining("整體逾時（overall-timeout）")
+                    .hasMessageContaining("已嘗試 1 組")
+                    .satisfies(e -> assertThat(e.getMessage()).doesNotContain("usable-after-deadline"));
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+
+            // 每個回應只延遲 300ms，均低於個別 read timeout；若只限制各 socket 操作，累積會超過 1 秒。
+            // 下限：絕對截止時間不會早於起點 + 500ms，提前停止的弱實作會低於此值。
+            assertThat(elapsedMs).as("第 %d 次：須在整體截止上下限內結束", attempt).isBetween(490L, 1000L);
+
+            // 截止時 DeadlineSocketFactory 須關閉在途 socket；伺服器端連線須隨之結束，
+            // 背景執行緒不得在呼叫端收到失敗後繼續完成 SMTP 對話。
+            assertThat(delayedSmtp.awaitNoClients(800))
+                    .as("第 %d 次：截止後在途連線須被關閉，實際指令：%s", attempt, delayedSmtp.commands())
+                    .isTrue();
+            List<String> sendCommands =
+                    delayedSmtp.commands().subList(commandsBeforeSend, delayedSmtp.commands().size());
+            assertThat(sendCommands)
+                    .as("第 %d 次：須實際進入多個受控延遲階段", attempt)
+                    .contains("MAIL", "RCPT")
+                    .as("第 %d 次：截止後不得繼續進入 DATA 階段", attempt)
+                    .doesNotContain("DATA");
+            assertThat(delayedSmtp.acceptedMessages()).as("截止後不得在背景完成投遞").isZero();
+            assertThat(backupSmtp.connectionCount())
+                    .as("第 %d 次：整體預算耗盡後不得再連線後續可用組", attempt)
+                    .isEqualTo(backupConnectionsBeforeSend);
+            assertThat(backupSmtp.acceptedMessages()).isZero();
+        }
     }
 
     /** 呼叫端中斷等待時須保留 interrupt 狀態並停止嘗試下一組 SMTP。 */
@@ -776,6 +807,7 @@ class MailServiceTimeoutAndLimitsTest {
         private final int delayMs;
         private final ServerSocket serverSocket;
         private final List<Socket> clients = new CopyOnWriteArrayList<>();
+        private final List<String> commands = new CopyOnWriteArrayList<>();
         private final AtomicInteger connectionCount = new AtomicInteger();
         private final AtomicInteger acceptedMessages = new AtomicInteger();
 
@@ -831,6 +863,7 @@ class MailServiceTimeoutAndLimitsTest {
                     }
 
                     String command = line.toUpperCase(Locale.ROOT);
+                    commands.add(verbOf(command));
                     if (command.startsWith("EHLO") || command.startsWith("HELO")) {
                         reply(writer, "250-localhost\r\n250 8BITMIME");
                     } else if (command.startsWith("MAIL FROM") || command.startsWith("RCPT TO")) {
@@ -883,6 +916,21 @@ class MailServiceTimeoutAndLimitsTest {
                 Thread.sleep(10);
             }
             return connectionCount.get() >= expected;
+        }
+
+        /** 只保留 SMTP 指令動詞；TLS 探測送入的二進位資料一律記為 OTHER。 */
+        private static String verbOf(String command) {
+            for (String verb : List.of("EHLO", "HELO", "MAIL", "RCPT", "DATA", "QUIT")) {
+                if (command.startsWith(verb)) {
+                    return verb;
+                }
+            }
+            return "OTHER";
+        }
+
+        /** 依收到順序記錄的 SMTP 指令動詞（不含 DATA 內容行）。 */
+        private List<String> commands() {
+            return List.copyOf(commands);
         }
 
         private int acceptedMessages() {

@@ -175,9 +175,12 @@ class MailServiceConcurrencyTest {
                         assertThat(failure.get()).as("%s 應成功送達", name).isNull());
                 // 給予寬限讓「不應發生」的額外第一組連線（重試或重複嘗試）有機會被接受迴圈計數。
                 TimeUnit.MILLISECONDS.sleep(200);
+                // smtp 組沿用既有 socketFactory.class=SSLSocketFactory＋fallback=true 相容行為：
+                // 每次嘗試先以 TLS 探測（被閘門扣住的那一條），釋放後探測失敗再於同一次嘗試內退回明文連線一次。
+                // 因此 A、B 各一次嘗試恰為 2 條連線；對第一組重試或重複嘗試的弱實作會使總數超過 4。
                 assertThat(gate.acceptedCount() - acceptedBeforeSend)
-                        .as("發送階段第一組只有 A、B 各自被扣住的那一條連線，釋放後不再重連")
-                        .isEqualTo(2);
+                        .as("發送階段第一組只有 A、B 各自一次嘗試（TLS 探測＋明文 fallback），釋放後不再重試")
+                        .isEqualTo(4);
 
                 for (String threadName : mails.keySet()) {
                     List<String> events = appender.list.stream()
