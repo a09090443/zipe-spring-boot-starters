@@ -1,9 +1,14 @@
 package com.zipe.util.crypto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * 驗證 {@link Base64Util} 的 Base64 編解碼、空白處理與字元集降級行為。
@@ -45,6 +50,29 @@ class Base64UtilTest {
     void encryptThenDecodeRoundTripsWithUtf8Charset() {
         String encoded = base64Util.getEncrypt("Hello", "UTF-8");
         assertEquals("Hello", base64Util.getDecode(encoded, "UTF-8"));
+    }
+
+    /**
+     * 編解碼輸入可能是密碼等敏感資料，不得出現在 Base64Util 的日誌。
+     */
+    @Test
+    void encryptAndDecodeNeverLogInputValues() {
+        String plainText = "SENSITIVE_VALUE_123";
+        Logger logger = (Logger) LoggerFactory.getLogger(Base64Util.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            String encoded = base64Util.getEncrypt(plainText);
+            assertEquals(plainText, base64Util.getDecode(encoded));
+            assertFalse(appender.list.stream()
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(message -> message.contains(plainText) || message.contains(encoded)));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     /**

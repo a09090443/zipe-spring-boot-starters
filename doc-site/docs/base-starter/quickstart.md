@@ -68,6 +68,10 @@ velocity:
 請勿將 SMTP 密碼直接硬寫在版本控制的設定檔中。建議透過環境變數（`${MAIL_PASSWORD}`）或外部化設定管理機敏資訊。
 :::
 
+:::tip 多組 SMTP 容錯切換
+若需要設定多組 SMTP、單組失敗時自動切換至下一組，改用 `mail.servers` 清單即可；未設定時以上方單組欄位維持原行為。完整寫法與逾時／嘗試組數上限設定，請參閱[配置參考的「多組 SMTP 容錯切換」一節](./configuration.md#多組-smtp-容錯切換mailservers)。
+:::
+
 ## Step 4：程式碼範例
 
 注入 `MailService` 並發送一封測試郵件。**注意：使用郵件功能前必須先呼叫 `setInitData()` 初始化 SMTP 連線。**

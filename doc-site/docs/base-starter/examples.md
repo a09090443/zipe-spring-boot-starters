@@ -198,6 +198,65 @@ public class NotifyService {
 | `richContentSend(Mail)` | 內嵌圖片等多媒體內容 |
 | `sendBatchMailWithFile(Mail)` | 批次發送含附件郵件 |
 
+`richContentSend` 若要讓 HTML 中的 `<img src="cid:xxx"/>` 真正顯示為內嵌圖片（而非一般附件），
+須透過 `Mail.inlineResources`（`Map<Content-ID, File>`）指定，**不要**把內嵌圖片放進
+`attachments`（`attachments` 一律以一般附件形式送出）：
+
+```java
+Mail mail = new Mail();
+mail.setMailTo(new String[]{"user@example.com"});
+mail.setMailSubject("內嵌圖片範例");
+mail.setContentType("text/html");
+mail.setMailContent("<p>您好，附上公司 Logo：</p><img src=\"cid:logo\"/>");
+mail.setInlineResources(java.util.Map.of("logo", new java.io.File("logo.png")));
+
+mailService.setInitData();
+mailService.richContentSend(mail);
+```
+
+### 設定多組 SMTP 容錯切換
+
+設定 `mail.servers`（見 [配置參考](./configuration.md#多組-smtp-容錯切換mailservers)）後，
+以上五個發送方法**呼叫方式完全不變**——容錯切換發生在 `MailService` 內部，對呼叫端透明：
+
+```yaml
+mail:
+  failover:
+    max-attempts: 3
+    overall-timeout: 15000
+  servers:
+    - name: primary
+      host: smtp1.example.com
+      port: "587"
+      username: noreply@example.com
+      pa55word: ${MAIL_PASSWORD_PRIMARY}
+    - name: backup
+      host: smtp2.example.com
+      port: "587"
+      username: noreply-backup@example.com
+      pa55word: ${MAIL_PASSWORD_BACKUP}
+```
+
+```java
+// 呼叫端程式碼與單組 SMTP 時完全相同，無需感知目前實際使用哪一組伺服器
+mailService.setInitData();
+mailService.simpleMailSend(mail);
+```
+
+`primary` 因連線、認證或傳輸失敗而無法送出時，會自動改用 `backup` 重試；若全部組別皆失敗，
+`simpleMailSend` 會拋出 `MailFailoverException`（`sendEmail` 例外，維持既有「不外拋」行為，
+僅記錄錯誤日誌）。
+
+:::danger 重複寄送風險提醒
+容錯切換為**至少一次投遞語意**：若 `primary` 已將郵件內容送達 SMTP 伺服器才回報失敗，
+切換至 `backup` 重送可能導致收件者收到 2 封相同郵件，此為機制本質限制，無法完全消除，
+詳見 [配置參考的已知取捨說明](./configuration.md#多組-smtp-容錯切換mailservers)。
+
+**因應建議：** 若業務對重複投遞敏感，請由**呼叫端**自行做冪等控制，例如在 `Mail` 內容中
+帶入唯一的訊息 ID 或關聯業務單號，並在收件端／下游系統以該 ID 或內容雜湊值去重，
+`MailService` 本身不提供去重機制。
+:::
+
 ### 以 Velocity 樣板產生內容
 
 `VelocityUtil` 提供四種模板載入模式（classpath / file / filesystem / web）。以 classpath 模式為例，模板放於 `src/main/resources/template/mail/welcome.vm`：

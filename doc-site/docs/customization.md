@@ -25,7 +25,7 @@ description: 跨 starter 的客製與擴充接點總覽，盤點各模組預留�
 
 | Starter | 主要擴充接點（介面／抽象類別／可覆寫 Bean／設定指定 Bean 名稱） | 對應設定鍵 | 何時用 |
 |---|---|---|---|
-| base | 覆寫 Bean：`MessageSource`、`VelocityUtil`、`MailService`、`threadPoolTaskExecutor`（`BaseAutoConfiguration` 內未標 `@ConditionalOnMissingBean`，須以同名 Bean 或 `spring.main.allow-bean-definition-overriding` 覆寫）；`MessageSource` 受 `@ConditionalOnResource(classpath:message.properties)` 控制 | `mail.*`、`velocity.*` | 想換掉郵件實作、共用執行緒池參數或訊息資源時 |
+| base | 覆寫 Bean：`MailService`（已標 `@ConditionalOnMissingBean`，可直接以同型別 Bean 覆寫）；`MessageSource`、`VelocityUtil`、`threadPoolTaskExecutor`（`BaseAutoConfiguration` 內未標 `@ConditionalOnMissingBean`，須以同名 Bean 或 `spring.main.allow-bean-definition-overriding` 覆寫）；`MessageSource` 受 `@ConditionalOnResource(classpath:message.properties)` 控制；郵件可設定 `mail.servers` 多組 SMTP 依序容錯切換 | `mail.*`（含 `mail.servers`、`mail.failover.*`）、`velocity.*` | 想換掉郵件實作、設定多組 SMTP 容錯、共用執行緒池參數或訊息資源時 |
 | db | 抽象骨架：繼承 `BaseJDBC` 撰寫 DAO；`@DS` / `@DynamicDS` 標註切換資料來源；可覆寫 `DataSource`（`dataSource()` Bean）整顆換成自家動態資料來源 | `dynamic.*`（`data-source.properties`）、`@DS("...")` | 需要多資料來源切換、SQL 外化、自訂連線池組裝時 |
 | job | 抽象骨架：繼承 `QuartzJobFactory`（覆寫 `executeJob`）撰寫排程業務；以 `quartz-jobs.properties` 宣告排程；`spring.quartz.enable` / `job-store-type` 切換啟用與 JobStore | `spring.quartz.enable`、`spring.quartz.job-store-type`、`quartz.*` | 撰寫排程任務、選擇記憶體或 JDBC JobStore 時 |
 | logon | 抽象骨架：繼承 `CommonLoginProcess`（CUSTOM 模式 `AuthenticationProvider`）、`SecurityBaseService`；SPI：實作 `CustomLogonLogRecord`；設定指定 Bean 名稱：`custom-bean-name`、`custom-record-log-bean`；**所有 `@Bean`（含 `filterChain`）皆標 `@ConditionalOnMissingBean`，可同型別覆寫** | `security.verification-type`、`security.custom-bean-name`、`security.record-log-enable`、`security.custom-record-log-bean`、`security.login-uri` | 自訂登入驗證、稽核日誌、整鏈接管 Security 設定時 |
@@ -41,7 +41,9 @@ description: 跨 starter 的客製與擴充接點總覽，盤點各模組預留�
 接點重點：
 
 - **`MessageSource`** 受 `@ConditionalOnResource(resources = "classpath:message.properties")` 控制：只要 classpath 沒有 `message.properties` 就不註冊，因此你可以選擇不放該檔，或自行提供 `MessageSource` Bean。
-- 其餘 Bean（`MailService`、`VelocityUtil`、`threadPoolTaskExecutor`）目前**未標 `@ConditionalOnMissingBean`**。若要覆寫，請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或直接排除整個 `BaseAutoConfiguration`（見最後一節）。
+- **`MailService`** 已標 `@ConditionalOnMissingBean`：業務專案宣告同型別 `MailService` Bean 即可整顆覆蓋 Starter 內建的 `MailServiceImpl`，不需依賴 `allow-bean-definition-overriding`。
+- **多組 SMTP 容錯切換**：設定 `mail.servers`（有序清單）取代單組 `mail.host` / `mail.port` 等扁平欄位，任一組因連線、認證或傳輸失敗即依序改用下一組；未設定 `mail.servers` 時以扁平欄位合成單組，行為與升級前相同。可另以 `mail.failover.max-attempts`、`mail.failover.overall-timeout` 限制最大嘗試組數與整體切換耗時上限。詳見 [base-starter 配置參考](./base-starter/configuration.md#多組-smtp-容錯切換mailservers)。
+- 其餘 Bean（`VelocityUtil`、`threadPoolTaskExecutor`）目前**未標 `@ConditionalOnMissingBean`**。若要覆寫，請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或直接排除整個 `BaseAutoConfiguration`（見最後一節）。
 
 覆寫共用執行緒池的範例（沿用框架預期的 Bean 名稱 `threadPoolTaskExecutor`）：
 
@@ -278,7 +280,7 @@ security:
 
 ### 1. 以同型別 Bean 覆寫（首選）
 
-對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可讓 Starter 的預設實作退讓。logon-starter 的所有 `@Bean`（含 `filterChain`）皆已支援此方式。對於**未標** `@ConditionalOnMissingBean` 的 Bean（如 base 的 `mailService` / `velocityUtil`），請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或改用下一招直接排除整個自動配置。
+對標註 `@ConditionalOnMissingBean` 的 Bean，於業務專案宣告**同型別** Bean 即可讓 Starter 的預設實作退讓。logon-starter 的所有 `@Bean`（含 `filterChain`）皆已支援此方式；base 的 `mailService` 亦已支援。對於**未標** `@ConditionalOnMissingBean` 的 Bean（如 base 的 `velocityUtil`），請以**相同 Bean 名稱**宣告並啟用 `spring.main.allow-bean-definition-overriding=true`，或改用下一招直接排除整個自動配置。
 
 ### 2. 排除整個 AutoConfiguration（spring.autoconfigure.exclude）
 

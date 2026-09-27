@@ -60,6 +60,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- 假 SMTP 伺服器：驗證多 SMTP 容錯切換情境（mail.servers failover）。版本由根 pom 管理。 -->
+        <dependency>
+            <groupId>com.icegreen</groupId>
+            <artifactId>greenmail-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Apache Commons Lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -179,5 +186,20 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 本模組使用 Mockito inline mock maker：以 -javaagent 於 JVM 啟動時掛載
+                 byte-buddy-agent（根 pom 的 maven-dependency-plugin properties 目標解析路徑），
+                 取代不穩定的執行期自我附加，避免 MockitoInitializationException。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -javaagent:${net.bytebuddy:byte-buddy-agent:jar} -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

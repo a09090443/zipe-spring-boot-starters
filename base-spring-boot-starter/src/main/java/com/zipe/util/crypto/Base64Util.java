@@ -57,7 +57,7 @@ public class Base64Util implements Crypto {
      */
     @Override
     public String getEncrypt(String content, String charset) {
-        log.info("into getBase64Encrypt orgString:{}", charset);
+        log.debug("Base64 encode charset: {}", charset);
         if (StringUtils.isBlank(content)) {
             return "";
         } else {
@@ -91,7 +91,7 @@ public class Base64Util implements Crypto {
      */
     @Override
     public String getDecode(String content, String charset) {
-        log.info("into getBase64Decode encString:{}", content);
+        log.debug("Base64 decode charset: {}", charset);
         if (StringUtils.isBlank(content)) {
             return "";
         } else {
