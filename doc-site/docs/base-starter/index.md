@@ -53,6 +53,7 @@ description: 提供郵件、加解密、文件處理、HTTP 與字串日期等�
 | `AesUtil` | `util/crypto` | AES-128/CBC/PKCS5Padding 加解密（每次隨機 IV，密文為 Base64(IV‖cipher)），支援字串與檔案 |
 | `DESedeUtil` | `util/crypto` | 3DES/CBC/PKCS5Padding 加解密工具（每次隨機 IV，輸出為 Hex(IV‖cipher)）；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` | `util/crypto` | MD5 雜湊（16/32 位、大小寫四種格式）；**已棄用**，禁止用於密碼或簽章 |
+| `Sha256Util` | `util/crypto` | SHA-256 雜湊（UTF-8 編碼，回傳 64 位小寫十六進位字串），一般雜湊用途請改用此類別取代 `Md5Util` |
 | `Base64Util` | `util/crypto` | Base64 編解碼工具 |
 | `HexUtil` | `util/crypto` | byte[] ↔ Hex 字串互轉 |
 | `CryptoUtil` | `util/crypto` | 策略模式加解密門面，委派給 `Crypto` 介面實作 |
