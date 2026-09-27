@@ -1,0 +1,4 @@
+{
+    "java.maven.downloadSources": true,
+    "java.eclipse.downloadSources": true
+}
