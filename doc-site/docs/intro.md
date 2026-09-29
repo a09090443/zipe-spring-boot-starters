@@ -31,7 +31,7 @@ sidebar_position: 1
 | 項目 | 需求版本 |
 |---|---|
 | **Java** | 17 以上（建議使用 JDK 17 LTS） |
-| **Spring Boot** | 4.0.x |
+| **Spring Boot** | 4.0.x（Starter 以 4.0.8 建置與測試） |
 | **建構工具** | Maven 3.8+ |
 
 :::note 為什麼是 Java 17？

@@ -27,7 +27,7 @@
 | 項目 | 版本要求 |
 |------|----------|
 | **JDK** | OpenJDK 17+ |
-| **Spring Boot** | 4.0.x |
+| **Spring Boot** | 4.0.x（Starter 以 4.0.8 建置與測試） |
 | **Maven** | 3.8.4+ |
 
 > 🛑 `keycloak-spring-boot-starter` 為 **LEGACY**，凍結於 Java 11 / Spring Boot 2.4.4 / Keycloak 13，

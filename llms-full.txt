@@ -72,7 +72,8 @@ base-spring-boot-starter/
     │       │   ├── Base64Util.java                  # Base64 編解碼
     │       │   ├── DESedeUtil.java                  # 3DES/CBC/PKCS5Padding，隨機 IV（淘汰演算法）
     │       │   ├── HexUtil.java                     # byte[] ↔ Hex 字串互轉
-    │       │   └── Md5Util.java                     # MD5 雜湊（已棄用，禁用於密碼/簽章）
+    │       │   ├── Md5Util.java                     # MD5 雜湊（已棄用，禁用於密碼/簽章）
+    │       │   └── Sha256Util.java                  # SHA-256 雜湊（UTF-8，回傳 64 位小寫十六進位字串）
     │       ├── doc/
     │       │   ├── ExcelCell.java                   # 欄位 Annotation（排序、預設值、驗證）
     │       │   ├── ExcelLog.java                    # 匯入單行錯誤記錄
@@ -115,7 +116,7 @@ base-spring-boot-starter/
 | `service / impl` | 郵件發送業務邏輯，隔離 JavaMail 實作細節 |
 | `util/bean` | JSON 序列化 / Bean 屬性複製，雙引擎（Gson + Jackson），含自訂 Enum 與 Date 處理 |
 | `util/classloader` | 執行期動態載入外部 `.class` 或 JAR，用於外掛 / 熱更新場景 |
-| `util/crypto` | 策略模式加解密體系：AES-128、3DES、Base64、MD5、Hex |
+| `util/crypto` | 策略模式加解密體系：AES-128、3DES、Base64、MD5（已棄用）、SHA-256、Hex |
 | `util/doc` | Excel（Apache POI）匯入 / 匯出 與 JasperReports PDF 產生 |
 | `util/file` | 封裝 Apache Commons IO，簡化檔案增刪改查操作 |
 | `util/http` | OkHttp 3 HTTP 客戶端，單例設計，支援同步與非同步請求 |
@@ -849,6 +850,7 @@ thread-pool:
 | OkHttp TLS 驗證 | 已移除 `TrustAllCerts`，改用平台預設信任鏈；自簽憑證請改用載入 CA 或 pinning，勿停用驗證 |
 | 3DES 改用 CBC | `DESedeUtil` 由 ECB 改為 CBC＋隨機 IV；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` 已棄用 | MD5 不可用於密碼或簽章；已標註 `@Deprecated` |
+| `Sha256Util` 固定 UTF-8、拒絕 null | 不沿用 `Md5Util` 的平台預設編碼與隱性 NPE：一律以 UTF-8 取位元組，輸入為 `null` 時明確拋出 `IllegalArgumentException` |
 | `MailServiceImpl` 非 `@Service` | 由 `BaseAutoConfiguration` 以 `new` 建立後以 `@Bean` 加入 Context，不支援 `@Transactional` 等 Spring AOP 代理特性 |
 | 多 SMTP 容錯切換為至少一次投遞語意 | `MailFailoverException`／切換重送無法區分「對方已收信但回報失敗」與「對方真的沒收到」，故可能重複投遞；此為機制本質限制，非程式缺陷，見 [3.2 節說明](#32-mailservice--mailserviceimpl) |
 | `DateTimeUtils` 硬編碼 UTC+8 | 非台灣時區部署需特別注意，或改為讀取 `ZoneId.systemDefault()` |
@@ -1153,7 +1155,7 @@ mail:
 本頁提供 `base-spring-boot-starter` 各項工具的實際程式碼範例，涵蓋基礎使用、進階情境與常見問題。所有範例的方法簽章均與原始碼一致。
 
 :::info 設計慣例
-- **無狀態工具**（字串、日期、`Md5Util`）以 `static` 方法呼叫。
+- **無狀態工具**（字串、日期、`Md5Util`、`Sha256Util`）以 `static` 方法呼叫。
 - **加解密工具**（`AesUtil`、`Base64Util`、`DESedeUtil`）為**實例方法**，需先 `new` 出物件再呼叫 `getEncrypt` / `getDecode`，因為它們持有金鑰狀態。
 - **有狀態服務**（`MailService`）一律透過 Spring 注入使用。
 :::
@@ -1189,7 +1191,24 @@ public class CryptoExample {
 ```
 
 :::danger Md5Util 已棄用
-`Md5Util` 已標註 `@Deprecated`。MD5 不具抗碰撞性，**禁止用於密碼雜湊或資料完整性／簽章**。密碼請改用 BCrypt／Argon2，完整性驗證請用 SHA-256 以上。僅可用於非安全用途（如產生快取鍵）。
+`Md5Util` 已標註 `@Deprecated`。MD5 不具抗碰撞性，**禁止用於密碼雜湊或資料完整性／簽章**。密碼請改用 BCrypt／Argon2，一般雜湊（快取鍵、完整性校驗等）請改用 `Sha256Util`。
+:::
+
+`Sha256Util` 以 UTF-8 編碼計算 SHA-256 雜湊值，回傳 **64 位小寫**十六進位字串；輸入為 `null` 會拋出 `IllegalArgumentException`：
+
+```java
+import com.zipe.util.crypto.Sha256Util;
+
+public class HashExample {
+
+    public void demo() {
+        String hex = Sha256Util.sha256Hex("hello"); // 64 位小寫十六進位字串
+    }
+}
+```
+
+:::note SHA-256 不適合直接用於密碼雜湊
+`Sha256Util` 缺乏加鹽與工作量調校機制，密碼雜湊請改用 BCrypt／Argon2；`Sha256Util` 適用於檔案完整性校驗、產生快取鍵等一般雜湊用途。
 :::
 
 :::tip 策略模式：CryptoUtil
@@ -1572,11 +1591,12 @@ public class PhotoLocationExample {
 
 - **AES 解密拋出例外**：請確認加解密使用相同的金鑰，且金鑰長度為 16 位元組（AES-128）。本模組的 `AesUtil` 為 AES-128/CBC/PKCS5Padding，非 AES-256。
 - **`Md5Util` 找不到 `encode` 方法**：`Md5Util` 沒有泛用的 `encode`，請依需求選用 `parseStrToMd5L32` / `parseStrToMd5U32` / `parseStrToMd5L16` / `parseStrToMd5U16`。
+- **需要雜湊但不確定該用 `Md5Util` 還是 `Sha256Util`**：`Md5Util` 已棄用且不具抗碰撞性，一般雜湊用途一律改用 `Sha256Util.sha256Hex(str)`；密碼雜湊兩者皆不適用，請改用 BCrypt／Argon2。
 - **郵件發送失敗並拋出 `AuthenticationFailedException`**：請檢查 `mail.*` 設定的帳號密碼是否正確；部分服務商需使用「應用程式密碼」。並確認已先呼叫 `mailService.setInitData()`。
 - **Velocity 找不到樣板**：確認模板檔位於 `velocity.dir-path`（預設 `template`）指定的目錄下，且呼叫 `generateContent` 前已執行對應的 `initClassPath()` / `initFilePath()` 等初始化方法。
 
 :::tip 最佳實踐
-無狀態工具（字串、日期、`Md5Util`）直接以靜態方法呼叫；加解密工具因持有金鑰須 `new` 出實例；有狀態服務（如 `MailService`）一律透過 Spring 注入，以確保設定與生命週期由容器統一管理。更深入的內部結構與擴充方式請參閱 [架構與開發指南](./architecture.md)。
+無狀態工具（字串、日期、`Md5Util`、`Sha256Util`）直接以靜態方法呼叫；加解密工具因持有金鑰須 `new` 出實例；有狀態服務（如 `MailService`）一律透過 Spring 注入，以確保設定與生命週期由容器統一管理。更深入的內部結構與擴充方式請參閱 [架構與開發指南](./architecture.md)。
 :::
 
 ---
@@ -1630,6 +1650,7 @@ public class PhotoLocationExample {
 | `AesUtil` | `util/crypto` | AES-128/CBC/PKCS5Padding 加解密（每次隨機 IV，密文為 Base64(IV‖cipher)），支援字串與檔案 |
 | `DESedeUtil` | `util/crypto` | 3DES/CBC/PKCS5Padding 加解密工具（每次隨機 IV，輸出為 Hex(IV‖cipher)）；3DES 屬淘汰演算法，新專案建議改用 `AesUtil` |
 | `Md5Util` | `util/crypto` | MD5 雜湊（16/32 位、大小寫四種格式）；**已棄用**，禁止用於密碼或簽章 |
+| `Sha256Util` | `util/crypto` | SHA-256 雜湊（UTF-8 編碼，回傳 64 位小寫十六進位字串），一般雜湊用途請改用此類別取代 `Md5Util` |
 | `Base64Util` | `util/crypto` | Base64 編解碼工具 |
 | `HexUtil` | `util/crypto` | byte[] ↔ Hex 字串互轉 |
 | `CryptoUtil` | `util/crypto` | 策略模式加解密門面，委派給 `Crypto` 介面實作 |
@@ -4141,8 +4162,8 @@ iam 在兩個接點覆寫 logon 預設：
 兩種做法都與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
 :::
 
-:::caution Spring Boot 4.0.0 套件位置
-本專案執行於 Spring Boot 4.0.0，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
+:::caution Spring Boot 4 套件位置
+本專案執行於 Spring Boot 4.0.8，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
 :::
 
 ---
@@ -4745,7 +4766,7 @@ cd starters_example
 :::
 
 :::note 範例專案的版本獨立於主專案
-`starters_example` 未納入主專案的 Maven reactor，但已同步至目前版本：Spring Boot `4.0.0`、`zipe.spring.starter.version` 為 `4.0.0.1`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
+`starters_example` 未納入主專案的 Maven reactor。目前範例仍使用 Spring Boot `4.0.0`（主專案的 Starter 已改以 Spring Boot `4.0.8` 建置），範例升版留待後續任務跟進；`zipe.spring.starter.version` 為 `4.0.0.1`，Starter 座標為 `io.github.a09090443`（發布於 Maven Central）。實際引入時請以你採用的發布版本為準。
 :::
 
 :::info 其他範例專案
@@ -6307,7 +6328,7 @@ CXF 會根據介面與實作上的 JAX-WS 注解（`@WebService`、`@WebMethod`�
 | 項目 | 需求版本 |
 |---|---|
 | **Java** | 17 以上（建議使用 JDK 17 LTS） |
-| **Spring Boot** | 4.0.x |
+| **Spring Boot** | 4.0.x（Starter 以 4.0.8 建置與測試） |
 | **建構工具** | Maven 3.8+ |
 
 :::note 為什麼是 Java 17？
@@ -11345,7 +11366,7 @@ SOAP 客戶端與服務端的 `targetNamespace` 需一致。若由外部 WSDL �
 
 ```
 web-spring-boot-starter/
-├── pom.xml                                          # 模組建構定義（Spring Boot 4.0.0，Java 17）
+├── pom.xml                                          # 模組建構定義（Spring Boot 4.0.8，Java 17）
 └── src/main/
     ├── java/com/zipe/
     │   ├── Application.java                         # 內建獨立執行入口（開發/測試用）
