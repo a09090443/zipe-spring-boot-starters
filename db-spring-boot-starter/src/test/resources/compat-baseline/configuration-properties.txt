@@ -1,0 +1,11 @@
+# db-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 @ConfigurationProperties 屬性鍵集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開設定屬性時才可更新，並須同步文件。
+dynamic.base-packages
+dynamic.data-source-map.*.driver-class-name
+dynamic.data-source-map.*.name
+dynamic.data-source-map.*.pa55word
+dynamic.data-source-map.*.url
+dynamic.data-source-map.*.username
+dynamic.entity-scan
+dynamic.is-encrypt
+dynamic.primary

@@ -1,0 +1,31 @@
+# logon-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 @ConfigurationProperties 屬性鍵集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開設定屬性時才可更新，並須同步文件。
+security.allow-uris
+security.basic.users[*].authorities[*]
+security.basic.users[*].password
+security.basic.users[*].username
+security.csrf-enabled
+security.custom-bean-name
+security.custom-record-log-bean
+security.enable
+security.frame-options-mode
+security.jwt.algorithm
+security.jwt.enabled
+security.jwt.expiration-seconds
+security.jwt.header
+security.jwt.issuer
+security.jwt.login-uri
+security.jwt.private-key-location
+security.jwt.public-key-location
+security.jwt.secret
+security.jwt.token-prefix
+security.ldap.dn
+security.ldap.domain
+security.ldap.ip
+security.ldap.port
+security.login-failure-uri
+security.login-success-uri
+security.login-uri
+security.logout-uri
+security.record-log-enable
+security.verification-type

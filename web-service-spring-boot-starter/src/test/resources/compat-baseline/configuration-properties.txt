@@ -1,0 +1,7 @@
+# web-service-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 @ConfigurationProperties 屬性鍵集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開設定屬性時才可更新，並須同步文件。
+web.service.map.*.bean-name
+web.service.map.*.uri-mapping
+web.service.map.bean-name
+web.service.map.uri-mapping
+web.service.uri-mapping

@@ -62,6 +62,20 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- 經實際 SecurityFilterChain 驗證 BASIC 登入與授權（httpBasic 請求、認證狀態斷言）。版本由 Boot BOM 管理。 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Spring Boot 4 將 MockMvc 測試切片移至獨立模組 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

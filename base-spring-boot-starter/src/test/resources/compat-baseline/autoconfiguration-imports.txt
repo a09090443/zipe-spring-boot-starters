@@ -1,0 +1,3 @@
+# base-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 AutoConfiguration.imports 類別集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開自動配置時才可更新，並須同步文件。
+com.zipe.autoconfiguration.BaseAutoConfiguration

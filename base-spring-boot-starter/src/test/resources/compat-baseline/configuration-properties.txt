@@ -1,0 +1,27 @@
+# base-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 @ConfigurationProperties 屬性鍵集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開設定屬性時才可更新，並須同步文件。
+mail.connection-timeout
+mail.debug-enable
+mail.encrypt-enable
+mail.failover.max-attempts
+mail.failover.overall-timeout
+mail.host
+mail.pa55word
+mail.port
+mail.read-timeout
+mail.sender
+mail.servers[*].encrypt-enable
+mail.servers[*].host
+mail.servers[*].name
+mail.servers[*].pa55word
+mail.servers[*].port
+mail.servers[*].smtp-auth-enable
+mail.servers[*].smtp-start-tls-enable
+mail.servers[*].transport-protocol
+mail.servers[*].username
+mail.smtp-auth-enable
+mail.smtp-start-tls-enable
+mail.transport-protocol
+mail.username
+mail.write-timeout
+velocity.dir-path

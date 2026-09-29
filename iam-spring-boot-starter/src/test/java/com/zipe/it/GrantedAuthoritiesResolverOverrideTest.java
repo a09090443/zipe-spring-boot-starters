@@ -3,8 +3,12 @@ package com.zipe.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zipe.autoconfiguration.IamAutoConfiguration;
+import com.zipe.entity.Account;
+import com.zipe.repository.AccountRepository;
 import com.zipe.security.DbGrantedAuthoritiesResolver;
 import com.zipe.security.GrantedAuthoritiesResolver;
+import com.zipe.security.IamUserDetailsService;
+import com.zipe.service.BasicUserServiceImpl;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -15,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -49,9 +54,12 @@ class GrantedAuthoritiesResolverOverrideTest {
      */
     @Test
     void usesIamDefaultWhenNoCustomBean() {
-        contextRunner.run(context -> assertThat(context)
-                .getBean(GrantedAuthoritiesResolver.class)
-                .isInstanceOf(DbGrantedAuthoritiesResolver.class));
+        contextRunner.run(context -> {
+            assertThat(context)
+                    .getBean(GrantedAuthoritiesResolver.class)
+                    .isInstanceOf(DbGrantedAuthoritiesResolver.class);
+            assertThat(context.getBeansOfType(GrantedAuthoritiesResolver.class)).hasSize(1);
+        });
     }
 
     /**
@@ -63,6 +71,31 @@ class GrantedAuthoritiesResolverOverrideTest {
             GrantedAuthoritiesResolver resolver = context.getBean(GrantedAuthoritiesResolver.class);
             assertThat(resolver).isNotInstanceOf(DbGrantedAuthoritiesResolver.class);
             assertThat(resolver.resolve("anyone").stream().map(GrantedAuthority::getAuthority))
+                    .containsExactly("CUSTOM_AUTHORITY");
+        });
+    }
+
+    /**
+     * 覆寫後容器中僅剩自訂 Bean（預設 Bean 未同時存在），且經 iam 使用者服務載入帳號時，
+     * 授權結果實際採用自訂 Bean 回傳的權限。
+     */
+    @Test
+    void customResolverIsTheOnlyBeanAndDrivesUserAuthorities() {
+        contextRunner.withUserConfiguration(OverrideConfig.class).run(context -> {
+            assertThat(context.getBeansOfType(GrantedAuthoritiesResolver.class))
+                    .containsOnlyKeys("customResolver");
+
+            Account account = new Account();
+            account.setUsername("override-user");
+            account.setPassword("{noop}secret");
+            account.setEnabled(Boolean.TRUE);
+            account.setLocked(Boolean.FALSE);
+            context.getBean(AccountRepository.class).save(account);
+
+            BasicUserServiceImpl userService = context.getBean(BasicUserServiceImpl.class);
+            assertThat(userService).isInstanceOf(IamUserDetailsService.class);
+            UserDetails user = userService.loadUserByUsername("override-user");
+            assertThat(user.getAuthorities().stream().map(GrantedAuthority::getAuthority))
                     .containsExactly("CUSTOM_AUTHORITY");
         });
     }
