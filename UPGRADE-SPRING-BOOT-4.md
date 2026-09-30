@@ -807,7 +807,10 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
   由升級前（commit `9972e45`）的程式產生後固定。
 - `SpringBootVersionAlignmentTest`（base、iam）：執行期 `SpringBootVersion` 必須等於根 parent 版本，
   且為確切的 `4.0.N`（N≥1）。
-- iam `BasicSecurityFilterChainIntegrationTest`：BASIC 模式正確帳密、錯誤密碼（401）、缺權限（403）。
+- iam `BasicSecurityFilterChainIntegrationTest`：BASIC 模式正確帳密、未帶帳密（401）、錯誤密碼（401）、缺權限（403）。
+- iam `UpgradeGovernanceContractTest`（repo 層級）：根 parent 精確為 4.0.8、`java.version`=17、`project.version`=4.0.0.1，
+  7 個子 pom 不覆寫 Boot 版本；根 pom properties 與各 starter 相依清單等於升級前固定基準；logon 不引用 iam；
+  本節以外的歷史章節未被改寫、現況文件寫 4.0.8、範例文件照實寫 4.0.0；測試未被停用或排除。
 - logon `JwtSecurityIntegrationTest`：補上錯誤簽章與過期 token 兩條拒絕路徑。
 - iam `GrantedAuthoritiesResolverOverrideTest`：補上「覆寫後容器僅剩自訂 Bean」與「授權結果實際採用自訂權限」。
 

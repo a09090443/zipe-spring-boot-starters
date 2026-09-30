@@ -1,5 +1,7 @@
 package com.zipe.it;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
@@ -34,10 +36,11 @@ import org.springframework.web.bind.annotation.RestController;
  * iam＋logon BASIC 模式的端到端整合測試：請求經實際 {@code SecurityFilterChain}（HTTP Basic）
  * 認證，並由 {@code @PreAuthorize} 以資料庫群組展開的權限授權。
  * <p>
- * 涵蓋三條路徑：
+ * 涵蓋四條路徑：
  * </p>
  * <ul>
  *   <li>具目標權限的帳號以正確密碼登入成功，principal 帶有由群組展開的權限；</li>
+ *   <li>完全不帶帳密被拒（401），且未建立已認證 principal；</li>
  *   <li>同帳號錯誤密碼被拒（401），且未建立已認證 principal；</li>
  *   <li>可認證但缺目標權限的帳號存取受保護端點得到 403。</li>
  * </ul>
@@ -104,6 +107,17 @@ class BasicSecurityFilterChainIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string("dbadmin:[ROLE_ADMIN, USER_CREATE]"))
                 .andExpect(authenticated().withUsername("dbadmin"));
+    }
+
+    /**
+     * 完全不帶帳密：回應 401、未建立已認證 principal，且取不到受保護資源。
+     */
+    @Test
+    void missingCredentialsIsRejectedWithoutPrincipal() throws Exception {
+        mockMvc.perform(get(PROTECTED_URI))
+                .andExpect(status().isUnauthorized())
+                .andExpect(unauthenticated())
+                .andExpect(content().string(not(containsString("dbadmin"))));
     }
 
     /**
