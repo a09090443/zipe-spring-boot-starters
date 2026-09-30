@@ -771,3 +771,55 @@ job-starter 升級衝擊集中在「SB4 程式碼模組化造成的 import 套�
   全 reactor（base 13 / db 7 / job 5 / logon 2 / web-service 6）建構與測試綠燈。
 - **doc-sync 版本號（已完成）**：發布版號採 `4.0.0.0`，已同步 doc-site/docs、README 與
   根 `llms.txt` / `llms-full.txt`。實際發布版仍由 release tag 決定。
+
+---
+
+## 9. Spring Boot 4.0.0 → 4.0.8 修補升級
+
+> 本節記錄 4.0 系列內的修補升級。§1–§8 為 3.5.14 → 4.0.0 的歷史紀錄，保留原文不改寫。
+
+### 9.1 版本
+
+| 項目 | 升級前 | 升級後 |
+|---|---|---|
+| 根 `pom.xml` 的 `spring-boot-starter-parent` | 4.0.0 | **4.0.8** |
+| Starter 發布版本（`project.version`） | 4.0.0.1 | 4.0.0.1（不變） |
+| `java.version` | 17 | 17（不變） |
+
+- 4.0.8 為升級當時 4.0.x 系列的最新修補版。根 parent 是 7 個 reactor starter 的唯一 Boot 版本來源，
+  各子模組未宣告 `spring-boot.version`、未另行匯入 `spring-boot-dependencies` BOM。
+
+### 9.2 必要調整
+
+- **程式／設定調整：無。** 只變更根 parent 版本，7 個 starter 的主程式碼、`AutoConfiguration.imports`
+  與 `@ConfigurationProperties` 屬性鍵皆未變動。
+- **第三方相依版本變動：無。** 根 `pom.xml` 自行宣告的第三方版本（commons-*、poi、jasperreports、okhttp、
+  p6spy、jt400、CXF、jaxws-ri、jjwt、各外掛等）全數維持原值；Boot BOM 管理的相依隨 parent 一起升到 4.0.8
+  所對應的版本，未新增任何低於 BOM 的覆寫。
+- **測試範圍相依（僅 iam）**：`iam-spring-boot-starter` 新增 `spring-security-test` 與
+  `spring-boot-webmvc-test` 兩個 test scope 相依（版本由 Boot BOM 管理，與 logon 相同），供 BASIC 模式
+  經實際 SecurityFilterChain 的整合測試使用，不進發布產物。
+
+### 9.3 升級後新增的回歸防護（皆為 test scope）
+
+- `StarterCompatibilityContractTest`（7 個 starter 各一份，內容相同）：比對 `AutoConfiguration.imports`
+  類別集合與 `@ConfigurationProperties` 屬性鍵集合，基準檔位於各模組 `src/test/resources/compat-baseline/`，
+  由升級前（commit `9972e45`）的程式產生後固定。
+- `SpringBootVersionAlignmentTest`（base、iam）：執行期 `SpringBootVersion` 必須等於根 parent 版本，
+  且為確切的 `4.0.N`（N≥1）。
+- iam `BasicSecurityFilterChainIntegrationTest`：BASIC 模式正確帳密、未帶帳密（401）、錯誤密碼（401）、缺權限（403）。
+- iam `UpgradeGovernanceContractTest`（repo 層級）：根 parent 精確為 4.0.8、`java.version`=17、`project.version`=4.0.0.1，
+  7 個子 pom 不覆寫 Boot 版本；根 pom properties 與各 starter 相依清單等於升級前固定基準；logon 不引用 iam；
+  本節以外的歷史章節未被改寫、現況文件寫 4.0.8、範例文件照實寫 4.0.0；測試未被停用或排除。
+- logon `JwtSecurityIntegrationTest`：補上錯誤簽章與過期 token 兩條拒絕路徑。
+- iam `GrantedAuthoritiesResolverOverrideTest`：補上「覆寫後容器僅剩自訂 Bean」與「授權結果實際採用自訂權限」。
+
+> 觀察：Spring Security 7 在密碼認證成功時會自動附加 `FACTOR_PASSWORD` 認證因子權限（多因子機制），
+> 與 iam 資料庫授權無關；iam 的 BASIC 整合測試比對權限時會排除 `FACTOR_*`。
+
+### 9.4 範例專案與待辦
+
+- `starters_example` 與 `example-kotlin` **維持 Spring Boot 4.0.0**，本次不升版，也不驗收範例的建置與啟動；
+  範例升版留待後續任務跟進。
+- Starter 發布版本維持 `4.0.0.1`，與 release skill 的「`<Boot 版本>.<流水號>`」命名規則暫時不一致
+  （Boot 已是 4.0.8），是否改號於下次發布時再決定。

@@ -6,7 +6,7 @@
 ## 這是什麼專案
 
 `zipe-spring-boot-starters`：自製 Spring Boot Starter 集合，多模組 Maven reactor，發佈至 Maven Central。
-Java 17+、Spring Boot 3.5.x。完整總覽見 [.claude/rules/project-overview.md](.claude/rules/project-overview.md)。
+Java 17+、Spring Boot 4.0.8。完整總覽見 [.claude/rules/project-overview.md](.claude/rules/project-overview.md)。
 
 ## 模組地圖
 

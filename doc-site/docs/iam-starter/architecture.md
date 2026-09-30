@@ -145,8 +145,8 @@ iam 在兩個接點覆寫 logon 預設：
 兩種做法都與 iam 的 `com.zipe.repository` 各自獨立掃描、互不影響。
 :::
 
-:::caution Spring Boot 4.0.0 套件位置
-本專案執行於 Spring Boot 4.0.0，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
+:::caution Spring Boot 4 套件位置
+本專案執行於 Spring Boot 4.0.8，部分 auto-configuration 已模組化。`@EntityScan` 位於 `org.springframework.boot.persistence.autoconfigure`（非舊有的 `org.springframework.boot.autoconfigure.domain`）；撰寫測試時 `HibernateJpaAutoConfiguration` 位於 `org.springframework.boot.hibernate.autoconfigure`、`DataSourceAutoConfiguration` 位於 `org.springframework.boot.jdbc.autoconfigure`，且 `@DataJpaTest` 等測試切片已不在 classpath，需改用 `@SpringBootTest` 或 `ApplicationContextRunner`。
 :::
 
 ---

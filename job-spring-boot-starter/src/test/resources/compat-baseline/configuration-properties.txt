@@ -1,0 +1,24 @@
+# job-spring-boot-starter 升級前（Spring Boot 4.0.0，commit 9972e45）的 @ConfigurationProperties 屬性鍵集合。
+# 由 StarterCompatibilityContractTest 比對；僅在刻意變更公開設定屬性時才可更新，並須同步文件。
+@Bean spring.datasource.hikari -> javax.sql.DataSource
+quartz.allowed-job-classes[*]
+quartz.job-map.*.clazz
+quartz.job-map.*.cron-expression
+quartz.job-map.*.data-map.*
+quartz.job-map.*.description
+quartz.job-map.*.end-time
+quartz.job-map.*.group
+quartz.job-map.*.name
+quartz.job-map.*.start-time
+quartz.job.clazz
+quartz.job.cron-expression
+quartz.job.data-map.*
+quartz.job.description
+quartz.job.end-time
+quartz.job.group
+quartz.job.name
+quartz.job.start-time
+spring.datasource.quartz.driver-class-name
+spring.datasource.quartz.password
+spring.datasource.quartz.url
+spring.datasource.quartz.username
