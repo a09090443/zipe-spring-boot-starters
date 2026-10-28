@@ -25,7 +25,7 @@ description: 專案總覽、技術規格與常用指令，適用於整個 zipe-s
 ## 技術規格
 
 - **Java 版本：** 17+
-- **Spring Boot 版本：** 3.5.x
+- **Spring Boot 版本：** 4.0.x
 - **建構工具：** Maven（多模組 reactor，根 `pom.xml` 為 parent 與聚合）
 - **套件管理：** 7 個主要 Starter（base / db / job / logon / iam / web / web-service）由根 `pom.xml` 統一管理版本與相依，發布至本地或遠端 Maven Repository；keycloak 與各 example 專案維持獨立
 
